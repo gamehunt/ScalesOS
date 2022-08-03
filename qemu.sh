@@ -5,6 +5,7 @@ set -e
 
 cmake -Bbuild
 cd build
-make && make install
+make 
+make install
 cd ../env
 /bin/bash launch.sh

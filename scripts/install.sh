@@ -8,5 +8,6 @@ if [ ! -d "disk/boot/EFI/BOOT" ]; then
 fi
 
 sudo -u root cp bin/bootl.efi disk/boot/EFI/BOOT/BOOTX64.EFI
+sudo -u root cp boot.cfg      disk/boot/EFI/BOOT/
 
 sync
