@@ -8,3 +8,4 @@ add_subdirectory(bootloader)
 add_subdirectory(kernel)
 
 install(DIRECTORY scripts/ DESTINATION . PATTERN "scripts/*" PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ) 
+install(DIRECTORY shared/  DESTINATION include/shared PATTERN "shared/*")

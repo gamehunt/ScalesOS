@@ -22,10 +22,7 @@ EFI_STATUS ReadFile(EFI_HANDLE root, CHAR16* Path, UINT8** Buffer, UINT64* ReadT
     EFI_FILE_HANDLE FileHandle;
     EFI_FILE_INFO   *FileInfo;
 
-    Status = uefi_call_wrapper(Vol->Open, 5, Vol, &FileHandle, Path, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY | EFI_FILE_HIDDEN | EFI_FILE_SYSTEM);
-    if(EFI_ERROR(Status)){
-      return Status;
-    }
+    SAFE_CALL(uefi_call_wrapper(Vol->Open, 5, Vol, &FileHandle, Path, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY | EFI_FILE_HIDDEN | EFI_FILE_SYSTEM))
 
     FileInfo = LibFileInfo(FileHandle);
     *ReadTotal  = FileInfo->FileSize;
@@ -33,20 +30,9 @@ EFI_STATUS ReadFile(EFI_HANDLE root, CHAR16* Path, UINT8** Buffer, UINT64* ReadT
 
     *Buffer = AllocatePool(*ReadTotal);
 
-    Status = uefi_call_wrapper(FileHandle->Read, 3, FileHandle, ReadTotal, *Buffer);
-    if(EFI_ERROR(Status)){
-      return Status;
-    }
-
-    Status = CloseHandle(FileHandle);
-    if(EFI_ERROR(Status)){
-      return Status;
-    }
-    
-    Status = CloseHandle(Vol);
-    if(EFI_ERROR(Status)){
-      return Status;
-    }
+    SAFE_CALL(uefi_call_wrapper(FileHandle->Read, 3, FileHandle, ReadTotal, *Buffer))
+    SAFE_CALL(CloseHandle(FileHandle))
+    SAFE_CALL(CloseHandle(Vol))
 
     return EFI_SUCCESS;
 }

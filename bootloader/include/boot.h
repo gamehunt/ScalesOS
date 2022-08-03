@@ -6,6 +6,12 @@ typedef uint32_t  BOOTL_UINT;
 typedef uint16_t  BOOTL_USHORT;
 typedef uint8_t   BOOTL_BYTE;
 
+enum BOOTL_STATUS
+{
+    BOOTL_SUCCESS,
+    BOOTL_FAIL
+};
+
 #define S_BOOTLOADER_MAGIC 0x52415752 // RAWR
 
 typedef struct{
