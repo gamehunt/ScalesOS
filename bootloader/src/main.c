@@ -40,7 +40,7 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     EFI_MEMORY_DESCRIPTOR * desc = LibMemoryMap (&entriesAmount, &mapKey, &descSize, &descVer);
     
-    Print(L"Found %d mmap entries. Usable:\r\n\n", entriesAmount);
+    Print(L"Found %d mmap entries. Usable:\r\n", entriesAmount);
     for(int i=0; i<entriesAmount; i++){
         if(desc->Type == EfiConventionalMemory){
             Print(L"-- 0x%x - 0x%x\r\n", desc->PhysicalStart, desc->PhysicalStart + desc->NumberOfPages * 0x1000);
@@ -48,7 +48,7 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         desc = NextMemoryDescriptor (desc, descSize);
     }
     
-    Print(L"Framebuffer address: 0x%x (mode %d %dx%d)\r\n", gop->Mode->FrameBufferBase, gop->Mode->Mode, gop->Mode->Info->HorizontalResolution, gop->Mode->Info->VerticalResolution);
+    Print(L"\r\nFramebuffer address: 0x%x (mode %d %dx%d)\r\n", gop->Mode->FrameBufferBase, gop->Mode->Mode, gop->Mode->Info->HorizontalResolution, gop->Mode->Info->VerticalResolution);
 
     uefi_call_wrapper(BS->Stall, 1, 2000000);
 

@@ -19,6 +19,7 @@ include_directories(${EFI-HEADERS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_C
 add_library(bootl SHARED)
 
 set(CMAKE_C_CREATE_SHARED_LIBRARY "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
+
 set_target_properties(bootl PROPERTIES PREFIX "")
 
 target_sources(bootl PUBLIC src/main.c)
@@ -29,3 +30,5 @@ target_link_options(bootl PUBLIC -nostdlib ${GNU-EFI-CRT} -T${GNU-EFI-LD} -share
 target_link_libraries(bootl PUBLIC ${GNU-EFI-LIB} ${EFI-LIB})
 
 add_custom_command(TARGET bootl COMMAND objcopy -j .text -j .sdata -j .data -j .dynamic -j .dynsym  -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc --target efi-app-x86_64 --subsystem=10 bootl.so bootl.efi VERBATIM)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/bootl.efi DESTINATION bin)
