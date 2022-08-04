@@ -1,10 +1,15 @@
 #ifndef _S_BOOT_H
 #define _S_BOOT_H
 
-typedef uintptr_t BOOTL_ADDR;
-typedef uint32_t  BOOTL_UINT;
-typedef uint16_t  BOOTL_USHORT;
-typedef uint8_t   BOOTL_BYTE;
+#include <stdint.h>
+#include <efi.h>
+
+typedef uintptr_t  BOOTL_ADDR;
+typedef uint32_t   BOOTL_UINT;
+typedef uint16_t   BOOTL_USHORT;
+typedef uint8_t    BOOTL_BYTE;
+typedef BOOTL_BYTE BOOTL_CHAR;
+typedef CHAR16     BOOTL_WCHAR;
 
 enum BOOTL_STATUS
 {

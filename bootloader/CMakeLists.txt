@@ -14,7 +14,12 @@ set(EFI-HEADERS ${EFI-HEADERS}/efi)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/include/config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
-include_directories(${EFI-HEADERS} ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_INSTALL_PREFIX}/include)
+include_directories(
+    ${EFI-HEADERS} 
+    ${CMAKE_CURRENT_SOURCE_DIR}/include 
+    ${CMAKE_CURRENT_BINARY_DIR} 
+    ${CMAKE_INSTALL_PREFIX}/include
+)
 
 add_library(bootl SHARED)
 
@@ -23,7 +28,11 @@ set(CMAKE_C_CREATE_SHARED_LIBRARY "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TAR
 set_target_properties(bootl PROPERTIES PREFIX "")
 set_target_properties(bootl PROPERTIES PUBLIC_HEADER "include/boot.h")
 
-target_sources(bootl PUBLIC src/efi_wrappers.c src/cfg_parser.c src/main.c)
+target_sources(bootl PUBLIC 
+    src/efi_wrappers.c 
+    src/cfg_parser.c 
+    src/main.c
+)
 
 target_compile_options(bootl PUBLIC -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar -mno-red-zone -maccumulate-outgoing-args)
 

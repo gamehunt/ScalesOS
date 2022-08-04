@@ -28,9 +28,10 @@ EFI_STATUS ReadFile(EFI_HANDLE root, CHAR16* Path, UINT8** Buffer, UINT64* ReadT
     *ReadTotal  = FileInfo->FileSize;
     FreePool(FileInfo);
 
-    *Buffer = AllocatePool(*ReadTotal);
+    *Buffer = AllocateZeroPool(*ReadTotal + 1);
 
     SAFE_CALL(uefi_call_wrapper(FileHandle->Read, 3, FileHandle, ReadTotal, *Buffer))
+
     SAFE_CALL(CloseHandle(FileHandle))
     SAFE_CALL(CloseHandle(Vol))
 

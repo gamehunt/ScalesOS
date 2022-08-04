@@ -1,6 +1,11 @@
 #ifndef _S_BOOTL_CFG_PARSER_H
 #define _S_BOOTL_CFG_PARSER_H
 
-BOOTL_STATUS ParseCfg(BOOTL_BYTE* Buffer, BOOTL_UINT BuffSize);
+typedef struct{
+    char* name;
+    char* value;
+} cfg_node_t;
+
+cfg_node_t* ParseCfg(EFI_HANDLE handle, BOOTL_WCHAR* path, BOOTL_UINT* size);
 
 #endif

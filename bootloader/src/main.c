@@ -6,6 +6,8 @@
 #include <boot.h>
 #include <efi_wrappers.h>
 
+#include <cfg_parser.h>
+
 EFI_STATUS
 EFIAPI
 efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
@@ -67,17 +69,17 @@ efi_main (EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
         desc = NextMemoryDescriptor (desc, descSize);
     }
 
-    UINT8* Buffer;
-    UINT64 Size;
+    BOOTL_UINT size;
 
-    Status = ReadFile(ImageHandle, L"\\EFI\\BOOT\\boot.cfg", &Buffer, &Size);
-    if (EFI_ERROR(Status)) {
-		Print(L"Failed to read: %d", Status);
-	}else{
-        Print(L"Read: %d", Size);
+    cfg_node_t* root = ParseCfg(ImageHandle, L"\\EFI\\BOOT\\boot.cfg", &size);
+
+    if(root){
+        for(int i=0;i<size;i++){
+            Print(L"%a = %a\r\n", root[i].name, root[i].value);
+        }
+    }else{
+        Print(L"Failed to parse cfg.\r\n");
     }
-
-    FreePool(Buffer);
 
     Pause();
 
