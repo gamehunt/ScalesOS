@@ -32,7 +32,7 @@ stack_top:
 section .data
 align 4096
 boot_page_directory:
-dd 0x00000083
+    dd 0x00000083
     times (KERNEL_PAGE_NUMBER - 1) dd 0                 ; Pages before kernel space.
     ; This page directory entry defines a 4MB page containing the kernel.
     dd 0x00000083
@@ -42,7 +42,7 @@ dd 0x00000083
 section .multiboot.text
 global _start:function (_start.end - _start)
 _start:
-	mov ecx, (boot_page_directory - KERNEL_VIRTUAL_BASE)
+    mov ecx, (boot_page_directory - KERNEL_VIRTUAL_BASE)
     mov cr3, ecx                                        ; Load Page Directory Base Register.
 
     mov ecx, cr4
@@ -53,25 +53,25 @@ _start:
     or ecx, 0x80000000                          ; Set PG bit in CR0 to enable paging.
     mov cr0, ecx
 
-	lea ecx, [higher_half_stub]
-	jmp ecx
+    lea ecx, [higher_half_stub]
+    jmp ecx
 .end:
 
 extern kernel_main
 
 section .text
 higher_half_stub:
-	mov dword [boot_page_directory], 0
+    mov dword [boot_page_directory], 0
     invlpg [0]
  
     mov esp, stack_top          ; set up the stack
  
-	add ebx, KERNEL_VIRTUAL_BASE
+    add ebx, KERNEL_VIRTUAL_BASE
 
     push ebx
-	push eax
+    push eax
  
     call  kernel_main                  ; call kernel proper
 
-	cli
+    cli
     hlt                          ; halt machine should kernel return
