@@ -7,7 +7,7 @@ VIDMODE   equ  0
 VIDHEIGHT equ  1024
 VIDWIDTH  equ  1280
 VIDDEPTH  equ  32
-CHECKSUM equ -(MAGIC + FLAGS)
+CHECKSUM  equ -(MAGIC + FLAGS)
  
 KERNEL_VIRTUAL_BASE equ 0xC0000000                  ; 3GB
 KERNEL_PAGE_NUMBER equ (KERNEL_VIRTUAL_BASE >> 22)  ; Page directory index of kernel's 4MB PTE.
