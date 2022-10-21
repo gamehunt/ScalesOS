@@ -1,0 +1,11 @@
+SET (CMAKE_C_COMPILER_WORKS 1)
+SET (CMAKE_CXX_COMPILER_WORKS 1)
+
+set(CMAKE_ASM_NASM_COMPILER /usr/bin/nasm) 
+set(CMAKE_ASM_NASM_SOURCE_FILE_EXTENSIONS asm) 
+set(CMAKE_ASM_NASM_OBJECT_FORMAT elf)
+
+set(CMAKE_C_COMPILER /usr/local/cross/bin/i686-elf-gcc)
+set(CMAKE_C_COMPILER_TARGET i686-elf)
+
+set(CMAKE_LINKER /usr/local/cross/bin/i686-elf-gcc)

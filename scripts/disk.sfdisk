@@ -1,10 +1,7 @@
-label: gpt
-label-id: F8CC1D0A-800A-3A4C-8FA7-2EBBF57FE498
+label: dos
+label-id: 0x99d99fda
 device: disk.img
 unit: sectors
-first-lba: 2048
-last-lba: 4194270
 sector-size: 512
 
-disk.img1 : start=        2048, size=      262144, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B, uuid=0E596839-58E1-F74C-A0D0-6AC71EF00BB1
-disk.img2 : start=      264192, size=     3928064, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=3E8669AF-773D-EE4B-9839-7617012BDC11
+disk.img1 : start=        2048, size=     4192256, type=83, bootable

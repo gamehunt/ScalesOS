@@ -1,6 +1,4 @@
 #!/bin/bash
 
-sudo -u root umount disk/boot
-sudo -u root umount disk
-
+sudo -u root umount /mnt      > /dev/null 2>&1
 sudo kpartx -d disk.img

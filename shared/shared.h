@@ -4,4 +4,6 @@
 #define C_HDR_START extern "C" {
 #define C_HDR_END   }
 
+#define UNUSED __attribute__((unused))
+
 #endif

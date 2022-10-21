@@ -2,3 +2,8 @@ build/
 env/
 *.bin
 *.img
+scripts/crosscompiler/binutils*
+scripts/crosscompiler/gcc*
+.vs/
+.cache/
+.clangd
