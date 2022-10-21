@@ -13,6 +13,6 @@ typedef void (*isr_handler_t)(interrupt_context_t);
 
 void k_int_isr_init();
 
-void k_int_isr_setup_handle(uint8_t int_no, isr_handler_t handler);
+void k_int_isr_setup_handler(uint8_t int_no, isr_handler_t handler);
 
 #endif

@@ -23,10 +23,10 @@ align 4
 	dd VIDHEIGHT
 	dd VIDDEPTH
  
-section .initial_stack
-align 16
+section .initial_stack, nobits
+align 4
 stack_bottom:
-resb 16384 ; 16 KiB
+resb 104856 ; 1MB
 stack_top:
 
 section .data

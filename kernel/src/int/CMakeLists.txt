@@ -3,6 +3,8 @@ set(SOURCES
     idt.asm
     isr.c
     isr.asm
+    irq.c
+    irq.asm
     pic.c
 )
 

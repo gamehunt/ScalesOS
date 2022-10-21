@@ -93,6 +93,6 @@ void k_int_isr_init(){
     k_int_idt_create_entry(31, (uint32_t) &ISR(31), 0x8, 0x0, 0xE);
 }
 
-void k_int_isr_setup_handle(uint8_t int_no, isr_handler_t handler){
+void k_int_isr_setup_handler(uint8_t int_no, isr_handler_t handler){
     isr_handlers[int_no] = handler;
 }
