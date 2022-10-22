@@ -4,7 +4,7 @@ project(Scales-Kernel VERSION 1.0.0)
 
 enable_language(C ASM_NASM)
 
-add_definitions(-DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}")
+add_definitions(-DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}" -DDEBUG)
 
 set(CMAKE_C_FLAGS "-ffreestanding -O2 -Wall -Wextra")
 set(CMAKE_C_STANDARD 11)

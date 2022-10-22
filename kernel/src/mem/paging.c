@@ -1,3 +1,5 @@
+#include "mem/pmm.h"
+#include "util/log.h"
 #include <mem/paging.h>
 
 #include <stdint.h>
@@ -16,9 +18,11 @@ uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
 
 extern void* _kernel_end;
 
-uint8_t* heap = (uint8_t*) (&_kernel_end);
+uint8_t* heap = 0;
 
 void k_mem_paging_init(){
+    heap = (uint8_t*) (&_kernel_end + k_mem_pmm_bitmap_size());
+    k_debug("Paging temporary heap at 0x%.8x", heap);
     uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + 0xC0000000); // create first recursive mapping manually
     uint32_t phys = (uint32_t)&pd[1023] - 0xC0000000; 
     pd[1023] = (phys & 0xfffff000) | 3; 

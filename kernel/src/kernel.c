@@ -1,3 +1,4 @@
+#include "mem/pmm.h"
 #include <multiboot.h>
 #include <shared.h>
 #include <stdio.h>
@@ -15,11 +16,13 @@
 #include <int/isr.h>
 #include <int/irq.h>
 
-void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb UNUSED) 
+#include <util/log.h>
+
+void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) 
 {
 	k_dev_serial_init();
 
-	printf("Booting Scales V%s...\n\r", KERNEL_VERSION);
+	k_info("Booting Scales V%s...", KERNEL_VERSION);
 
 	k_mem_gdt_init();
 
@@ -28,6 +31,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb UNUSED)
 	k_int_isr_init();
 	k_int_irq_init();
 
+	k_mem_pmm_init(mb);
 	k_mem_paging_init();
 
 	for(uint32_t i = 0; i < mb->framebuffer_width * mb->framebuffer_width * 4; i+=0x1000){
