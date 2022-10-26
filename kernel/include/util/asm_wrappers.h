@@ -1,5 +1,5 @@
-#ifndef __ASM_WRAPPERS
-#define __ASM_WRAPPERS
+#ifndef __K_UTIL_ASM_WRAPPERS_H
+#define __K_UTIL_ASM_WRAPPERS_H
 
 #include <stdint.h>
 

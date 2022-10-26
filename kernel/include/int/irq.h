@@ -1,5 +1,5 @@
-#ifndef __IRQ_H
-#define __IRQ_H
+#ifndef __K_INT_IRQ_H
+#define __K_INT_IRQ_H
 
 #include <int/isr.h>
 

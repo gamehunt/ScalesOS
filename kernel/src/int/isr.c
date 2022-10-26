@@ -45,11 +45,45 @@ DEFN_ISR(31)
 
 static isr_handler_t isr_handlers[256];
 
+static const char *panic_messages[] = {
+	"Division by zero",
+	"Debug",
+	"Non-maskable interrupt",
+	"Breakpoint",
+	"Detected overflow",
+	"Out-of-bounds",
+	"Invalid opcode",
+	"No coprocessor",
+	"Double fault",
+	"Coprocessor segment overrun",
+	"Bad TSS", /* 10 */
+	"Segment not present",
+	"Stack fault",
+	"General protection fault",
+	"Page fault",
+	"Unknown interrupt",
+	"Coprocessor fault",
+	"Alignment check",
+	"Machine check",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved",
+	"Reserved"};
+
 void isr_dispatcher(interrupt_context_t ctx){
     if(!isr_handlers[ctx.int_no]){
         char buffer[1024];
-        sprintf(buffer, "Unhandled exception: %d", ctx.int_no);
-        k_panic(buffer, ctx);
+        sprintf(buffer, "Unhandled exception: %s (%d)", panic_messages[ctx.int_no], ctx.int_no);
+        k_panic(buffer, &ctx);
         halt();
     }else{
         isr_handlers[ctx.int_no](ctx);

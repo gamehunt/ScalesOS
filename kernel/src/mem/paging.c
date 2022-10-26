@@ -1,5 +1,5 @@
 #include "mem/pmm.h"
-#include "util/log.h"
+#include "util/panic.h"
 #include <mem/paging.h>
 
 #include <stdint.h>
@@ -18,12 +18,8 @@ uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
 
 extern void* _kernel_end;
 
-uint8_t* heap = 0;
-
 void k_mem_paging_init(){
-    heap = (uint8_t*) (&_kernel_end + k_mem_pmm_bitmap_size());
-    k_debug("Paging temporary heap at 0x%.8x", heap);
-    uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + 0xC0000000); // create first recursive mapping manually
+    uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + 0xC0000000); // create recursive mapping manually
     uint32_t phys = (uint32_t)&pd[1023] - 0xC0000000; 
     pd[1023] = (phys & 0xfffff000) | 3; 
 }
@@ -56,13 +52,26 @@ void k_mem_paging_set_pd(uint32_t addr, uint8_t phys){
 void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags){
     uint32_t pd_index = PDE(vaddr);
     if(!(page_directory[pd_index] & PD_PRESENT_FLAG)){
-        memset(heap, 0, 0x1000);
-        page_directory[pd_index] = k_mem_paging_virt2phys((uint32_t)heap) | flags | 0x01;
-        heap += 0x1000;
+        pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
+        if(!frame){
+            k_panic("Out of memory. Failed to allocate page table.", 0);
+        }
+        page_directory[pd_index] =  frame | flags | 0x01; //TODO if allocated frame is big, then make a 4MB page
     }
 
     uint32_t *pt      = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
     uint32_t pt_index = PTE(vaddr);
     
+    if(!paddr){
+        paddr = k_mem_pmm_alloc_frames(1);
+    }
+
     pt[pt_index] = ((uint32_t)paddr) | (flags) | 0x01;
+}
+
+void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uint8_t flags){
+    uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
+    for(;frame < frame + size * 0x1000; frame += 0x1000){
+        k_mem_paging_map(vaddr, frame, flags);
+    }
 }

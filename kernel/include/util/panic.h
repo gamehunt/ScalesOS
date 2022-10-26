@@ -1,8 +1,8 @@
-#ifndef _PANIC_H
-#define _PANIC_H
+#ifndef __K_UTIL_PANIC_H
+#define __K_UTIL_PANIC_H
 
 #include <int/isr.h>
 
-void k_panic(const char* reason, interrupt_context_t ctx);
+void k_panic(const char* reason, interrupt_context_t* ctx);
 
 #endif
