@@ -6,7 +6,7 @@ enable_language(C ASM_NASM)
 
 add_definitions(-DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}" -DDEBUG)
 
-set(CMAKE_C_FLAGS "-ffreestanding -O2 -Wall -Wextra")
+set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
 

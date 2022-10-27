@@ -1,4 +1,7 @@
+#include "int/irq.h"
+#include "int/isr.h"
 #include "mem/pmm.h"
+#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
@@ -18,7 +21,16 @@ uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
 
 extern void* _kernel_end;
 
+extern uint32_t k_mem_paging_get_fault_addr();
+
+void __pf_handler(interrupt_context_t ctx){
+    char buffer[1024];
+    sprintf(buffer, "Page fault at 0x%.8x", k_mem_paging_get_fault_addr());
+    k_panic(buffer, &ctx);
+}
+
 void k_mem_paging_init(){
+    k_int_isr_setup_handler(14, __pf_handler);
     uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + 0xC0000000); // create recursive mapping manually
     uint32_t phys = (uint32_t)&pd[1023] - 0xC0000000; 
     pd[1023] = (phys & 0xfffff000) | 3; 
@@ -71,7 +83,7 @@ void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags){
 
 void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uint8_t flags){
     uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
-    for(;frame < frame + size * 0x1000; frame += 0x1000){
-        k_mem_paging_map(vaddr, frame, flags);
+    for(uint32_t i = 0; i < size; i++){
+        k_mem_paging_map(vaddr + 0x1000 * i, frame + 0x1000 * i, flags);
     }
 }

@@ -17,6 +17,8 @@
 #include "mem/heap.h"
 #include "mem/pmm.h"
 
+extern void k_mem_print();
+
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
 
@@ -31,8 +33,8 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_mem_pmm_init(mb);
     k_mem_paging_init();
-
     k_mem_heap_init();
+
     k_dev_pci_init();
 
     k_dev_pit_init();

@@ -12,7 +12,7 @@ void k_panic(const char* reason, interrupt_context_t* ctx) {
         printf("EDI: 0x%.8x ESI: 0x%.8x\r\nEBP: 0x%.8x ESP: 0x%.8x\r\n",
                ctx->edi, ctx->esi, ctx->ebp, ctx->esp);
     } else {
-        printf("Not available.");
+        printf("Not available.\r\n");
     }
     printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
     cli();

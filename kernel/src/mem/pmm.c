@@ -10,7 +10,7 @@
 
 #define FRAME(idx, bit) (((pmm_frame_t)0x1000) * ((idx)*32 + (bit)))
 
-extern void *_kernel_end;
+extern void* _kernel_end;
 
 static uint32_t *bitmap = 0;
 static uint32_t bitmap_size = 0;
@@ -18,7 +18,7 @@ static uint32_t first_free_index = 0xFFFFFFFF;
 static uint8_t  init = 0;
 
 void k_mem_pmm_init(multiboot_info_t *mb) {
-  bitmap = (uint32_t*) ALIGN((uint32_t)&_kernel_end, 0x1000);
+  bitmap = (uint32_t*) ALIGN((uint32_t) &_kernel_end, 0x1000) + 0x10000;
   k_debug("PMM bitmap at 0x%.8x", bitmap);
   k_info("Memory map:");
   for (uint32_t i = 0; i < mb->mmap_length;
@@ -33,8 +33,8 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
              mmap->addr + mmap->len, mmap->type);
       for (uint32_t i = 0; i < mmap->len; i += 0x1000) {
         pmm_frame_t frame = mmap->addr + i;
-        if (frame > 4 * 1024 * 1024) {
-          k_mem_pmm_mark_frame(mmap->addr + i);
+        if (frame > 6 * 1024 * 1024) {
+          k_mem_pmm_mark_frame(frame);
         }
       }
     }
