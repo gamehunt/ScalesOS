@@ -1,7 +1,5 @@
-#include "int/irq.h"
 #include "int/isr.h"
 #include "mem/pmm.h"
-#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
@@ -81,9 +79,16 @@ void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags){
     pt[pt_index] = ((uint32_t)paddr) | (flags) | 0x01;
 }
 
-void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uint8_t flags){
-    uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
-    for(uint32_t i = 0; i < size; i++){
-        k_mem_paging_map(vaddr + 0x1000 * i, frame + 0x1000 * i, flags);
+void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uint8_t flags, uint8_t contigous)
+{
+    if(contigous){
+        uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
+        for(uint32_t i = 0; i < size; i++){
+            k_mem_paging_map(vaddr + 0x1000 * i, frame + 0x1000 * i, flags);
+        }
+    }else{
+        for(uint32_t i = 0; i < size; i++){
+            k_mem_paging_map(vaddr + 0x1000 * i, paddr ? paddr + 0x1000 * i : k_mem_pmm_alloc_frames(1), flags);
+        }
     }
 }

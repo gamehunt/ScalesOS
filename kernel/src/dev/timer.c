@@ -4,7 +4,6 @@
 #include "kernel.h"
 #include "util/asm_wrappers.h"
 #include "shared.h"
-#include "util/log.h"
 #include <dev/timer.h>
 
 

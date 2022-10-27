@@ -9,6 +9,6 @@ uint32_t k_mem_paging_get_pd();
 uint32_t k_mem_paging_virt2phys(uint32_t vaddr);
 void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags);
 void k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size,
-                             uint8_t flags);
+                             uint8_t flags, uint8_t cont);
 
 #endif

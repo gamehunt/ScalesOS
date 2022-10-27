@@ -15,8 +15,9 @@
 
 #define M_IS_VALID_BLOCK(block) ((block) && (((uint32_t)(block)) < (HEAP_START + heap_size)))
 
-#define HEAP_START 0xC1000000
-#define HEAP_SIZE MB(1)
+#define HEAP_START    0xC1000000
+#define HEAP_SIZE     MB(1)
+#define HEAP_MAX_SIZE MB(32)
 
 extern void *_kernel_end;
 
@@ -74,23 +75,42 @@ void k_mem_print(){
 }
 
 K_STATUS k_mem_heap_init(){
-    k_mem_paging_map_region(HEAP_START, 0, (HEAP_SIZE / 0x1000), 0x3);
+    k_mem_paging_map_region(HEAP_START, 0, (HEAP_SIZE / 0x1000), 0x3, 0);
     __k_mem_heap_init_block(heap, HEAP_SIZE - sizeof(mem_block_t));
     return K_STATUS_OK;
+}
+
+mem_block_t* __k_mem_heap_increase(uint32_t size){
+    if(heap_size + size > HEAP_MAX_SIZE){
+        k_panic("Kernel heap max size exceeded.", 0);
+    }
+    k_mem_paging_map_region((uint32_t)heap + heap_size, 0, size / 0x1000 + 1, 0x3, 0);
+    mem_block_t* block = (mem_block_t*)((uint32_t)heap + heap_size);
+    __k_mem_heap_init_block(block, size - sizeof(mem_block_t));
+    heap_size += 0x1000;
+    return block;
 }
 
 void* k_mem_heap_alloc(uint32_t size){
     __k_mem_merge();
 
     mem_block_t* block = heap;
+    mem_block_t* last_valid_block = block;
     while(M_IS_VALID_BLOCK(block) && (!(block->flags & M_BLOCK_FREE) 
     || (block->size < size 
     || (block->size > size && block->size < size + sizeof(mem_block_t))))){
+        if(!M_IS_VALID_BLOCK(block->next)){
+            last_valid_block = block;
+        }
         block = block->next;
     }
 
     if(!M_IS_VALID_BLOCK(block)){
-        k_panic("Out of memory. Kmalloc failure.", 0);
+        last_valid_block->next = __k_mem_heap_increase(size + sizeof(mem_block_t));
+        if(!M_IS_VALID_BLOCK(last_valid_block->next)){
+            k_panic("Out of memory. Kmalloc failure.", 0);
+        }
+        block = last_valid_block->next;
     }
 
     if(block->size == size){
