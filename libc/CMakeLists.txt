@@ -12,3 +12,9 @@ add_library(k STATIC)
 target_compile_options(k PRIVATE -ffreestanding -O2 -Wall -Wextra)
 
 add_subdirectory(src)
+
+add_custom_command(
+    TARGET  k POST_BUILD
+    COMMAND cp -a ${CMAKE_CURRENT_SOURCE_DIR}/include/.  ${SYSROOT_FOLDER}/include/
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)

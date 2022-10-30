@@ -20,7 +20,6 @@
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "mod/modules.h"
-
 extern void k_mem_print();
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {

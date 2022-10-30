@@ -1,3 +1,4 @@
+#include "kernel.h"
 #include "stdio.h"
 #include <stdarg.h>
 #include <util/log.h>
@@ -37,3 +38,8 @@ void k_debug (const char* format, ...){
     va_end(va);
 #endif
 }
+
+EXPORT(k_debug)
+EXPORT(k_err)
+EXPORT(k_warn)
+EXPORT(k_info)
