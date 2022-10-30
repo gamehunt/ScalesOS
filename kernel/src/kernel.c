@@ -9,13 +9,17 @@
 #include <multiboot.h>
 #include <shared.h>
 #include <stdio.h>
+#include <string.h>
 #include <util/asm_wrappers.h>
 #include <util/log.h>
+#include <fs/vfs.h>
 
 #include "dev/pci.h"
 #include "dev/timer.h"
+#include "fs/ramdisk.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "mod/modules.h"
 
 extern void k_mem_print();
 
@@ -40,7 +44,13 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_pit_init();
     k_dev_timer_init();
 
+    k_fs_vfs_init();
+
+    k_fs_ramdisk_init();
+
+    k_mod_load_modules(mb);
+
     while (1) {
-        asm("hlt");
+        halt();
     }
 }

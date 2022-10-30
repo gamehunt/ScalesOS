@@ -30,8 +30,8 @@ uint32_t inl(uint16_t port) { // 32bit port input
   return ret;
 }
 
-void halt() { asm("hlt"); }
+void halt() { asm volatile("hlt"); }
 
-void cli() { asm("cli"); }
+void cli() { asm volatile("cli"); }
 
-void sti() { asm("sti"); }
+void sti() { asm volatile("sti"); }

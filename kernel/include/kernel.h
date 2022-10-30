@@ -11,4 +11,12 @@ typedef uint16_t K_STATUS;
 #define IS_OK(status) (status == K_STATUS_OK)
 #define IS_ERR(status) (status != K_STATUS_OK)
 
+#define EXTEND(mem, count, size) \
+    count++; \
+    if(count == 1){ \
+        mem = k_malloc(size);\
+    }else{\
+        mem = k_realloc(mem, size * count);\
+    }
+
 #endif

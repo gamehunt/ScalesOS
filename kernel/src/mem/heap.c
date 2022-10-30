@@ -3,6 +3,7 @@
 #include "shared.h"
 #include "util/log.h"
 #include "util/panic.h"
+#include "string.h"
 #include <mem/heap.h>
 
 #define M_BLOCK_FREE    (1 << 0)
@@ -66,10 +67,10 @@ static void __k_mem_merge(){
     }
 }
 
-void k_mem_print(){
+void k_d_mem_heap_print(){
     mem_block_t* src = heap;
     while(M_IS_VALID_BLOCK(src)){
-        k_info("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);
+        k_debug("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);
         src = src->next;
     }
 }
@@ -132,4 +133,18 @@ void k_mem_heap_free(void* ptr){
         return;
     }
     header->flags |= M_BLOCK_FREE;
+}
+
+void*    k_mem_heap_realloc(void* old, uint32_t size){
+    mem_block_t* hdr = M_HEADER(old);
+    void* new_ptr    = k_malloc(size);
+    uint32_t copy_size = 0;
+    if(size > hdr->size){
+        copy_size = hdr->size;
+    }else{
+        copy_size = size;
+    }
+    memmove(new_ptr, old, copy_size);
+    k_free(old);
+    return new_ptr;
 }

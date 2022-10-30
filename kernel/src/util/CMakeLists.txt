@@ -6,3 +6,5 @@ set(SOURCES
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})
+
+add_subdirectory(types)

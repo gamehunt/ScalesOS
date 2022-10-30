@@ -1,0 +1,1 @@
+install(FILES aboba DESTINATION ${RAMDISK_FOLDER})
