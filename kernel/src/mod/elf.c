@@ -12,10 +12,47 @@ static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr){
            hdr->e_version           == EV_CURRENT;
 }
 
+static K_STATUS __k_mod_elf_load_exec(Elf32_Ehdr* hdr){
+    if(!hdr->e_phoff){
+        return K_STATUS_ERR_GENERIC;
+    }
+
+    Elf32_Phdr* phdr = (Elf32_Phdr*) ((uint32_t) hdr + hdr->e_phoff);
+    for(uint32_t i = 0; i < hdr->e_phnum; i++){
+        //TODO process header
+        phdr = (Elf32_Phdr*) ((uint32_t) phdr + hdr->e_phentsize);
+    }
+
+    return K_STATUS_OK;
+}
+
+static K_STATUS __k_mod_elf_load_rel(Elf32_Ehdr* hdr){
+    if(!hdr->e_shoff){
+        return K_STATUS_ERR_GENERIC;
+    }
+
+    Elf32_Shdr* shdr = (Elf32_Shdr*) ((uint32_t) hdr + hdr->e_shoff);
+    for(uint32_t i = 0; i < hdr->e_phnum; i++){
+        //TODO process header
+        shdr = (Elf32_Shdr*) ((uint32_t) shdr + hdr->e_shentsize);
+    }
+
+
+    return K_STATUS_OK;
+}
+
 K_STATUS k_mod_elf_load(void* file){
     Elf32_Ehdr* hdr = (Elf32_Ehdr*) file;
     if(!__k_mod_elf_check(hdr)){
         return K_STATUS_ERR_GENERIC;
+    }
+
+    if(hdr->e_type == ET_EXEC){
+        return __k_mod_elf_load_exec(hdr);
+    }
+
+    if(hdr->e_type == ET_REL){
+        return __k_mod_elf_load_rel(hdr);
     }
 
     return K_STATUS_OK;
