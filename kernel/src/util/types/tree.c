@@ -1,7 +1,6 @@
 #include <mem/heap.h>
 #include <string.h>
 #include <util/types/tree.h>
-#include "util/log.h"
 
 tree_t* tree_create() {
     tree_t* tree = k_malloc(sizeof(tree_t));

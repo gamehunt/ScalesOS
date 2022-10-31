@@ -6,7 +6,6 @@
 #include "mem/heap.h"
 #include "shared.h"
 #include "util/log.h"
-#include "util/types/tree.h"
 
 struct tar_header
 {

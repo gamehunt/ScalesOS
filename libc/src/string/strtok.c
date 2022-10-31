@@ -3,7 +3,7 @@
 
 #define DICT_LEN 256
 
-unsigned int is_delim(char c, char *delim)
+unsigned int is_delim(char c, const char *delim)
 {
     while(*delim != '\0')
     {

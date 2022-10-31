@@ -10,17 +10,27 @@ set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra")
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
 
-add_executable(kernel.bin)
+add_library(kernel.bin OBJECT)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ ${SYSROOT_FOLDER}/include)
-target_link_options(kernel.bin PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O2 -nostdlib)
-target_link_libraries(kernel.bin PRIVATE gcc k)
-
 add_subdirectory(src)
 
-add_custom_command(
-    TARGET  kernel.bin POST_BUILD
-    COMMAND ${SCRIPTS_FOLDER}/create_kernel_symtable.sh > symtable.h
-    COMMAND cp -a ${CMAKE_CURRENT_SOURCE_DIR}/include/.  ${SYSROOT_FOLDER}/include/kernel
-    COMMAND cp symtable.h ${SYSROOT_FOLDER}/include/kernel
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+add_executable(kernel.bin.tmp $<TARGET_OBJECTS:kernel.bin>)
+target_link_options(kernel.bin.tmp PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O0 -nostdlib)
+target_link_libraries(kernel.bin.tmp PRIVATE gcc k)
+add_dependencies(kernel.bin.tmp kernel.bin)
+
+add_custom_target(
+    symtable ALL
+    COMMAND readelf -s --wide kernel.bin.tmp | python ${CMAKE_CURRENT_SOURCE_DIR}/generate_symtable.py > symtable.asm
+    COMMAND nasm -felf32 symtable.asm
 )
+add_dependencies(symtable kernel.bin.tmp)
+
+add_executable(kernel.bin.final $<TARGET_OBJECTS:kernel.bin>)
+set_target_properties(kernel.bin.final PROPERTIES OUTPUT_NAME kernel.bin)
+target_link_options(kernel.bin.final PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O0 -nostdlib symtable.o)
+target_link_libraries(kernel.bin.final PRIVATE gcc k)
+add_dependencies(kernel.bin.final symtable)
+
+install(TARGETS kernel.bin.final RUNTIME DESTINATION /mnt/boot)
+install(DIRECTORY include/ DESTINATION ${SYSROOT_FOLDER}/include/kernel)

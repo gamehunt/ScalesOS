@@ -11,9 +11,9 @@ typedef struct{
     fs_t* fs;
 }fs_descriptor_t;
 
-static tree_t* vfs_tree;
+static tree_t*           vfs_tree;
 static fs_descriptor_t*  filesystems;
-uint32_t fs_count = 0;
+uint32_t                 fs_count = 0;
 
 static vfs_entry_t* __k_fs_vfs_root_entry(){
     return ((vfs_entry_t*)vfs_tree->root->value);
