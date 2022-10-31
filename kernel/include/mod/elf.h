@@ -1,6 +1,7 @@
 #ifndef __K_MOD_ELF_H
 #define __K_MOD_ELF_H
 
+#include "kernel.h"
 #define EI_MAG0    0 // File identification
 #define EI_MAG1    1 // File identification
 #define EI_MAG2    2 // File identification
@@ -108,6 +109,16 @@
 #define R_386_GOTOFF   9  // word32 S + A - GOT
 #define R_386_GOTPC    10 // word32 GOT + A - P
 
+#define PT_NULL    0
+#define PT_LOAD    1
+#define PT_DYNAMIC 2
+#define PT_INTERP  3
+#define PT_NOTE    4
+#define PT_SHLIB   5
+#define PT_PHDR    6
+#define PT_LOPROC  0x70000000
+#define PT_HIPROC  0x7fffffff
+
 #include <stdint.h>
 
 typedef uint32_t Elf32_Addr;
@@ -165,5 +176,18 @@ typedef struct {
     Elf32_Word  r_info;
     Elf32_Sword r_addend;
 } Elf32_Rela; 
+
+typedef struct {
+    Elf32_Word p_type;
+    Elf32_Off  p_offset;
+    Elf32_Addr p_vaddr;
+    Elf32_Addr p_paddr;
+    Elf32_Word p_filesz;
+    Elf32_Word p_memsz;
+    Elf32_Word p_flags;
+    Elf32_Word p_align;
+} Elf32_Phdr; 
+
+K_STATUS k_mod_elf_load(void* file);
 
 #endif
