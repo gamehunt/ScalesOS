@@ -24,7 +24,7 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
   for (uint32_t i = 0; i < mb->mmap_length;
        i += sizeof(multiboot_memory_map_t)) {
     multiboot_memory_map_t *mmap =
-        (multiboot_memory_map_t *)(mb->mmap_addr + 0xC0000000 + i);
+        (multiboot_memory_map_t *)(mb->mmap_addr + VIRTUAL_BASE + i);
     if (mmap->type != MULTIBOOT_MEMORY_AVAILABLE) {
       k_info("   0x%.9llx - 0x%.9llx Type: 0x%x", mmap->addr,
              mmap->addr + mmap->len, mmap->type);

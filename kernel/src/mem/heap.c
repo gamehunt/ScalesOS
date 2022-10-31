@@ -1,6 +1,5 @@
 #include "kernel.h"
 #include "mem/paging.h"
-#include "shared.h"
 #include "util/log.h"
 #include "util/panic.h"
 #include "string.h"
@@ -15,10 +14,6 @@
 #define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
 
 #define M_IS_VALID_BLOCK(block) ((block) && (((uint32_t)(block)) < (HEAP_START + heap_size)))
-
-#define HEAP_START    0xC1000000
-#define HEAP_SIZE     MB(1)
-#define HEAP_MAX_SIZE MB(32)
 
 extern void *_kernel_end;
 
@@ -82,7 +77,7 @@ K_STATUS k_mem_heap_init(){
 }
 
 mem_block_t* __k_mem_heap_increase(uint32_t size){
-    if(heap_size + size > HEAP_MAX_SIZE){
+    if(HEAP_START + heap_size + size > HEAP_END){
         k_panic("Kernel heap max size exceeded.", 0);
     }
     k_mem_paging_map_region((uint32_t)heap + heap_size, 0, size / 0x1000 + 1, 0x3, 0);

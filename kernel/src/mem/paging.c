@@ -29,8 +29,8 @@ void __pf_handler(interrupt_context_t ctx){
 
 void k_mem_paging_init(){
     k_int_isr_setup_handler(14, __pf_handler);
-    uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + 0xC0000000); // create recursive mapping manually
-    uint32_t phys = (uint32_t)&pd[1023] - 0xC0000000; 
+    uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + VIRTUAL_BASE); // create recursive mapping manually
+    uint32_t phys = (uint32_t)&pd[1023] - VIRTUAL_BASE; 
     pd[1023] = (phys & 0xfffff000) | 3; 
 }
 
