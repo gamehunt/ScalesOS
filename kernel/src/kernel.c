@@ -20,14 +20,7 @@
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "mod/modules.h"
-
-extern void* symbols_start;
-extern void* symbols_end;
-
-typedef struct sym{
-    uint32_t addr;
-    char name[];
-}sym_t;
+#include "mod/symtable.h"
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -54,17 +47,8 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_fs_ramdisk_init();
 
+    k_mod_symtable_init();
     k_mod_load_modules(mb);
-
-    k_info("Symbols start");
-
-    sym_t* addr = (sym_t*) &symbols_start;
-    while((uint32_t) addr < (uint32_t) &symbols_end){
-        k_info("0x%.8x %s", addr->addr, addr->name);
-        addr = (sym_t*) (((uint32_t)addr) + sizeof(sym_t) + strlen(addr->name) + 1);
-    }
-
-    k_info("Symbols end");
 
     while (1) {
         halt();

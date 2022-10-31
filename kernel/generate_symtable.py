@@ -1,20 +1,17 @@
 import fileinput
 import re
 
+exported_symbols = []
+blacklisted_symbols = ["symbols_start", "symbols_end"]
+
 def parse(l):
     return re.sub("\s\s+", " ", l.strip()).split(' ')
 
-exported_symbols = []
-
 for line in fileinput.input():
     data = parse(line)
-    if len(data) != 8 or len(data[0]) == 0 or not data[0][0].isdigit():
+    if len(data) != 8 or len(data[0]) == 0 or not data[0][0].isdigit() or data[7] in blacklisted_symbols or data[6] == "ABS":
         continue
-    if data[7].endswith('exported'):
-        exported_symbols.append([data[1], data[7][2:len(data[7]) - 9]])
-
-for sym in exported_symbols:
-    print('extern', sym[1])
+    exported_symbols.append([data[1], data[7]])
 
 print()
 print('section .data.symbols')

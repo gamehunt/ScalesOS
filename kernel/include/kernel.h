@@ -19,6 +19,4 @@ typedef uint16_t K_STATUS;
         mem = k_realloc(mem, size * count);\
     }
 
-#define EXPORT(f) void __##f##_exported() __attribute__ ((weak, alias (#f)));
-
 #endif
