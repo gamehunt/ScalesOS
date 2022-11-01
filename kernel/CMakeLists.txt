@@ -21,17 +21,16 @@ add_executable(kernel.bin.tmp $<TARGET_OBJECTS:kernel.bin>)
 target_link_options(kernel.bin.tmp PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O0 -nostdlib)
 add_dependencies(kernel.bin.tmp kernel.bin)
 
-add_custom_target(
-    symtable ALL
+add_custom_command(
+    OUTPUT symtable.o
     COMMAND readelf -s --wide kernel.bin.tmp | python ${CMAKE_CURRENT_SOURCE_DIR}/generate_symtable.py > symtable.asm
     COMMAND nasm -felf32 symtable.asm
 )
-add_dependencies(symtable kernel.bin.tmp)
 
-add_executable(kernel.bin.final $<TARGET_OBJECTS:kernel.bin>)
+add_executable(kernel.bin.final $<TARGET_OBJECTS:kernel.bin> symtable.o)
 set_target_properties(kernel.bin.final PROPERTIES OUTPUT_NAME kernel.bin)
-target_link_options(kernel.bin.final PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O0 -nostdlib symtable.o)
-add_dependencies(kernel.bin.final symtable)
+target_link_options(kernel.bin.final PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld -ffreestanding -O0 -nostdlib)
+add_dependencies(kernel.bin.final kernel.bin.tmp)
 
 install(TARGETS kernel.bin.final RUNTIME DESTINATION bin/)
 install(DIRECTORY include/ DESTINATION include/kernel)
