@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.23)
+include(ExternalProject)
 
 project(Scales)
 
@@ -6,6 +7,48 @@ set(SCRIPTS_FOLDER ${PROJECT_SOURCE_DIR}/scripts)
 set(RAMDISK_FOLDER ${PROJECT_SOURCE_DIR}/build/ramdisk)
 set(SYSROOT_FOLDER ${PROJECT_SOURCE_DIR}/sysroot)
 
-add_subdirectory(libc)
-add_subdirectory(kernel)
-add_subdirectory(modules)
+ExternalProject_Add(
+    shared
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/shared/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER}
+)
+
+ExternalProject_Add(
+    libc
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/libc/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/libc/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_elf_toolchain.cmake
+)
+
+ExternalProject_Add(
+    kernel
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/kernel/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/kernel/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_elf_toolchain.cmake
+)
+
+ExternalProject_Add(
+    modules
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/modules/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/modules/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_elf_toolchain.cmake
+)
+
+add_custom_target(
+    compiler_hints
+    COMMAND bash ${SCRIPTS_FOLDER}/generate_compiler_hints.sh
+    VERBATIM
+)
+
+add_custom_target(
+    ramdisk
+    COMMAND tar -cvf scales.initrd ramdisk/
+    COMMAND mv scales.initrd bin/scales.initrd
+    WORKING_DIRECTORY ${SYSROOT_FOLDER}
+    VERBATIM
+)
+
+install(FILES     ${SYSROOT_FOLDER}/bin/kernel.bin    DESTINATION /mnt/boot)
+install(FILES     ${SYSROOT_FOLDER}/bin/scales.initrd DESTINATION /mnt/boot)
+install(DIRECTORY ${SYSROOT_FOLDER}/include           DESTINATION /mnt/boot)
+install(DIRECTORY ${SYSROOT_FOLDER}/lib               DESTINATION /mnt/boot)

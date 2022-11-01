@@ -8,17 +8,12 @@ cd scripts
 /bin/bash mount_hda.sh
 cd ..
 
-/bin/bash scripts/create_sysroot.sh
+cmake -Bbuild -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
+cmake --build build
+cmake --build build --target ramdisk
+cmake --build build --target compiler_hints
+sudo -u root cmake --build build --target install
 
-cmake -DCMAKE_TOOLCHAIN_FILE=toolchain/i686_elf_toolchain.cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -Bbuild
-cd build
-VERBOSE=1 make 
-sudo -u root make install
-/bin/bash ../scripts/create_ramdisk.sh
-sync
-
-cd ..
-sudo -u root cp -a sysroot/. /mnt
 sync
 
 cd scripts

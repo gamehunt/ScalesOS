@@ -2,6 +2,7 @@
 #define __K_MOD_ELF_H
 
 #include "kernel.h"
+
 #define EI_MAG0    0 // File identification
 #define EI_MAG1    1 // File identification
 #define EI_MAG2    2 // File identification
