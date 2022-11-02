@@ -21,7 +21,6 @@
 #include "mem/pmm.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
-#include "util/path.h"
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -54,7 +53,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_fs_vfs_mount("/", "/dev/ram0", "tar");
 
-    fs_node_t* dir = k_fs_vfs_open("/ramdisk/modules");
+    fs_node_t* dir = k_fs_vfs_open("./modules");
 
     if(dir){
         k_info("Contents: ");

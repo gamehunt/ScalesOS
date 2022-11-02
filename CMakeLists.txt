@@ -42,7 +42,7 @@ add_custom_target(
 
 add_custom_target(
     ramdisk
-    COMMAND tar -cvf scales.initrd ramdisk/
+    COMMAND tar -cvf scales.initrd -C ramdisk .
     COMMAND mv scales.initrd bin/scales.initrd
     WORKING_DIRECTORY ${SYSROOT_FOLDER}
     VERBATIM

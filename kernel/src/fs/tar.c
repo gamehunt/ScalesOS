@@ -4,7 +4,6 @@
 #include <mem/heap.h>
 #include <stdio.h>
 #include <string.h>
-#include "util/log.h"
 #include "util/path.h"
 
 static uint32_t __k_fs_tar_get_size(char sz[12]) {
