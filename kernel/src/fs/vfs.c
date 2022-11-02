@@ -2,13 +2,14 @@
 #include "kernel.h"
 #include "mem/heap.h"
 #include "stdio.h"
+#include "util/path.h"
 #include "util/types/tree.h"
 #include <string.h>
 #include <util/log.h>
 
 typedef struct{
     char alias[128];
-    fs_t* fs;
+    mount_callback mnt;
 }fs_descriptor_t;
 
 static tree_t*           vfs_tree;
@@ -25,28 +26,38 @@ static fs_node_t* __k_fs_vfs_root_node(){
 
 static fs_node_t* __k_fs_vfs_find_node(const char* path){
     tree_node_t* cur_node  = vfs_tree->root;
-    char buffer[0x1000];
-    memset(buffer, 0, 0x1000);
-    strcpy(buffer, path);
-    char* part = strtok(buffer, "/");
-    while(part){
+    uint32_t len = k_util_path_length(path);
+    for(uint32_t i = 0; i < len; i++){
+        char* part = k_util_path_segment(path, i);
         uint8_t f = 0;
-        for(uint32_t i = 0; i < cur_node->child_count; i++){
-            vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[i]->value;
+        for(uint32_t j = 0; j < cur_node->child_count; j++){
+            vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[j]->value;
             if(!strcmp(entry->name, part)){
-                cur_node = cur_node->childs[i];
+                cur_node = cur_node->childs[j];
                 f = 1;
                 break;
             }
         }
         if(!f){
             fs_node_t* fsnode = ((vfs_entry_t*)cur_node->value)->node;
-            if(fsnode && fsnode->fs && fsnode->fs->finddir){
-                return fsnode->fs->finddir(fsnode, part);
+            if(strcmp(fsnode->name, part)){
+                k_free(part);
+                return 0;
             }
-            return 0;
+            i++;
+            while(i < len && fsnode){
+                k_free(part);
+                char* part = k_util_path_segment(path, i);
+                fs_node_t* old_node = fsnode;
+                fsnode = k_fs_vfs_finddir(fsnode, part);
+                if(fsnode != old_node){
+                    k_free(old_node);
+                }
+                i++;
+            }
+            return fsnode;
         }
-        part = strtok(0, "/");
+        k_free(part);
     }
     return ((vfs_entry_t*)cur_node->value)->node;
 }
@@ -81,22 +92,22 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
     return cur_node->value;
 }
 
-void  k_fs_vfs_register_fs(const char* alias, fs_t* fs){
+void  k_fs_vfs_register_fs(const char* alias, mount_callback fs){
     EXTEND(filesystems, fs_count, sizeof(fs_descriptor_t));
     strcpy(filesystems[fs_count - 1].alias, alias);
-    filesystems[fs_count - 1].fs = fs;
+    filesystems[fs_count - 1].mnt = fs;
 }
 
-fs_t* k_fs_vfs_get_fs(const char* alias){
+static mount_callback __k_fs_vfs_get_mount_callback(const char* alias){
     for(uint32_t i = 0; i < fs_count; i++){
         if(!strcmp(filesystems[i].alias, alias)){
-            return filesystems[i].fs;
+            return filesystems[i].mnt;
         }
     }
     return 0;
 }
 
-vfs_entry_t* k_fs_vfs_map_path     (const char* path){
+vfs_entry_t* k_fs_vfs_map_path(const char* path){
     return __k_fs_vfs_get_entry(path, 1);
 }
 
@@ -117,57 +128,78 @@ vfs_entry_t* k_fs_vfs_create_entry(const char* name){
 
 fs_node_t* k_fs_vfs_create_node(const char* name){
     fs_node_t* node = k_malloc(sizeof(fs_node_t));
-    memset(node->name, 0, sizeof(node->name));
     strcpy(node->name, name);
     node->inode = 0;
     node->flags = 0;
-    node->fs    = 0;
+    memset(&node->fs, 0, sizeof(node->fs));
     node->size  = 0;
     return node;
 }
 
 uint32_t    k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
-    if(!node->fs || !node->fs->read){
+    if(!node->fs.read){
         return 0;
     }
 
-    return node->fs->read(node, offset, size, buffer);
+    return node->fs.read(node, offset, size, buffer);
 }
 uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
-    if(!node->fs || !node->fs->write){
+    if(!node->fs.write){
         return 0;
     }
 
-    return node->fs->write(node, offset, size, buffer);
+    return node->fs.write(node, offset, size, buffer);
 }
 
 fs_node_t*  k_fs_vfs_open(const char* path){
     fs_node_t* node = __k_fs_vfs_find_node(path);
-    if(node && node->fs && node->fs->open){
-        node->fs->open(node);
+    if(node && node->fs.open){
+        node->fs.open(node);
     }
     return node;
 }
 
 void k_fs_vfs_close(fs_node_t* node){
-    if(node && node->fs && node->fs->close){
-        node->fs->close(node);
+    if(node){
+        if(node->fs.close){
+            node->fs.close(node);
+        }
+        k_free(node);
     }
 }
 
-fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
-    if(!node->fs || !node->fs->finddir){
+struct dirent*   k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
+    if(!node->fs.readdir){
         return 0;
     }
 
-    return node->fs->finddir(node, path);
+    return node->fs.readdir(node, index);
 }
 
-K_STATUS k_fs_vfs_mount(const char* path, fs_node_t* fsroot){
+fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
+    if(!node->fs.finddir){
+        return 0;
+    }
+
+    return node->fs.finddir(node, path);
+}
+
+K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
     vfs_entry_t* mountpoint = __k_fs_vfs_get_entry(path, 1);
     if(mountpoint){
         mountpoint->node = fsroot;
         return K_STATUS_OK;
+    }
+    return K_STATUS_ERR_GENERIC;
+}
+
+K_STATUS  k_fs_vfs_mount(const char* path, const char* device, const char* type){
+    mount_callback mount = __k_fs_vfs_get_mount_callback(type);
+    if(mount){
+        fs_node_t* node = mount(path, device);
+        if(node){
+            return k_fs_vfs_mount_node(path, node);
+        }
     }
     return K_STATUS_ERR_GENERIC;
 }
@@ -193,5 +225,5 @@ void __k_d_fs_vfs_print_node(tree_node_t* node, uint8_t depth){
 }
 
 void  k_d_fs_vfs_print(){
-     __k_d_fs_vfs_print_node(vfs_tree->root, 0);
+    __k_d_fs_vfs_print_node(vfs_tree->root, 0);
 }

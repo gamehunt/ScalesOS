@@ -12,4 +12,11 @@
 #define KB(v) ((v)*1024)
 #define MB(v) (KB((v)) * 1024)
 
+#include <stdint.h>
+
+struct dirent{
+    char name[256];
+    uint32_t ino;
+};
+
 #endif

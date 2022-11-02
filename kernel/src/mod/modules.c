@@ -1,4 +1,5 @@
 #include <mod/modules.h>
+#include <stdio.h>
 #include <string.h>
 #include "fs/ramdisk.h"
 #include "kernel.h"
@@ -12,7 +13,7 @@ K_STATUS k_mod_load_modules(multiboot_info_t* mb){
         const char* cmd = (const char*) (modules[i].cmdline + VIRTUAL_BASE);
         k_info("Module: 0x%.8x - 0x%.8x (CMD: %s)", start, end, cmd);
         if(!strcmp(cmd, "ramdisk")){
-            k_fs_ramdisk_load(start, "/ramdisk");
+            k_fs_ramdisk_mount(start, end - start);
         }
     }
     return K_STATUS_OK;

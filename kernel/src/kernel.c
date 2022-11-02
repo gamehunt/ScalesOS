@@ -16,11 +16,12 @@
 
 #include "dev/pci.h"
 #include "dev/timer.h"
-#include "fs/ramdisk.h"
+#include "fs/tar.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
+#include "util/path.h"
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -44,11 +45,31 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_timer_init();
 
     k_fs_vfs_init();
+    k_fs_tar_init();
 
-    k_fs_ramdisk_init();
+    k_fs_vfs_create_entry("/dev");
 
     k_mod_symtable_init();
     k_mod_load_modules(mb);
+
+    k_fs_vfs_mount("/", "/dev/ram0", "tar");
+
+    fs_node_t* dir = k_fs_vfs_open("/ramdisk/modules");
+
+    if(dir){
+        k_info("Contents: ");
+        uint32_t i = 0;
+        struct dirent* dent = k_fs_vfs_readdir(dir, i);
+        while(dent){
+            k_info("%s %d", dent->name, dent->ino);
+            i++;
+            dent = k_fs_vfs_readdir(dir, i);
+        }
+    }else{
+        k_info("Not found.");
+    }
+
+    k_fs_vfs_close(dir);
 
     while (1) {
         halt();

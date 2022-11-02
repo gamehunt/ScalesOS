@@ -13,8 +13,6 @@
 //void* M_MEMORY(mem_header_t* addr);     
 #define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
 
-#define M_IS_VALID_BLOCK(block) ((block) && (((uint32_t)(block)) < (HEAP_START + heap_size)))
-
 extern void *_kernel_end;
 
 struct __attribute__((packed)) mem_block{
@@ -28,7 +26,16 @@ typedef struct mem_block mem_block_t;
 static mem_block_t* heap      = (mem_block_t*) HEAP_START;
 static uint32_t     heap_size = HEAP_SIZE;
 
+static uint8_t __k_mem_heap_is_valid_block(mem_block_t* block){
+    uint32_t addr = (uint32_t) block;
+    return addr >= HEAP_START && addr < HEAP_START + heap_size && block->size;
+}
+
 static void __k_mem_heap_init_block(mem_block_t* block, uint32_t size){
+    if(!size){
+        k_panic("Tried to initialize zero-size block. Kmalloc failure.", 0);
+    }
+
     block->next  = 0;
     block->size  = size;
     block->flags = M_BLOCK_FREE;
@@ -36,6 +43,10 @@ static void __k_mem_heap_init_block(mem_block_t* block, uint32_t size){
 
 static K_STATUS __k_mem_split_block(mem_block_t* src, mem_block_t** splitted, uint32_t size){
     if(src->size < size){
+        return K_STATUS_ERR_GENERIC;
+    }
+
+    if(!__k_mem_heap_is_valid_block(src)){
         return K_STATUS_ERR_GENERIC;
     }
 
@@ -53,8 +64,8 @@ static K_STATUS __k_mem_split_block(mem_block_t* src, mem_block_t** splitted, ui
 
 static void __k_mem_merge(){
     mem_block_t* src = heap;
-    while(M_IS_VALID_BLOCK(src)){
-        if(src->flags & M_BLOCK_FREE && src->next && src->next->flags & M_BLOCK_FREE){
+    while(__k_mem_heap_is_valid_block(src)){
+        if(src->flags & M_BLOCK_FREE && __k_mem_heap_is_valid_block(src->next) && src->next->flags & M_BLOCK_FREE){
             src->size += sizeof(mem_block_t) + src->next->size;
             src->next = src->next->next;
         }
@@ -62,10 +73,14 @@ static void __k_mem_merge(){
     }
 }
 
+void __k_d_mem_heap_print_block(mem_block_t* src){
+    k_debug("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);
+}
+
 void k_d_mem_heap_print(){
     mem_block_t* src = heap;
-    while(M_IS_VALID_BLOCK(src)){
-        k_debug("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);
+    while(__k_mem_heap_is_valid_block(src)){
+        __k_d_mem_heap_print_block(src);
         src = src->next;
     }
 }
@@ -80,7 +95,7 @@ mem_block_t* __k_mem_heap_increase(uint32_t size){
     if(HEAP_START + heap_size + size > HEAP_END){
         k_panic("Kernel heap max size exceeded.", 0);
     }
-    k_mem_paging_map_region((uint32_t)heap + heap_size, 0, size / 0x1000 + 1, 0x3, 0);
+    k_mem_paging_map_region((uint32_t)heap + heap_size, 0, (size) / 0x1000 + 1, 0x3, 0);
     mem_block_t* block = (mem_block_t*)((uint32_t)heap + heap_size);
     __k_mem_heap_init_block(block, size - sizeof(mem_block_t));
     heap_size += 0x1000;
@@ -92,18 +107,22 @@ void* k_mem_heap_alloc(uint32_t size){
 
     mem_block_t* block = heap;
     mem_block_t* last_valid_block = block;
-    while(M_IS_VALID_BLOCK(block) && (!(block->flags & M_BLOCK_FREE) 
+    while(__k_mem_heap_is_valid_block(block) && (!(block->flags & M_BLOCK_FREE) 
     || (block->size < size 
-    || (block->size > size && block->size < size + sizeof(mem_block_t))))){
-        if(!M_IS_VALID_BLOCK(block->next)){
+    || (block->size > size && block->size < size + sizeof(mem_block_t) + 1)))){
+        if(!__k_mem_heap_is_valid_block(block->next)){
             last_valid_block = block;
         }
         block = block->next;
     }
 
-    if(!M_IS_VALID_BLOCK(block)){
+    if(!__k_mem_heap_is_valid_block(block)){
+        if(!__k_mem_heap_is_valid_block(last_valid_block)){
+            __k_d_mem_heap_print_block(last_valid_block);
+            k_panic("Failed to find valid block. Kmalloc failure.", 0);
+        }
         last_valid_block->next = __k_mem_heap_increase(size + sizeof(mem_block_t));
-        if(!M_IS_VALID_BLOCK(last_valid_block->next)){
+        if(!__k_mem_heap_is_valid_block(last_valid_block->next)){
             k_panic("Out of memory. Kmalloc failure.", 0);
         }
         block = last_valid_block->next;
@@ -124,7 +143,7 @@ void* k_mem_heap_alloc(uint32_t size){
 
 void k_mem_heap_free(void* ptr){
     mem_block_t* header = M_HEADER(ptr);
-    if(!M_IS_VALID_BLOCK(header) || header->flags & M_BLOCK_FREE){
+    if(!__k_mem_heap_is_valid_block(header) || header->flags & M_BLOCK_FREE){
         return;
     }
     header->flags |= M_BLOCK_FREE;

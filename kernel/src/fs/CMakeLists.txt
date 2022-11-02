@@ -1,5 +1,6 @@
 set(SOURCES 
     vfs.c
+    tar.c
     ramdisk.c
 )
 

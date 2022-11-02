@@ -3,6 +3,7 @@ set(SOURCES
     asm_wrappers.c
     panic.c
     log.c
+    path.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

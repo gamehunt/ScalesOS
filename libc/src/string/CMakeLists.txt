@@ -7,6 +7,11 @@ set(SOURCES
     strtok.c
     strcmp.c
     strcat.c
+    strdup.c
+    strchr.c
+    strchrnul.c
+    strcspn.c
+    strncmp.c
 )
 
 target_sources(k PRIVATE ${SOURCES})

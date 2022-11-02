@@ -5,6 +5,6 @@
 #include "kernel.h"
 
 K_STATUS   k_fs_ramdisk_init();
-fs_node_t* k_fs_ramdisk_load(uint32_t addr, const char* mount_path);
+fs_node_t* k_fs_ramdisk_mount(uint32_t addr, uint32_t size);
 
 #endif
