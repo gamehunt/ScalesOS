@@ -1,4 +1,4 @@
-extern irq_dispatcher
+extern __k_int_irq_dispatcher
 
 %macro irq 1
 	[global _irq%1]
@@ -30,7 +30,7 @@ irq 15
 irq_stub:
     pushad
     cld
-    call irq_dispatcher
+    call __k_int_irq_dispatcher
     popad
     add esp, 8
     sti

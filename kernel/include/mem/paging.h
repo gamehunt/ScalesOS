@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 void k_mem_paging_init();
+uint32_t k_mem_paging_get_pd();
 void k_mem_paging_set_pd(uint32_t addr, uint8_t phys);
 uint32_t k_mem_paging_get_pd();
 uint32_t k_mem_paging_virt2phys(uint32_t vaddr);

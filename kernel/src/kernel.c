@@ -13,14 +13,17 @@
 #include <util/asm_wrappers.h>
 #include <util/log.h>
 #include <fs/vfs.h>
-
 #include "dev/pci.h"
 #include "dev/timer.h"
 #include "fs/tar.h"
+#include "int/syscall.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
+#include "proc/process.h"
+
+extern void jump_usermode();
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -33,6 +36,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_int_idt_init();
     k_int_isr_init();
     k_int_irq_init();
+    k_int_syscall_init();
 
     k_mem_pmm_init(mb);
     k_mem_paging_init();
@@ -53,22 +57,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_fs_vfs_mount("/", "/dev/ram0", "tar");
 
-    fs_node_t* dir = k_fs_vfs_open("./modules");
-
-    if(dir){
-        k_info("Contents: ");
-        uint32_t i = 0;
-        struct dirent* dent = k_fs_vfs_readdir(dir, i);
-        while(dent){
-            k_info("%s %d", dent->name, dent->ino);
-            i++;
-            dent = k_fs_vfs_readdir(dir, i);
-        }
-    }else{
-        k_info("Not found.");
-    }
-
-    k_fs_vfs_close(dir);
+    k_proc_process_init();
 
     while (1) {
         halt();

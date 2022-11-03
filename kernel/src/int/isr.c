@@ -79,7 +79,7 @@ static const char *panic_messages[] = {
 	"Reserved",
 	"Reserved"};
 
-void isr_dispatcher(interrupt_context_t ctx){
+void __k_int_isr_dispatcher(interrupt_context_t ctx){
     if(!isr_handlers[ctx.int_no]){
         char buffer[1024];
         sprintf(buffer, "Unhandled exception: %s (%d)", panic_messages[ctx.int_no], ctx.int_no);

@@ -66,4 +66,6 @@ void k_mem_gdt_init();
 
 extern void k_mem_load_gdt(uint32_t addr);
 
+void     k_mem_gdt_set_stack(uint32_t stack);
+
 #endif

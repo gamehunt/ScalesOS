@@ -34,6 +34,13 @@ ExternalProject_Add(
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_elf_toolchain.cmake
 )
 
+ExternalProject_Add(
+    userspace
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/user/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/user/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_elf_toolchain.cmake
+)
+
 add_custom_target(
     compiler_hints
     COMMAND bash ${SCRIPTS_FOLDER}/generate_compiler_hints.sh

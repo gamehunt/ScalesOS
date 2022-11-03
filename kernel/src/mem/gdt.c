@@ -32,3 +32,7 @@ void k_mem_gdt_init(){
 
     k_mem_load_gdt((uint32_t)&gp);
 }
+
+void k_mem_gdt_set_stack(uint32_t stack){
+	tss.esp0 = stack;
+}

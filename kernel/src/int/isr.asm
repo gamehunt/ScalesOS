@@ -1,4 +1,4 @@
-extern isr_dispatcher
+extern __k_int_isr_dispatcher
 
 %macro isr_noerr 1 
     [global _isr%1]
@@ -54,7 +54,7 @@ isr_noerr 31
 isr_stub:
     pushad
     cld
-    call isr_dispatcher
+    call __k_int_isr_dispatcher
     popad
     add esp, 8
     iret
