@@ -79,14 +79,14 @@ static const char *panic_messages[] = {
 	"Reserved",
 	"Reserved"};
 
-void __k_int_isr_dispatcher(interrupt_context_t ctx){
-    if(!isr_handlers[ctx.int_no]){
+interrupt_context_t* __k_int_isr_dispatcher(interrupt_context_t* ctx){
+    if(!isr_handlers[ctx->int_no]){
         char buffer[1024];
-        sprintf(buffer, "Unhandled exception: %s (%d)", panic_messages[ctx.int_no], ctx.int_no);
-        k_panic(buffer, &ctx);
-        halt();
+        sprintf(buffer, "Unhandled exception: %s (%d)", panic_messages[ctx->int_no], ctx->int_no);
+        k_panic(buffer, ctx);
+        __builtin_unreachable();
     }else{
-        isr_handlers[ctx.int_no](ctx);
+        return isr_handlers[ctx->int_no](ctx);
     }
 }
 

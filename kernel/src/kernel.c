@@ -23,8 +23,6 @@
 #include "mod/symtable.h"
 #include "proc/process.h"
 
-extern void jump_usermode();
-
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
 
@@ -58,7 +56,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_fs_vfs_mount("/", "/dev/ram0", "tar");
 
     k_proc_process_init();
-
+    
     while (1) {
         halt();
     }

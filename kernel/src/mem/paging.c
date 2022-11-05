@@ -1,4 +1,5 @@
 #include "int/isr.h"
+#include "mem/heap.h"
 #include "mem/pmm.h"
 #include "util/panic.h"
 #include <mem/paging.h>
@@ -21,10 +22,11 @@ extern void* _kernel_end;
 
 extern uint32_t k_mem_paging_get_fault_addr();
 
-void __pf_handler(interrupt_context_t ctx){
+interrupt_context_t* __pf_handler(interrupt_context_t* ctx){
     char buffer[1024];
     sprintf(buffer, "Page fault at 0x%.8x", k_mem_paging_get_fault_addr());
-    k_panic(buffer, &ctx);
+    k_panic(buffer, ctx);
+    __builtin_unreachable();
 }
 
 void k_mem_paging_init(){
@@ -91,4 +93,13 @@ void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uin
             k_mem_paging_map(vaddr + 0x1000 * i, paddr ? paddr + 0x1000 * i : k_mem_pmm_alloc_frames(1), flags);
         }
     }
+}
+
+uint32_t k_mem_paging_clone_pd(uint32_t pd){
+    uint8_t* src = (uint8_t*) pd;
+    uint8_t* copy = k_valloc(0x1000, 0x1000);
+
+    memcpy(copy, src, 0x1000);
+
+    return (uint32_t) copy;
 }

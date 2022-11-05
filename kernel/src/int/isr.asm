@@ -54,7 +54,11 @@ isr_noerr 31
 isr_stub:
     pushad
     cld
+    mov edi, esp
+    push edi
     call __k_int_isr_dispatcher
+    pop edi
+    mov esp, eax
     popad
     add esp, 8
     iret

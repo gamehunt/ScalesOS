@@ -162,3 +162,14 @@ void*    k_mem_heap_realloc(void* old, uint32_t size){
     k_free(old);
     return new_ptr;
 }
+
+void* k_mem_heap_calloc(uint32_t size, uint8_t fill_value){
+    uint8_t* mem = (uint8_t*) k_malloc(size);
+    memset(mem, fill_value, size);
+    return (void*) mem;
+}
+
+//TODO
+void* k_mem_heap_valloc(uint32_t size, uint32_t alignment){
+    return 0;
+}

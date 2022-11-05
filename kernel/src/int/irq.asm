@@ -30,7 +30,11 @@ irq 15
 irq_stub:
     pushad
     cld
+    mov edi, esp
+    push edi
     call __k_int_irq_dispatcher
+    pop edi
+    mov esp, eax
     popad
     add esp, 8
     sti

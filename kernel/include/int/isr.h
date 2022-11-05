@@ -4,12 +4,12 @@
 #include <stdint.h>
 
 typedef struct interrupt_context {
-    uint32_t esi, edi, ebp, esp;
-    uint32_t ebx, edx, ecx, eax;
-    uint8_t int_no, err_code;
+    uint32_t edi, esi, ebp, unused, ebx, edx, ecx, eax;
+    uint32_t int_no, err_code;
+    uint32_t eip, cs, eflags, esp, ss;
 } interrupt_context_t;
 
-typedef void (*isr_handler_t)(interrupt_context_t);
+typedef interrupt_context_t* (*isr_handler_t)(interrupt_context_t*);
 
 void k_int_isr_init();
 

@@ -1,4 +1,5 @@
 set(SOURCES 
+    process.asm
     process.c
 )
 

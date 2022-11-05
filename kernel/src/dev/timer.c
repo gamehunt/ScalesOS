@@ -3,7 +3,6 @@
 #include "int/pic.h"
 #include "kernel.h"
 #include "util/asm_wrappers.h"
-#include "shared.h"
 #include <dev/timer.h>
 #include <mem/heap.h>
 
@@ -12,14 +11,15 @@ volatile uint32_t counter = 0;
 static timer_callback_t* callbacks;
 static uint32_t callback_count;
 
-static void __irq0_handler(interrupt_context_t registers){
+static interrupt_context_t* __irq0_handler(interrupt_context_t* registers){
     if(counter){
         counter--;
     }
     for(uint32_t i = 0; i < callback_count; i++){
-        callbacks[i](&registers);
+        callbacks[i](registers);
     }
     k_int_pic_eoi(0);
+    return registers;
 }
 
 void k_dev_timer_add_callback(timer_callback_t callback){

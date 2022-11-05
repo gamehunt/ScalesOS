@@ -1,5 +1,7 @@
 set(SOURCES 
     udivmoddi4.c
+    udivdi3.c
+    umoddi3.c
 )
 
 target_sources(k PRIVATE ${SOURCES})

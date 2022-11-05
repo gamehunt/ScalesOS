@@ -71,6 +71,7 @@ higher_half_stub:
     push ebx
     push eax
  
+    xor   ebp, ebp
     call  kernel_main                  ; call kernel proper
 
     cli

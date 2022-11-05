@@ -9,7 +9,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 add_library(k STATIC)
 #add_library(c STATIC)
 
-target_compile_options(k PRIVATE -ffreestanding -O2 -Wall -Wextra)
+target_compile_options(k PRIVATE -ffreestanding -O0 -Wall -Wextra -mno-red-zone)
 
 add_subdirectory(src)
 

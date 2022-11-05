@@ -33,3 +33,20 @@ void* k_mod_symtable_get_symbol(const char* name){
     }
     return 0;
 }
+
+sym_t*   k_mod_symtable_get_nearest_symbol(uint32_t addr){
+    uint32_t difference = 0xFFFFFFFF;
+    sym_t* result = 0;
+
+    for(uint32_t i = 0; i < sym_count; i++){
+        if(symbols[i]->addr > addr){
+            continue;
+        }
+        if(addr - symbols[i]->addr < difference){
+            difference = addr - symbols[i]->addr;
+            result = symbols[i];
+        }
+    }
+
+    return result;
+}

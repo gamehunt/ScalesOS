@@ -2,17 +2,21 @@
 #define __K_PROC_PROCESS_H
 
 #include <stdint.h>
-#include "int/isr.h"
+
+typedef struct context {
+    uint32_t esp;            // +0
+    uint32_t ebp;            // +4
+    uint32_t eip;            // +8
+    uint32_t page_directory; // +12
+}context_t;
 
 typedef struct process {
-    char name[256];
-    interrupt_context_t context;
-    uint32_t page_directory;
-    uint32_t kernel_stack;
+    char      name[256];
+    uint32_t  pid;
+    context_t context;
 } process_t;
 
-void k_proc_process_setup_context(process_t* process, interrupt_context_t* ctx);
-void k_proc_process_save_context(process_t* process, interrupt_context_t ctx);
+void k_proc_process_yield();
 void k_proc_process_init();
 
 #endif

@@ -53,11 +53,12 @@ void k_int_irq_setup_handler(uint8_t int_no, irq_handler_t handler){
     irq_handlers[int_no] = handler;
 }
 
-void __k_int_irq_dispatcher(interrupt_context_t ctx){
-    uint8_t irq = ctx.int_no;
+interrupt_context_t* __k_int_irq_dispatcher(interrupt_context_t* ctx){
+    uint8_t irq = ctx->int_no;
     if(irq_handlers[irq]){
-        irq_handlers[irq](ctx);
+        return irq_handlers[irq](ctx);
     }else{
         k_int_pic_eoi(irq);
+        return ctx;
     }
 }
