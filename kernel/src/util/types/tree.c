@@ -3,7 +3,7 @@
 #include <util/types/tree.h>
 
 tree_t* tree_create() {
-    return k_calloc(sizeof(tree_t), 0);
+    return k_calloc(1, sizeof(tree_t));
 }
 
 void tree_set_root(tree_t* tree, tree_node_t* node) {
@@ -12,7 +12,7 @@ void tree_set_root(tree_t* tree, tree_node_t* node) {
 }
 
 tree_node_t* tree_create_node(void* value) {
-    tree_node_t* tree_node = k_calloc(sizeof(tree_node_t), 0);
+    tree_node_t* tree_node = k_calloc(1, sizeof(tree_node_t));
     tree_node->value = value;
     return tree_node;
 }

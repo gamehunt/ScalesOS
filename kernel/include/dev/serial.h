@@ -9,6 +9,7 @@ K_STATUS k_dev_serial_init();
 uint8_t k_dev_serial_received();
 char k_dev_serial_read();
 uint8_t k_dev_serial_is_transmit_empty();
-void k_dev_serial_write(char a);
+void k_dev_serial_putchar(char a);
+void k_dev_serial_write(char* buff, uint32_t size);
 
 #endif

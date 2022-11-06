@@ -1,6 +1,8 @@
 #include <dev/fb.h>
 #include <mem/heap.h>
 #include <string.h>
+#include "dev/console.h"
+#include "fs/vfs.h"
 #include "kernel.h"
 #include "mem/paging.h"
 #include "multiboot.h"
@@ -84,6 +86,12 @@ static K_STATUS __k_dev_fb_psf_init()
     }*/
 
     return K_STATUS_OK;
+}
+
+void  k_dev_fb_write(char* buff, uint32_t size){
+    for(uint32_t i = 0; i < size; i++){
+        k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
+    }
 }
 
 K_STATUS k_dev_fb_init(multiboot_info_t* mb){
@@ -180,7 +188,7 @@ static void __k_dev_fb_draw_char(uint16_t c, uint32_t cx, uint32_t cy, uint32_t 
     }
 }
 
-void     k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg){
+void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg){
     if(c == '\n'){
         __k_dev_fb_scroll();
     }

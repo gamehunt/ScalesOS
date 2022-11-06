@@ -36,7 +36,7 @@ uint8_t  k_dev_serial_is_transmit_empty(){
     return inb(PORT + 5) & 0x20;
 }
 
-void     k_dev_serial_write(char a){
+void     k_dev_serial_putchar(char a){
    while (!k_dev_serial_is_transmit_empty());
    outb(PORT,a);
 }

@@ -18,7 +18,7 @@
 
 K_STATUS k_mem_heap_init();
 void*    k_mem_heap_alloc(uint32_t size);
-void*    k_mem_heap_calloc(uint32_t size, uint8_t fill_value);
+void*    k_mem_heap_calloc(uint32_t amount, uint32_t size);
 void*    k_mem_heap_valloc(uint32_t size, uint32_t alignment);
 void*    k_mem_heap_realloc(void* old, uint32_t size);
 void     k_mem_heap_free(void* mem);

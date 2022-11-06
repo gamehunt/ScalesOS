@@ -48,7 +48,7 @@ static void __k_proc_process_create_idle(){
 
     strcpy(proc->name, "[kidle]");
 
-    proc->context.esp = ((uint32_t) k_calloc(STACK_SIZE, 0)) + STACK_SIZE;
+    proc->context.esp = ((uint32_t) k_calloc(1, STACK_SIZE)) + STACK_SIZE;
     proc->context.ebp = proc->context.esp;
     proc->context.eip = (uint32_t) &__k_proc_process_idle;         
     proc->context.page_directory = k_mem_paging_get_pd(0);

@@ -4,6 +4,10 @@
 #include "kernel.h"
 #include "multiboot.h"
 
+/*
+    TODO: Move color logic here and parse colors in putchar
+*/
+
 typedef struct fb_info{
     uint8_t  type;
     uint32_t width;
@@ -18,6 +22,7 @@ uint8_t     k_dev_fb_available();
 fb_info_t   k_dev_fb_get_info();
 
 void        k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg);
+void        k_dev_fb_write(char* buff, uint32_t size);
 void        k_dev_fb_putpixel(uint32_t color, uint32_t x, uint32_t y);
 
 #endif

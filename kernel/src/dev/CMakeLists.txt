@@ -5,6 +5,7 @@ set(SOURCES
     timer.c
     speaker.c
     fb.c
+    console.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

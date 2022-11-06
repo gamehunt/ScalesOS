@@ -12,9 +12,9 @@ typedef struct{
     mount_callback mnt;
 }fs_descriptor_t;
 
-static tree_t*           vfs_tree;
-static fs_descriptor_t*  filesystems;
-uint32_t                 fs_count = 0;
+static tree_t*           vfs_tree    = 0;
+static fs_descriptor_t*  filesystems = 0;
+uint32_t                 fs_count    = 0;
 
 static vfs_entry_t* __k_fs_vfs_root_entry(){
     return ((vfs_entry_t*)vfs_tree->root->value);
@@ -119,13 +119,13 @@ K_STATUS k_fs_vfs_init(){
 }
 
 vfs_entry_t* k_fs_vfs_create_entry(const char* name){
-    vfs_entry_t* e = k_calloc(sizeof(vfs_entry_t), 0);
+    vfs_entry_t* e = k_calloc(1, sizeof(vfs_entry_t));
     strcpy(e->name, name);
     return e;
 }
 
 fs_node_t* k_fs_vfs_create_node(const char* name){
-    fs_node_t* node = k_calloc(sizeof(fs_node_t), 0);
+    fs_node_t* node = k_calloc(1, sizeof(fs_node_t));
     strcpy(node->name, name);
     return node;
 }
@@ -146,6 +146,10 @@ uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint
 }
 
 fs_node_t*  k_fs_vfs_open(const char* path){
+    if(!vfs_tree){
+        return 0;
+    }
+
     fs_node_t* node = __k_fs_vfs_find_node(path);
     if(node && node->fs.open){
         node->fs.open(node);
@@ -179,6 +183,10 @@ fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
 }
 
 K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
+    if(!vfs_tree){
+        return 0;
+    }
+
     vfs_entry_t* mountpoint = __k_fs_vfs_get_entry(path, 1);
     if(mountpoint){
         mountpoint->node = fsroot;
@@ -208,7 +216,7 @@ void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){
     prefix[depth*2 - 1] = '>';
     prefix[depth*2] = '\0';
     sprintf(buffer, "%s%s", prefix, entry->name);
-    k_info(buffer);
+    k_debug(buffer);
 }
 
 void __k_d_fs_vfs_print_node(tree_node_t* node, uint8_t depth){

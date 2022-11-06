@@ -13,6 +13,7 @@
 #include <util/asm_wrappers.h>
 #include <util/log.h>
 #include <fs/vfs.h>
+#include "dev/console.h"
 #include "dev/fb.h"
 #include "dev/pci.h"
 #include "dev/timer.h"
@@ -23,6 +24,8 @@
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
+
+extern void _libk_set_print_callback(void*);
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -41,36 +44,26 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_paging_init();
     k_mem_heap_init();
 
-    K_STATUS s = k_dev_fb_init(mb);
-    k_util_log_disable_log_saving();
+    k_fs_vfs_init();
+    k_fs_vfs_create_entry("/dev");
+    k_dev_console_init();
 
-    uint32_t fg, bg;
-    k_util_log_get_colors(&fg, &bg);
-
-    if(IS_OK(s)){ // Print all logs from serial to framebuffer
-        log_entry_t buffer[128];
-        uint32_t size = k_util_log_get_logs(buffer);
-        for(uint32_t i = 0; i < size; i++){
-            for(uint32_t j = 0; j < strlen(buffer[i].text); j++){
-                k_dev_fb_putchar(buffer[i].text[j], buffer[i].fg, buffer[i].bg);
-            }
-        }
-    }
+    k_dev_fb_init(mb);
+    _libk_set_print_callback(k_dev_fb_write);
+    k_dev_console_set_source(k_dev_fb_write);
 
     k_dev_pci_init();
 
     k_dev_pit_init();
     k_dev_timer_init();
-
-    k_fs_vfs_init();
     k_fs_tar_init();
-
-    k_fs_vfs_create_entry("/dev");
 
     k_mod_symtable_init();
     k_mod_load_modules(mb);
 
     k_fs_vfs_mount("/", "/dev/ram0", "tar");
+
+    k_d_fs_vfs_print();
 
     k_proc_process_init();
     
