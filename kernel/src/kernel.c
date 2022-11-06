@@ -13,6 +13,7 @@
 #include <util/asm_wrappers.h>
 #include <util/log.h>
 #include <fs/vfs.h>
+#include "dev/fb.h"
 #include "dev/pci.h"
 #include "dev/timer.h"
 #include "fs/tar.h"
@@ -39,6 +40,20 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_pmm_init(mb);
     k_mem_paging_init();
     k_mem_heap_init();
+
+    K_STATUS s = k_dev_fb_init(mb);
+    k_disable_log_saving();
+
+    if(IS_OK(s)){
+        char* buffer[128];
+        uint32_t size = k_get_logs(buffer);
+        for(uint32_t i = 0; i < size; i++){
+            for(uint32_t j = 0; j < strlen(buffer[i]); j++){
+                k_dev_fb_putchar(buffer[i][j], 0xFFFFFFFF, 0x00000000);
+                k_free(buffer[i]);
+            }
+        }
+    }
 
     k_dev_pci_init();
 

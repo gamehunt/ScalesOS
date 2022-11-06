@@ -8,4 +8,6 @@ void k_warn(const char* format, ...);
 void k_err(const char* format, ...);
 void k_debug(const char* format, ...);
 
+uint32_t k_get_logs(char** buffer);
+void     k_disable_log_saving();
 #endif
