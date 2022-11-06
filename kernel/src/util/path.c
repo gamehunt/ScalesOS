@@ -7,8 +7,8 @@ char* k_util_path_canonize(const char* p){
     char* path = strdup(p);
     uint32_t len = strlen(path);
     if(path[0] == '/'){
-       path++;
-       len--;
+        memmove(path, path + 1, len);
+        len--;
     }
     if(path[len - 1] == '/'){
         path[len - 1] = '\0';

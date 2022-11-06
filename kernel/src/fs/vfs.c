@@ -64,11 +64,9 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
 
 static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
     tree_node_t* cur_node  = vfs_tree->root;
-    char buffer[0x1000];
-    memset(buffer, 0, 0x1000);
-    strcpy(buffer, path);
-    char* part = strtok(buffer, "/");
-    while(part){
+    uint32_t len = k_util_path_length(path);
+    for(uint32_t i = 0; i < len; i++){
+        char* part = k_util_path_segment(path, i);
         uint8_t f = 0;
         for(uint32_t i = 0; i < cur_node->child_count; i++){
             vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[i]->value;
@@ -80,6 +78,7 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
         }
         if(!f){
             if(!create){
+                k_free(part);
                 return 0;
             }
             vfs_entry_t* new_entry = k_fs_vfs_create_entry(part);
@@ -87,7 +86,7 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
             tree_insert_node(vfs_tree, node, cur_node);
             cur_node = node;
         }
-        part = strtok(0, "/");
+        k_free(part);
     }
     return cur_node->value;
 }
@@ -120,19 +119,14 @@ K_STATUS k_fs_vfs_init(){
 }
 
 vfs_entry_t* k_fs_vfs_create_entry(const char* name){
-    vfs_entry_t* e = k_malloc(sizeof(vfs_entry_t));
-    memset(e, 0, sizeof(vfs_entry_t));
+    vfs_entry_t* e = k_calloc(sizeof(vfs_entry_t), 0);
     strcpy(e->name, name);
     return e;
 }
 
 fs_node_t* k_fs_vfs_create_node(const char* name){
-    fs_node_t* node = k_malloc(sizeof(fs_node_t));
+    fs_node_t* node = k_calloc(sizeof(fs_node_t), 0);
     strcpy(node->name, name);
-    node->inode = 0;
-    node->flags = 0;
-    memset(&node->fs, 0, sizeof(node->fs));
-    node->size  = 0;
     return node;
 }
 

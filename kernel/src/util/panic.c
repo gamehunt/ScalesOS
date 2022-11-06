@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <util/asm_wrappers.h>
 #include <util/panic.h>
-#include "mem/paging.h"
 #include "mod/symtable.h"
 
 struct stackframe {
@@ -9,13 +8,15 @@ struct stackframe {
   uint32_t eip;
 };
 
+extern void* _kernel_end;
+
 static void __k_panic_stacktrace(uint32_t stack){
     struct stackframe* frame = (struct stackframe*) stack;
     uint8_t depth = 0;
-    while(frame && k_mem_paging_virt2phys((uint32_t) frame)){
+    while(frame){
         uint32_t eip = frame->eip;
         sym_t* sym = k_mod_symtable_get_nearest_symbol(eip);
-        if(sym && k_mem_paging_virt2phys((uint32_t) sym)){
+        if(sym){
             printf("%d: <%s + 0x%x> \r\n", depth, sym->name, eip - sym->addr);
         }
         frame = frame->ebp;

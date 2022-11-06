@@ -8,7 +8,7 @@
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 
-#define  STACK_SIZE 0x1000
+#define  STACK_SIZE MB(1)
 
 static process_t** processes;
 static uint32_t    total_processes;
@@ -19,16 +19,14 @@ static void __k_proc_process_scheduler_callback(interrupt_context_t* ctx UNUSED)
 }
 
 static void __k_proc_process_idle(){
-    k_info("IDLE");
     while(1) {
-        //k_proc_process_yield();
-        k_d_mem_heap_print();
+        k_proc_process_yield();
         halt();
     }
 }
 
 void k_proc_process_spawn(process_t* proc){
-    EXTEND(processes, total_processes, sizeof(process_t));
+    EXTEND(processes, total_processes, sizeof(process_t*));
     proc->pid = total_processes;
     processes[total_processes - 1] = proc;
 }
@@ -41,7 +39,7 @@ static void __k_proc_process_create_init(){
     proc->context.esp = 0;
     proc->context.ebp = 0;
     proc->context.eip = 0;  
-    proc->context.page_directory = k_mem_paging_get_pd();
+    proc->context.page_directory = k_mem_paging_get_pd(0);
 
     k_proc_process_spawn(proc);
 }
@@ -54,7 +52,7 @@ static void __k_proc_process_create_idle(){
     proc->context.esp = ((uint32_t) k_calloc(STACK_SIZE, 0)) + STACK_SIZE;
     proc->context.ebp = proc->context.esp;
     proc->context.eip = (uint32_t) &__k_proc_process_idle;         
-    proc->context.page_directory = k_mem_paging_get_pd();
+    proc->context.page_directory = k_mem_paging_get_pd(0);
 
     k_proc_process_spawn(proc);
 }
@@ -62,18 +60,19 @@ static void __k_proc_process_create_idle(){
 void k_proc_process_init(){
     cli();
 
+    k_d_mem_heap_print();
+    k_debug("");
+
     total_processes = 0;
     current_process = 0;
 
     k_dev_timer_add_callback(__k_proc_process_scheduler_callback);
 
-    k_d_mem_heap_print();
-
     __k_proc_process_create_init();
     __k_proc_process_create_idle();
 
-    k_info("");
     k_d_mem_heap_print();
+
     sti();
 }
 
@@ -95,10 +94,13 @@ void k_proc_process_yield(){
     process_t* old_proc = processes[prev_process];
     process_t* new_proc = processes[current_process];
 
-    k_debug("Switching from [%d] %s to [%d] %s", old_proc->pid, 
+    /*k_debug("Switching from [%d] %s to [%d] %s", old_proc->pid, 
                                                  old_proc->name,
                                                  new_proc->pid, 
                                                  new_proc->name);
+
+    k_info("Stack occupied in %s: %d", old_proc->name, old_proc->context.ebp - old_proc->context.esp);
+    k_info("Stack occupied in %s: %d", new_proc->name, new_proc->context.ebp - new_proc->context.esp);*/
 
     if(old_proc->pid != 2){ // No need in saving idle task context
         if(__k_proc_process_save(&old_proc->context)){

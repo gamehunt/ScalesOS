@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "fs/vfs.h"
+#include "mem/heap.h"
 #include "util/log.h"
 
 static uint32_t num = 0;
@@ -15,9 +16,6 @@ static uint32_t  __k_fs_ramdisk_read(fs_node_t* node, uint32_t offset, uint32_t 
 fs_node_t* k_fs_ramdisk_mount(uint32_t addr, uint32_t size){
     char path[0x1000];
     char name[0xFF];
-
-    memset(path, 0, 0x1000);
-    memset(name, 0, 0xFF);
 
     sprintf(name, "ram%d", num);
     sprintf(path, "/dev/%s", name);

@@ -1,6 +1,7 @@
 #include "int/isr.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
@@ -16,7 +17,7 @@
 
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
 
-uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
+uint32_t* page_directory = 0;
 
 extern void* _kernel_end;
 
@@ -31,9 +32,9 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx){
 
 void k_mem_paging_init(){
     k_int_isr_setup_handler(14, __pf_handler);
-    uint32_t* pd  = (uint32_t*) (k_mem_paging_get_pd() + VIRTUAL_BASE); // create recursive mapping manually
-    uint32_t phys = (uint32_t)&pd[1023] - VIRTUAL_BASE; 
-    pd[1023] = (phys & 0xfffff000) | 3; 
+    page_directory  = (uint32_t*) (k_mem_paging_get_pd(1) + VIRTUAL_BASE); // create recursive mapping manually
+    uint32_t phys = (uint32_t)&page_directory[1023] - VIRTUAL_BASE; 
+    page_directory[1023] = (phys & 0xfffff000) | 3; 
 }
 
 uint32_t  k_mem_paging_virt2phys(uint32_t vaddr){
@@ -54,9 +55,26 @@ uint32_t  k_mem_paging_virt2phys(uint32_t vaddr){
     }
 }
 
-void k_mem_paging_set_pd(uint32_t addr, uint8_t phys){
+extern uint32_t __k_mem_paging_get_pd_phys();
+uint32_t k_mem_paging_get_pd(uint8_t p){
+    if(p){
+        return __k_mem_paging_get_pd_phys();
+    }
+    return (uint32_t) page_directory;
+}
+
+void k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force){
+    if(!force){
+        uint32_t current = k_mem_paging_get_pd(phys);
+        if(addr == current){
+            return;
+        }
+    }
     if(!phys){
+        page_directory = (uint32_t*) addr;
         addr = k_mem_paging_virt2phys(addr);
+    }else{
+        page_directory = (uint32_t*) 0xFFFFF000;
     }
     asm volatile("mov %0, %%cr3" :: "r"(addr));
 }

@@ -3,11 +3,7 @@
 #include <util/types/tree.h>
 
 tree_t* tree_create() {
-    tree_t* tree = k_malloc(sizeof(tree_t));
-    tree->node_count = 0;
-    tree->nodes = 0;
-    tree->root = 0;
-    return tree;
+    return k_calloc(sizeof(tree_t), 0);
 }
 
 void tree_set_root(tree_t* tree, tree_node_t* node) {
@@ -16,12 +12,8 @@ void tree_set_root(tree_t* tree, tree_node_t* node) {
 }
 
 tree_node_t* tree_create_node(void* value) {
-    tree_node_t* tree_node = k_malloc(sizeof(tree_node_t));
+    tree_node_t* tree_node = k_calloc(sizeof(tree_node_t), 0);
     tree_node->value = value;
-    tree_node->child_count = 0;
-    tree_node->childs = 0;
-    tree_node->parent = 0;
-    tree_node->tree   = 0;
     return tree_node;
 }
 
@@ -42,12 +34,12 @@ void tree_insert_node(tree_t* tree, tree_node_t* node, tree_node_t* parent) {
     if (tree_contains_node(tree, node)) {
         return;
     }
-    EXTEND(tree->nodes, tree->node_count, sizeof(tree_node_t))
+    EXTEND(tree->nodes, tree->node_count, sizeof(tree_node_t*))
     tree->nodes[tree->node_count - 1] = node;
     node->tree = tree;
     if (parent) {
         node->parent = parent;
-        EXTEND(parent->childs, parent->child_count, sizeof(tree_node_t))
+        EXTEND(parent->childs, parent->child_count, sizeof(tree_node_t*))
         parent->childs[parent->child_count - 1] = node;
     }
 }

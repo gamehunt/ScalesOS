@@ -169,7 +169,13 @@ void* k_mem_heap_calloc(uint32_t size, uint8_t fill_value){
     return (void*) mem;
 }
 
-//TODO
+void  k_mem_heap_vfree(void* mem){
+    k_free(((void**)mem)[-1]);
+}
+
 void* k_mem_heap_valloc(uint32_t size, uint32_t alignment){
-    return 0;
+    void *mem = k_malloc(size + (alignment-1) + sizeof(void*));
+    void *ptr = (void*) (((uint32_t)mem + sizeof(void*) + (alignment-1)) & ~(size_t)0x0F);
+    ((void**)ptr)[-1] = mem;
+    return ptr;
 }
