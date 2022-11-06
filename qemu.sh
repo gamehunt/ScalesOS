@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-[ ! -d sysroot ] || sudo -u root rm -rf sysroot
+# [ ! -d sysroot ] || sudo -u root rm -rf sysroot
 [ ! -d build ]   || sudo -u root rm -rf build
 
 cd scripts

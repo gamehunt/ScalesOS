@@ -5,8 +5,8 @@
 
 #include <stddef.h>
 
-char buffered[65535];
-uint16_t buff_idx = 0;
+static char buffered[65535];
+static uint16_t buff_idx = 0;
 
 static void (*print_callback)(char* a, uint32_t size) = 0;
 

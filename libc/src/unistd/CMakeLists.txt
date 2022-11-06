@@ -1,6 +1,7 @@
 set(SOURCES 
-    printf.c
+    fork.c
+    getpid.c
+    exec.c
 )
 
-target_sources(k PRIVATE ${SOURCES})
 target_sources(c PRIVATE ${SOURCES})

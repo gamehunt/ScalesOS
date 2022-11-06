@@ -1,0 +1,164 @@
+diff --git a/bfd/config.bfd b/bfd/config.bfd
+index 0bc27fdce97..fd251247245 100644
+--- a/bfd/config.bfd
++++ b/bfd/config.bfd
+@@ -1265,6 +1265,19 @@ case "${targ}" in
+     ;;
+ #endif /* BFD64 */
+ 
++  i[3-7]86-*-scales*)
++    targ_defvec=i386_elf32_vec
++    targ_selvecs=
++    targ64_selvecs=x86_64_elf64_vec
++    ;;
++#ifdef BFD64
++  x86_64-*-scales*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs=i386_elf32_vec
++    want64=true
++    ;;
++#endif /* BFD64 */
++
+   sh*eb-*-linux*)
+     targ_defvec=sh_elf32_linux_be_vec
+     targ_selvecs=sh_elf32_linux_vec
+diff --git a/config.sub b/config.sub
+index dba16e84c77..d510b8c331e 100755
+--- a/config.sub
++++ b/config.sub
+@@ -1754,7 +1754,7 @@ case $os in
+ 	     | onefs* | tirtos* | phoenix* | fuchsia* | redox* | bme* \
+ 	     | midnightbsd* | amdhsa* | unleashed* | emscripten* | wasi* \
+ 	     | nsk* | powerunix* | genode* | zvmoe* | qnx* | emx* | zephyr* \
+-	     | fiwix* )
++	     | fiwix* | scales* )
+ 		;;
+ 	# This one is extra strict with allowed versions
+ 	sco3.2v2 | sco3.2v[4-9]* | sco5v6*)
+diff --git a/gas/configure.tgt b/gas/configure.tgt
+index 82f2d44f418..25bb3756f09 100644
+--- a/gas/configure.tgt
++++ b/gas/configure.tgt
+@@ -240,6 +240,7 @@ case ${generic_target} in
+     esac ;;
+   i386-*-lynxos*)			fmt=elf em=lynx ;;
+   i386-*-redox*)			fmt=elf ;;
++  i386-*-scales*)     fmt=elf em=gnu ;;
+   i386-*-solaris*)			fmt=elf em=solaris ;;
+   i386-*-freebsd* \
+   | i386-*-kfreebsd*-gnu)		fmt=elf em=freebsd ;;
+diff --git a/ld/Makefile.am b/ld/Makefile.am
+index 66e9094e86a..5a8d2e374e8 100644
+--- a/ld/Makefile.am
++++ b/ld/Makefile.am
+@@ -279,6 +279,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_haiku.c \
+ 	eelf_i386_ldso.c \
++	eelf_i386_scales.c \
+ 	eelf_i386_sol2.c \
+ 	eelf_i386_vxworks.c \
+ 	eelf_iamcu.c \
+@@ -457,6 +458,7 @@ ALL_64_EMULATION_SOURCES = \
+ 	eelf_x86_64_cloudabi.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_haiku.c \
++	eelf_x86_64_scales.c \
+ 	eelf_x86_64_sol2.c \
+ 	ehppa64linux.c \
+ 	ei386pep.c \
+@@ -773,6 +775,7 @@ $(ALL_EMULATION_SOURCES) $(ALL_64_EMULATION_SOURCES): $(GEN_DEPENDS)
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_fbsd.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_haiku.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_ldso.Pc@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_scales.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_sol2.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_vxworks.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_iamcu.Pc@am__quote@
+@@ -948,6 +951,7 @@ $(ALL_EMULATION_SOURCES) $(ALL_64_EMULATION_SOURCES): $(GEN_DEPENDS)
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_cloudabi.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_fbsd.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_haiku.Pc@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_scales.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_sol2.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ehppa64linux.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ei386pep.Pc@am__quote@
+diff --git a/ld/Makefile.in b/ld/Makefile.in
+index 5e4787f89b4..531ee4832f2 100644
+--- a/ld/Makefile.in
++++ b/ld/Makefile.in
+@@ -779,6 +779,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_haiku.c \
+ 	eelf_i386_ldso.c \
++	eelf_i386_scales.c \
+ 	eelf_i386_sol2.c \
+ 	eelf_i386_vxworks.c \
+ 	eelf_iamcu.c \
+@@ -956,6 +957,7 @@ ALL_64_EMULATION_SOURCES = \
+ 	eelf_x86_64_cloudabi.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_haiku.c \
++	eelf_x86_64_scales.c \
+ 	eelf_x86_64_sol2.c \
+ 	ehppa64linux.c \
+ 	ei386pep.c \
+@@ -1454,6 +1456,7 @@ distclean-compile:
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_fbsd.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_haiku.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_ldso.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_scales.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_sol2.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_vxworks.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_iamcu.Po@am__quote@
+@@ -1463,6 +1466,7 @@ distclean-compile:
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_cloudabi.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_fbsd.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_haiku.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_scales.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_sol2.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eh8300elf.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eh8300elf_linux.Po@am__quote@
+@@ -2446,6 +2450,7 @@ $(ALL_EMULATION_SOURCES) $(ALL_64_EMULATION_SOURCES): $(GEN_DEPENDS)
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_fbsd.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_haiku.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_ldso.Pc@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_scales.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_sol2.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_i386_vxworks.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_iamcu.Pc@am__quote@
+@@ -2621,6 +2626,7 @@ $(ALL_EMULATION_SOURCES) $(ALL_64_EMULATION_SOURCES): $(GEN_DEPENDS)
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_cloudabi.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_fbsd.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_haiku.Pc@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_scales.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eelf_x86_64_sol2.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ehppa64linux.Pc@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ei386pep.Pc@am__quote@
+diff --git a/ld/configure.tgt b/ld/configure.tgt
+index 741b246f67e..ff3aec7edf7 100644
+--- a/ld/configure.tgt
++++ b/ld/configure.tgt
+@@ -374,6 +374,11 @@ i[3-7]86-*-linux-*)	targ_emul=elf_i386
+ i[3-7]86-*-redox*)	targ_emul=elf_i386
+ 			targ_extra_emuls=elf_x86_64
+ 			;;
++i[3-7]86-*-scales*)
++			targ_emul=elf_i386_scales
++			targ_extra_emuls=elf_i386
++			targ64_extra_emuls="elf_x86_64_scales elf_x86_64"
++			;;			
+ i[3-7]86-*-sysv[45]*)	targ_emul=elf_i386
+ 			targ_extra_emuls=elf_iamcu
+ 			;;
+@@ -1012,6 +1017,10 @@ x86_64-*-linux-*)	targ_emul=elf_x86_64
+ x86_64-*-redox*)	targ_emul=elf_x86_64
+ 			targ_extra_emuls=elf_i386
+ 			;;
++x86_64-*-scales*)
++			targ_emul=elf_x86_64_scales
++			targ_extra_emuls="elf_i386_scales elf_x86_64 elf_i386"
++			;;
+ x86_64-*-solaris2*)	targ_emul=elf_x86_64_sol2
+ 			targ_extra_emuls="elf_x86_64 elf_i386_sol2 elf_i386_ldso elf_i386 elf_iamcu"
+ 			targ_extra_libpath=$targ_extra_emuls

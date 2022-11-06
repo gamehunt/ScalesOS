@@ -3,8 +3,12 @@ sysroot/
 env/
 *.bin
 *.img
+*.o
 scripts/crosscompiler/binutils*
 scripts/crosscompiler/gcc*
 .vs/
 .cache/
 .clangd
+toolchain/gcc/
+toolchain/binutils-gdb/
+toolchain/*-build/

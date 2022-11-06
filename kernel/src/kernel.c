@@ -62,9 +62,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_load_modules(mb);
 
     k_fs_vfs_mount("/", "/dev/ram0", "tar");
-
-    k_d_fs_vfs_print();
-
+    
     k_proc_process_init();
     
     while (1) {
