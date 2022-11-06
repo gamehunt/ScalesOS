@@ -42,15 +42,17 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_heap_init();
 
     K_STATUS s = k_dev_fb_init(mb);
-    k_disable_log_saving();
+    k_util_log_disable_log_saving();
 
-    if(IS_OK(s)){
-        char* buffer[128];
-        uint32_t size = k_get_logs(buffer);
+    uint32_t fg, bg;
+    k_util_log_get_colors(&fg, &bg);
+
+    if(IS_OK(s)){ // Print all logs from serial to framebuffer
+        log_entry_t buffer[128];
+        uint32_t size = k_util_log_get_logs(buffer);
         for(uint32_t i = 0; i < size; i++){
-            for(uint32_t j = 0; j < strlen(buffer[i]); j++){
-                k_dev_fb_putchar(buffer[i][j], 0xFFFFFFFF, 0x00000000);
-                k_free(buffer[i]);
+            for(uint32_t j = 0; j < strlen(buffer[i].text); j++){
+                k_dev_fb_putchar(buffer[i].text[j], buffer[i].fg, buffer[i].bg);
             }
         }
     }

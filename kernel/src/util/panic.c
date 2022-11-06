@@ -2,6 +2,7 @@
 #include <util/asm_wrappers.h>
 #include <util/panic.h>
 #include "mod/symtable.h"
+#include "util/log.h"
 
 struct stackframe {
   struct stackframe* ebp;
@@ -25,6 +26,7 @@ static void __k_panic_stacktrace(uint32_t stack){
 }
 
 void k_panic(const char* reason, interrupt_context_t* ctx) {
+    k_util_log_set_colors(0xFF0000, 0x0);
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);
     printf("Dump:\r\n");

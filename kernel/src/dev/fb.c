@@ -9,7 +9,7 @@
 static uint8_t* framebuffer = (uint8_t*) (HEAP_END + 0x1000);
 static uint8_t init = 0;
 
-fb_info_t info;
+static fb_info_t info;
 
 static uint32_t pos_x = 0;
 static uint32_t pos_y = 0;
@@ -111,7 +111,7 @@ K_STATUS k_dev_fb_init(multiboot_info_t* mb){
     }
 
     k_mem_paging_map_region((uint32_t) framebuffer, mb->framebuffer_addr, info.width * info.height * info.bpp / 8 / 0x1000, 0x3, 1);
-    
+
     k_info("Framebuffer info: %dx%dx%d, type=%d", info.width, info.height, info.bpp, info.type);
 
     init = 1;
