@@ -6,9 +6,9 @@
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "util/asm_wrappers.h"
-#include "util/log.h"
 
-#define  STACK_SIZE MB(1)
+#define STACK_SIZE MB(1)
+#define STACK_GUARD_MAGIC 0xBCAFFACB //TODO
 
 static process_t** processes;
 static uint32_t    total_processes;
@@ -20,7 +20,6 @@ static void __k_proc_process_scheduler_callback(interrupt_context_t* ctx UNUSED)
 
 static void __k_proc_process_idle(){
     while(1) {
-        k_proc_process_yield();
         halt();
     }
 }
@@ -60,9 +59,6 @@ static void __k_proc_process_create_idle(){
 void k_proc_process_init(){
     cli();
 
-    k_d_mem_heap_print();
-    k_debug("");
-
     total_processes = 0;
     current_process = 0;
 
@@ -70,8 +66,6 @@ void k_proc_process_init(){
 
     __k_proc_process_create_init();
     __k_proc_process_create_idle();
-
-    k_d_mem_heap_print();
 
     sti();
 }

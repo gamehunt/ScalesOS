@@ -1,7 +1,6 @@
 #include "int/isr.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
-#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
