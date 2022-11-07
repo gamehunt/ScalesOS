@@ -67,7 +67,7 @@ void k_proc_process_init(){
     __k_proc_process_create_init();
     __k_proc_process_create_idle();
 
-    sti();
+    // sti();
 }
 
 extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* ctx);

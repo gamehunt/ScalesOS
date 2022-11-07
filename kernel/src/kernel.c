@@ -19,11 +19,14 @@
 #include "dev/timer.h"
 #include "fs/tar.h"
 #include "int/syscall.h"
+#include "kernel.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "mod/elf.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
+#include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
 
@@ -61,10 +64,27 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_symtable_init();
     k_mod_load_modules(mb);
 
-    k_fs_vfs_mount("/", "/dev/ram0", "tar");
-    
     k_proc_process_init();
-    
+
+    if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){
+        k_panic("Failed to mount root.", 0);
+    }
+
+    fs_node_t* node = k_fs_vfs_open("/init.sc");
+    if(node){
+        uint8_t* buffer = k_malloc(node->size);
+        k_fs_vfs_read(node, 0, node->size, buffer);
+        k_fs_vfs_close(node);
+        if(k_mod_elf_load(buffer) == K_STATUS_OK){
+            // TODO
+        }else{
+            k_err("Failed to load init.");
+        }
+        k_free(buffer);
+    }else{
+        k_err("Init not found.");
+    }
+
     while (1) {
         halt();
     }

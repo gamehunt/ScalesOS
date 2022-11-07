@@ -5,6 +5,9 @@
 
 char* k_util_path_canonize(const char* p){
     char* path = strdup(p);
+    if(!strcmp(path, "/")){
+        return path;
+    }
     uint32_t len = strlen(path);
     if(path[0] == '/'){
         memmove(path, path + 1, len);
@@ -17,6 +20,9 @@ char* k_util_path_canonize(const char* p){
 }
 
 uint32_t k_util_path_length(const char* path){
+    if(!strcmp(path, "/")){
+        return 0;
+    }
     char* s = k_util_path_canonize(path);
     uint32_t l = 0;
     for(uint32_t i = 0; i < strlen(s); i++){
@@ -50,6 +56,9 @@ char* k_util_path_segment (const char* path, uint32_t seg){
 
 char* k_util_path_filename(const char* path){
     uint32_t length = k_util_path_length(path);
+    if(!length){
+        return 0;
+    }
     return k_util_path_segment(path, length - 1);
 }
 

@@ -2,6 +2,7 @@
 #include <string.h>
 #include "kernel.h"
 #include "mem/paging.h"
+#include "util/log.h"
 
 static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr){
     return hdr->e_ident[EI_MAG0]    == ELFMAG0     &&
@@ -25,6 +26,7 @@ static K_STATUS __k_mod_elf_load_exec(Elf32_Ehdr* hdr){
             k_mem_paging_map_region(phdr->p_vaddr, 0, phdr->p_memsz / 0x1000 + 1, 0x3, 0x0);
             memset((void*) phdr->p_vaddr, 0, phdr->p_memsz);
             memcpy((void*) phdr->p_vaddr, (void*) ((uint32_t) hdr + phdr->p_offset), phdr->p_filesz);
+            k_debug("Elf section created: 0x%.8x - 0x%.8x", phdr->p_vaddr, phdr->p_vaddr+ phdr->p_memsz);
         }
         phdr = (Elf32_Phdr*) ((uint32_t) phdr + hdr->e_phentsize);
     }

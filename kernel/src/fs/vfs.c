@@ -1,7 +1,6 @@
 #include <fs/vfs.h>
 #include "kernel.h"
 #include "mem/heap.h"
-#include "stdio.h"
 #include "util/path.h"
 #include "util/types/tree.h"
 #include <string.h>
@@ -27,8 +26,12 @@ static fs_node_t* __k_fs_vfs_root_node(){
 static fs_node_t* __k_fs_vfs_find_node(const char* path){
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len = k_util_path_length(path);
+    char* filename = k_util_path_filename(path);
     for(uint32_t i = 0; i < len; i++){
         char* part = k_util_path_segment(path, i);
+        if(!part){
+            continue;
+        }
         uint8_t f = 0;
         for(uint32_t j = 0; j < cur_node->child_count; j++){
             vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[j]->value;
@@ -40,24 +43,25 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
         }
         if(!f){
             fs_node_t* fsnode = ((vfs_entry_t*)cur_node->value)->node;
-            if(strcmp(fsnode->name, part)){
-                k_free(part);
-                return 0;
-            }
-            i++;
             while(i < len && fsnode){
                 k_free(part);
                 char* part = k_util_path_segment(path, i);
-                fs_node_t* old_node = fsnode;
-                fsnode = k_fs_vfs_finddir(fsnode, part);
-                if(fsnode != old_node){
-                    k_free(old_node);
+                if(!part){
+                    break;
                 }
+                fsnode = k_fs_vfs_finddir(fsnode, part);
                 i++;
             }
+            if(strcmp(filename, fsnode->name)){
+                fsnode = 0;
+            }
+            k_free(filename);
             return fsnode;
         }
         k_free(part);
+    }
+    if(filename){
+        k_free(filename);
     }
     return ((vfs_entry_t*)cur_node->value)->node;
 }
@@ -67,6 +71,9 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
     uint32_t len = k_util_path_length(path);
     for(uint32_t i = 0; i < len; i++){
         char* part = k_util_path_segment(path, i);
+        if(!part){
+            continue;
+        }
         uint8_t f = 0;
         for(uint32_t i = 0; i < cur_node->child_count; i++){
             vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[i]->value;
@@ -184,7 +191,7 @@ fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
 
 K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
     if(!vfs_tree){
-        return 0;
+        return K_STATUS_ERR_GENERIC;
     }
 
     vfs_entry_t* mountpoint = __k_fs_vfs_get_entry(path, 1);
@@ -192,6 +199,7 @@ K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
         mountpoint->node = fsroot;
         return K_STATUS_OK;
     }
+
     return K_STATUS_ERR_GENERIC;
 }
 

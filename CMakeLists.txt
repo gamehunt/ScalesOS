@@ -43,7 +43,8 @@ ExternalProject_Add(
 
 add_custom_target(
     compiler_hints
-    COMMAND bash ${SCRIPTS_FOLDER}/generate_compiler_hints.sh
+    COMMAND bash    ${SCRIPTS_FOLDER}/generate_compiler_hints.sh
+    COMMAND python  ${SCRIPTS_FOLDER}/postprocess_hints.py
     VERBATIM
 )
 

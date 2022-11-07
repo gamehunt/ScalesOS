@@ -11,11 +11,10 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <LINK_LIBRARIES>")
 set(CMAKE_EXE_LINKER_FLAGS  "-ffreestanding -O0 -nostdlib -mno-red-zone")
 
-link_directories(${CMAKE_INSTALL_PREFIX}/lib)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
 link_libraries(gcc k)
 
 add_library(kernel.bin OBJECT)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ ${CMAKE_INSTALL_PREFIX}/include)
 add_subdirectory(src)
 
 add_custom_command(
