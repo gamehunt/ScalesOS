@@ -5,4 +5,4 @@ set -e
 sudo -u root cp grub.cfg /mnt/boot/grub/
 sync
 
-qemu-system-i386 -enable-kvm -m 1G -drive format=raw,file=disk.img -monitor stdio -display gtk -vga std -d cpu_reset -audiodev sdl,id=audio0 -machine pcspk-audiodev=audio0
+qemu-system-i386 -enable-kvm -m 1G -drive format=raw,file=disk.img -monitor stdio -display gtk -vga std -d cpu_reset -audiodev sdl,id=audio0 -machine pcspk-audiodev=audio0 -no-reboot -no-shutdown

@@ -15,6 +15,8 @@ void k_mem_gdt_create_entry(uint8_t idx, uint32_t base, uint32_t limit, uint8_t 
 	gdt[idx].access    = access;
 }
 
+extern void __k_mem_gdt_flush_tss();
+
 void k_mem_gdt_init(){
 	gp.limit = (sizeof(struct gdt_entry) * 6) - 1;
 	gp.base  = (uint32_t)&gdt;
@@ -31,7 +33,10 @@ void k_mem_gdt_init(){
 	tss.esp0 = 0x0;
 
     k_mem_load_gdt((uint32_t)&gp);
+    __k_mem_gdt_flush_tss();
 }
+
+
 
 void k_mem_gdt_set_stack(uint32_t stack){
 	tss.esp0 = stack;

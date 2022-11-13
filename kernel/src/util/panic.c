@@ -13,7 +13,7 @@ extern void* _kernel_end;
 static void __k_panic_stacktrace(uint32_t stack){
     struct stackframe* frame = (struct stackframe*) stack;
     uint8_t depth = 0;
-    while(frame){
+    while(frame && (uint32_t) frame < (uint32_t) &_kernel_end){
         uint32_t eip = frame->eip;
         sym_t* sym = k_mod_symtable_get_nearest_symbol(eip);
         if(sym){

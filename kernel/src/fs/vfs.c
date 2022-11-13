@@ -3,6 +3,7 @@
 #include "mem/heap.h"
 #include "util/path.h"
 #include "util/types/tree.h"
+#include <stdio.h>
 #include <string.h>
 #include <util/log.h>
 

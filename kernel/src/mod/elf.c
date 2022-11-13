@@ -2,6 +2,7 @@
 #include <string.h>
 #include "kernel.h"
 #include "mem/paging.h"
+#include "mod/modules.h"
 #include "util/log.h"
 
 static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr){
@@ -15,28 +16,48 @@ static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr){
            hdr->e_version           == EV_CURRENT;
 }
 
-static K_STATUS __k_mod_elf_load_exec(Elf32_Ehdr* hdr){
+uint32_t k_mod_elf_load_exec(void* file){
+    Elf32_Ehdr* hdr = (Elf32_Ehdr*) file;
+
+    if(!__k_mod_elf_check(hdr)){
+        return 0;
+    }
+
+    if(hdr->e_type != ET_EXEC){
+        return 0;
+    }
+
     if(!hdr->e_phoff){
-        return K_STATUS_ERR_GENERIC;
+        return 0;
     }
 
     Elf32_Phdr* phdr = (Elf32_Phdr*) ((uint32_t) hdr + hdr->e_phoff);
     for(uint32_t i = 0; i < hdr->e_phnum; i++){
         if(phdr->p_type == PT_LOAD){
-            k_mem_paging_map_region(phdr->p_vaddr, 0, phdr->p_memsz / 0x1000 + 1, 0x3, 0x0);
+            k_debug("Creating ELF section: 0x%.8x - 0x%.8x", phdr->p_vaddr, phdr->p_vaddr+ phdr->p_memsz);
+            k_mem_paging_map_region(phdr->p_vaddr, 0, phdr->p_memsz / 0x1000 + 1, 0x7, 0x0);
             memset((void*) phdr->p_vaddr, 0, phdr->p_memsz);
             memcpy((void*) phdr->p_vaddr, (void*) ((uint32_t) hdr + phdr->p_offset), phdr->p_filesz);
-            k_debug("Elf section created: 0x%.8x - 0x%.8x", phdr->p_vaddr, phdr->p_vaddr+ phdr->p_memsz);
         }
         phdr = (Elf32_Phdr*) ((uint32_t) phdr + hdr->e_phentsize);
     }
 
-    return K_STATUS_OK;
+    return hdr->e_entry;
 }
 
-static K_STATUS __k_mod_elf_load_rel(Elf32_Ehdr* hdr){
+module_info_t* k_mod_elf_load_module(void* file){
+    Elf32_Ehdr* hdr = (Elf32_Ehdr*) file;
+
+    if(!__k_mod_elf_check(hdr)){
+        return 0;
+    }
+
+    if(hdr->e_type != ET_REL){
+        return 0;
+    }
+
     if(!hdr->e_shoff){
-        return K_STATUS_ERR_GENERIC;
+        return 0;
     }
 
     Elf32_Shdr* shdr = (Elf32_Shdr*) ((uint32_t) hdr + hdr->e_shoff);
@@ -45,22 +66,5 @@ static K_STATUS __k_mod_elf_load_rel(Elf32_Ehdr* hdr){
         shdr = (Elf32_Shdr*) ((uint32_t) shdr + hdr->e_shentsize);
     }
 
-    return K_STATUS_OK;
-}
-
-K_STATUS k_mod_elf_load(void* file){
-    Elf32_Ehdr* hdr = (Elf32_Ehdr*) file;
-    if(!__k_mod_elf_check(hdr)){
-        return K_STATUS_ERR_GENERIC;
-    }
-
-    if(hdr->e_type == ET_EXEC){
-        return __k_mod_elf_load_exec(hdr);
-    }
-
-    if(hdr->e_type == ET_REL){
-        return __k_mod_elf_load_rel(hdr);
-    }
-
-    return K_STATUS_OK;
+    return 0;
 }

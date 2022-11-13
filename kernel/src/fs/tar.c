@@ -23,10 +23,9 @@ static tar_header_t* __k_fs_tar_read_header(fs_node_t* dev, uint32_t offset) {
     return header;
 }
 
-static uint32_t __k_fs_tar_read(fs_node_t* node, uint32_t offset, uint32_t size,
-                                uint8_t* buffer);
-static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path);
-static struct dirent* __k_fs_tar_readdir(fs_node_t* node, uint32_t index);
+static uint32_t         __k_fs_tar_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
+static struct fs_node*  __k_fs_tar_finddir(fs_node_t* node, const char* path);
+static struct dirent*   __k_fs_tar_readdir(fs_node_t* node, uint32_t index);
 
 static fs_node_t* __k_fs_tar_create_node(fs_node_t* device,
                                          tar_header_t* header,
@@ -140,9 +139,10 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
         char* simplified = k_util_path_canonize(header->filename);
         if (!strcmp(simplified, fullpath)) {
             k_free(fullpath);
-            k_free(header);
             k_free(simplified);
-            return __k_fs_tar_create_node(dev, header, offs);
+            fs_node_t* node =  __k_fs_tar_create_node(dev, header, offs);
+            k_free(header);
+            return node;
         }
 
         k_free(header);

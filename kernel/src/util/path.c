@@ -2,6 +2,7 @@
 #include <util/path.h>
 #include <string.h>
 #include "mem/heap.h"
+#include "util/log.h"
 
 char* k_util_path_canonize(const char* p){
     char* path = strdup(p);
@@ -39,9 +40,12 @@ char* k_util_path_segment (const char* path, uint32_t seg){
     uint32_t iter = 0;
     uint32_t len = strlen(s);
     uint32_t sc = 0;
-    while(sc < seg && iter < len){
+    while(sc < seg){
         uint32_t l = strcspn(&s[iter], "/");
         sc++;
+        if(iter + l + 1 >= len){
+            break;
+        }
         iter += l + 1;
     }
     if(sc != seg){

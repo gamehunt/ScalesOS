@@ -1,3 +1,4 @@
+#include "util/log.h"
 #include <int/idt.h>
 
 #include <util/asm_wrappers.h>
@@ -13,7 +14,7 @@ void k_int_idt_create_entry(uint8_t idx, uint32_t offset, uint16_t segment, uint
     idt[idx].offset_high = offset >> 16;
     idt[idx].segment     = segment;
     idt[idx].reserved    = 0;
-    idt[idx].flags       = (type & 15) | ((8 | ((dpl & 0x3) << 1)) << 4);
+    idt[idx].flags       = ((0xF & type)) | ((dpl & 0x3) << 5) | (1 << 7);
 }
 
 void k_int_idt_init(){

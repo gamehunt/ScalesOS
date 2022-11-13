@@ -12,3 +12,9 @@ k_mem_load_gdt:
 	jmp	0x08:.flush	    ; 0x08 is the offset to our code segment: Far jump!
 .flush:
 	ret
+
+[global __k_mem_gdt_flush_tss]
+__k_mem_gdt_flush_tss:
+    mov ax, 0x28
+	ltr ax
+	ret

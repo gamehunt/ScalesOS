@@ -29,6 +29,7 @@
 #include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
+extern void jump_userspace();
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();
@@ -64,7 +65,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_symtable_init();
     k_mod_load_modules(mb);
 
-    k_proc_process_init();
+   // k_proc_process_init();
 
     if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){
         k_panic("Failed to mount root.", 0);
@@ -72,11 +73,24 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     fs_node_t* node = k_fs_vfs_open("/init.sc");
     if(node){
+
         uint8_t* buffer = k_malloc(node->size);
         k_fs_vfs_read(node, 0, node->size, buffer);
         k_fs_vfs_close(node);
-        if(k_mod_elf_load(buffer) == K_STATUS_OK){
-            // TODO
+
+
+        uint32_t c = k_mem_paging_clone_pd(k_mem_paging_get_pd(0));
+        k_mem_paging_set_pd(c, 0, 1); 
+
+        uint32_t entry = k_mod_elf_load_exec(buffer);
+        if(entry){
+            k_info("ELF loaded.");
+
+            uint32_t* stack = k_valloc(MB(1), 0x4);
+            k_mem_gdt_set_stack((uint32_t) stack);
+            k_mem_paging_map_region(0x9000000, 0, MB(1) / 0x1000, 0x7, 0);
+
+            jump_usermode(entry);
         }else{
             k_err("Failed to load init.");
         }

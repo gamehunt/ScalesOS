@@ -31,16 +31,16 @@ irq_handler_t irq_handlers[16];
 void k_int_irq_init(){
     memset(irq_handlers, 0, sizeof(irq_handler_t) * 16);
 
-    k_int_idt_create_entry(32, (uint32_t) &IRQ(0), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(33, (uint32_t) &IRQ(1), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(34, (uint32_t) &IRQ(2), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(35, (uint32_t) &IRQ(3), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(36, (uint32_t) &IRQ(4), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(37, (uint32_t) &IRQ(5), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(38, (uint32_t) &IRQ(6), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(39, (uint32_t) &IRQ(7), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(40, (uint32_t) &IRQ(8), 0x8, 0x0, 0xE);
-    k_int_idt_create_entry(41, (uint32_t) &IRQ(9), 0x8, 0x0, 0xE);
+    k_int_idt_create_entry(32, (uint32_t) &IRQ(0),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(33, (uint32_t) &IRQ(1),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(34, (uint32_t) &IRQ(2),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(35, (uint32_t) &IRQ(3),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(36, (uint32_t) &IRQ(4),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(37, (uint32_t) &IRQ(5),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(38, (uint32_t) &IRQ(6),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(39, (uint32_t) &IRQ(7),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(40, (uint32_t) &IRQ(8),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(41, (uint32_t) &IRQ(9),  0x8, 0x0, 0xE);
     k_int_idt_create_entry(42, (uint32_t) &IRQ(10), 0x8, 0x0, 0xE);
     k_int_idt_create_entry(43, (uint32_t) &IRQ(11), 0x8, 0x0, 0xE);
     k_int_idt_create_entry(44, (uint32_t) &IRQ(12), 0x8, 0x0, 0xE);

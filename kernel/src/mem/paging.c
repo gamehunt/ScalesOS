@@ -1,6 +1,7 @@
 #include "int/isr.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
@@ -16,7 +17,7 @@
 
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
 
-uint32_t* page_directory = 0;
+static volatile uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
 
 extern void* _kernel_end;
 
@@ -24,21 +25,21 @@ extern uint32_t k_mem_paging_get_fault_addr();
 
 interrupt_context_t* __pf_handler(interrupt_context_t* ctx){
     char buffer[1024];
-    sprintf(buffer, "Page fault at 0x%.8x", k_mem_paging_get_fault_addr());
+    sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x", k_mem_paging_get_fault_addr(), ctx->err_code);
     k_panic(buffer, ctx);
     __builtin_unreachable();
 }
 
 void k_mem_paging_init(){
     k_int_isr_setup_handler(14, __pf_handler);
-    page_directory  = (uint32_t*) (k_mem_paging_get_pd(1) + VIRTUAL_BASE); // create recursive mapping manually
-    uint32_t phys = (uint32_t)&page_directory[1023] - VIRTUAL_BASE; 
-    page_directory[1023] = (phys & 0xfffff000) | 3; 
+    uint32_t  phys = k_mem_paging_get_pd(1); 
+    uint32_t* pd   = (uint32_t*) (phys + VIRTUAL_BASE); 
+    pd[1023]       = (phys) | 0x03;
 }
 
 uint32_t  k_mem_paging_virt2phys(uint32_t vaddr){
     uint16_t pd_index = PDE(vaddr);
-    uint32_t pde = page_directory[pd_index];
+    uint32_t pde      = page_directory[pd_index];
     if(!(pde & PD_PRESENT_FLAG)){
         return 0;
     }
@@ -55,6 +56,8 @@ uint32_t  k_mem_paging_virt2phys(uint32_t vaddr){
 }
 
 extern uint32_t __k_mem_paging_get_pd_phys();
+extern uint32_t __k_mem_paging_set_pd(uint32_t phys);
+
 uint32_t k_mem_paging_get_pd(uint8_t p){
     if(p){
         return __k_mem_paging_get_pd_phys();
@@ -70,12 +73,21 @@ void k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force){
         }
     }
     if(!phys){
-        page_directory = (uint32_t*) addr;
         addr = k_mem_paging_virt2phys(addr);
-    }else{
-        page_directory = (uint32_t*) 0xFFFFF000;
     }
-    asm volatile("mov %0, %%cr3" :: "r"(addr));
+    __k_mem_paging_set_pd(addr);
+}
+
+void  k_mem_paging_unmap(uint32_t vaddr){
+    uint32_t pd_index = PDE(vaddr);
+    if(!(page_directory[pd_index] & PD_PRESENT_FLAG)){
+        return;
+    }
+
+    uint32_t* pt       = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+    uint32_t  pt_index = PTE(vaddr);
+
+    pt[pt_index] = 0;
 }
 
 void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags){
@@ -84,18 +96,19 @@ void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags){
         pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
         if(!frame){
             k_panic("Out of memory. Failed to allocate page table.", 0);
+            __builtin_unreachable();
         }
-        page_directory[pd_index] =  frame | flags | 0x01; //TODO if allocated frame is big, then make a 4MB page
+        page_directory[pd_index] =  frame | flags | 0x03; //TODO if allocated frame is big, then make a 4MB page
     }
 
-    uint32_t *pt      = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
-    uint32_t pt_index = PTE(vaddr);
+    uint32_t* pt       = ((uint32_t*)0xFFC00000) + (0x400 * pd_index);
+    uint32_t  pt_index = PTE(vaddr);
     
     if(!paddr){
         paddr = k_mem_pmm_alloc_frames(1);
     }
 
-    pt[pt_index] = ((uint32_t)paddr) | (flags) | 0x01;
+    pt[pt_index] = paddr | flags | 0x03;
 }
 
 void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uint8_t flags, uint8_t contigous)
@@ -113,10 +126,12 @@ void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uin
 }
 
 uint32_t k_mem_paging_clone_pd(uint32_t pd){
-    uint8_t* src = (uint8_t*) pd;
-    uint8_t* copy = k_valloc(0x1000, 0x1000);
+    uint32_t* src  = (uint32_t*) pd;
+    uint32_t* copy = k_valloc(0x1000, 0x1000);
 
     memcpy(copy, src, 0x1000);
+
+    copy[1023] = (k_mem_paging_virt2phys((uint32_t)copy)) | 0x03;
 
     return (uint32_t) copy;
 }

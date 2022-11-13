@@ -23,20 +23,26 @@ K_STATUS k_dev_serial_init(){
     return K_STATUS_OK;
 }
 
-uint8_t  k_dev_serial_received(){
+uint8_t k_dev_serial_received(){
     return inb(PORT + 5) & 1;
 }
 
-char     k_dev_serial_read(){
+char k_dev_serial_read(){
     while (!k_dev_serial_received());
     return inb(PORT);
 }
 
-uint8_t  k_dev_serial_is_transmit_empty(){
+uint8_t k_dev_serial_is_transmit_empty(){
     return inb(PORT + 5) & 0x20;
 }
 
-void     k_dev_serial_putchar(char a){
+void k_dev_serial_putchar(char a){
    while (!k_dev_serial_is_transmit_empty());
    outb(PORT,a);
+}
+
+void k_dev_serial_write(char* buff, uint32_t size){
+    for(uint32_t i = 0; i < size; i++){
+        k_dev_serial_putchar(buff[i]);
+    }
 }

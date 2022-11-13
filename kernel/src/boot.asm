@@ -9,8 +9,8 @@ VIDWIDTH  equ  1280
 VIDDEPTH  equ  32
 CHECKSUM  equ -(MAGIC + FLAGS)
  
-KERNEL_VIRTUAL_BASE equ 0xC0000000                  ; 3GB
-KERNEL_PAGE_NUMBER equ (KERNEL_VIRTUAL_BASE >> 22)  ; Page directory index of kernel's 4MB PTE.
+KERNEL_VIRTUAL_BASE equ 0xC0000000                   ; 3GB
+KERNEL_PAGE_NUMBER  equ (KERNEL_VIRTUAL_BASE >> 22)  ; Page directory index of kernel's 4MB PTE.
 
 section .multiboot.data
 align 4
@@ -22,11 +22,11 @@ align 4
 	dd VIDWIDTH
 	dd VIDHEIGHT
 	dd VIDDEPTH
- 
+
 section .initial_stack, nobits
 align 4
 stack_bottom:
-resb 104856 ; 1MB
+resb 4*104856 ; 4MB
 stack_top:
 
 section .data
@@ -36,7 +36,8 @@ boot_page_directory:
     times (KERNEL_PAGE_NUMBER - 1) dd 0                 ; Pages before kernel space.
     ; This page directory entry defines a 4MB page containing the kernel.
     dd 0x00000083
-    times (1024 - KERNEL_PAGE_NUMBER - 1) dd 0  ; Pages after the kernel image.
+    dd 0x00000083
+    times (1024 - KERNEL_PAGE_NUMBER) dd 0  ; Pages after the kernel image.
  
 
 section .multiboot.text
@@ -76,3 +77,5 @@ higher_half_stub:
 
     cli
     hlt                          ; halt machine should kernel return
+
+

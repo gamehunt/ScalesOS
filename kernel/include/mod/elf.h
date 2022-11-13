@@ -2,6 +2,7 @@
 #define __K_MOD_ELF_H
 
 #include "kernel.h"
+#include "mod/modules.h"
 
 #define EI_MAG0    0 // File identification
 #define EI_MAG1    1 // File identification
@@ -78,7 +79,7 @@
 
 #define ELF32_ST_BIND (i)   ((i)>>4)
 #define ELF32_ST_TYPE (i)   ((i)&0xf)
-#define ELF32_ST_INFO (b,t) (((b)<<4)+((t)&0xf) 
+#define ELF32_ST_INFO (b,t) (((b)<<4)+((t)&0xf)) 
 
 #define STB_LOCAL  0
 #define STB_GLOBAL 1
@@ -189,6 +190,7 @@ typedef struct {
     Elf32_Word p_align;
 } Elf32_Phdr; 
 
-K_STATUS k_mod_elf_load(void* file);
+uint32_t       k_mod_elf_load_exec(void* file);
+module_info_t* k_mod_elf_load_module(void* file);
 
 #endif

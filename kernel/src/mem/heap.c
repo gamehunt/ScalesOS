@@ -34,6 +34,7 @@ static uint8_t __k_mem_heap_is_valid_block(mem_block_t* block){
 static void __k_mem_heap_init_block(mem_block_t* block, uint32_t size){
     if(!size){
         k_panic("Tried to initialize zero-size block. Kmalloc failure.", 0);
+        __builtin_unreachable();
     }
 
     block->next  = 0;
@@ -94,11 +95,12 @@ K_STATUS k_mem_heap_init(){
 mem_block_t* __k_mem_heap_increase(uint32_t size){
     if(HEAP_START + heap_size + size > HEAP_END){
         k_panic("Kernel heap max size exceeded.", 0);
+        __builtin_unreachable();
     }
     k_mem_paging_map_region((uint32_t)heap + heap_size, 0, (size) / 0x1000 + 1, 0x3, 0);
     mem_block_t* block = (mem_block_t*)((uint32_t)heap + heap_size);
     __k_mem_heap_init_block(block, size - sizeof(mem_block_t));
-    heap_size += 0x1000;
+    heap_size += ((size) / 0x1000 + 1) * 0x1000;
     return block;
 }
 
@@ -120,10 +122,12 @@ void* k_mem_heap_alloc(uint32_t size){
         if(!__k_mem_heap_is_valid_block(last_valid_block)){
             __k_d_mem_heap_print_block(last_valid_block);
             k_panic("Failed to find valid block. Kmalloc failure.", 0);
+            __builtin_unreachable();
         }
         last_valid_block->next = __k_mem_heap_increase(size + sizeof(mem_block_t));
         if(!__k_mem_heap_is_valid_block(last_valid_block->next)){
             k_panic("Out of memory. Kmalloc failure.", 0);
+            __builtin_unreachable();
         }
         block = last_valid_block->next;
     }
@@ -135,6 +139,7 @@ void* k_mem_heap_alloc(uint32_t size){
         mem_block_t* sblock;
         if(!IS_OK(__k_mem_split_block(block, &sblock, size))){
             k_panic("Block split failed. Kmalloc failure.", 0);
+            __builtin_unreachable();
         }
         block->flags &= ~M_BLOCK_FREE;
         return (void*) (M_MEMORY(block));
@@ -144,12 +149,13 @@ void* k_mem_heap_alloc(uint32_t size){
 void k_mem_heap_free(void* ptr){
     mem_block_t* header = M_HEADER(ptr);
     if(!__k_mem_heap_is_valid_block(header) || header->flags & M_BLOCK_FREE){
+        k_warn("Tried to free invalid pointer: 0x%.8x", ptr);
         return;
     }
     header->flags |= M_BLOCK_FREE;
 }
 
-void*    k_mem_heap_realloc(void* old, uint32_t size){
+void* k_mem_heap_realloc(void* old, uint32_t size){
     mem_block_t* hdr = M_HEADER(old);
     void* new_ptr    = k_malloc(size);
     uint32_t copy_size = 0;
@@ -165,7 +171,7 @@ void*    k_mem_heap_realloc(void* old, uint32_t size){
 
 void* k_mem_heap_calloc(uint32_t amount, uint32_t size){
     uint8_t* mem = (uint8_t*) k_malloc(amount * size);
-    memset(mem, 0, size);
+    memset(mem, 0, amount * size);
     return (void*) mem;
 }
 
@@ -174,8 +180,11 @@ void  k_mem_heap_vfree(void* mem){
 }
 
 void* k_mem_heap_valloc(uint32_t size, uint32_t alignment){
-    void *mem = k_malloc(size + (alignment-1) + sizeof(void*));
-    void *ptr = (void*) (((uint32_t)mem + sizeof(void*) + (alignment-1)) & ~(size_t)0x0F);
-    ((void**)ptr)[-1] = mem;
-    return ptr;
+	void* p1;  // original block
+    void** p2; // aligned block
+    int offset = alignment - 1 + sizeof(void*);
+    p1 = (void*)k_malloc(size + offset);
+    p2 = (void**)(((size_t)(p1) + offset) & ~(alignment - 1));
+    p2[-1] = p1;
+    return p2;
 }

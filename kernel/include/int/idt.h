@@ -11,8 +11,8 @@ typedef struct __attribute__((packed)) idt_ptr {
 typedef struct __attribute__((packed)) idt_entry {
     uint16_t offset_low;
     uint16_t segment;
-    uint8_t reserved;
-    uint8_t flags;
+    uint8_t  reserved;
+    uint8_t  flags;
     uint16_t offset_high;
 } idt_entry_t;
 
