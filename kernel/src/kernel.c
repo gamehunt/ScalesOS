@@ -22,14 +22,12 @@
 #include "kernel.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
-#include "mod/elf.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
 #include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
-extern void jump_userspace();
 
 void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_serial_init();

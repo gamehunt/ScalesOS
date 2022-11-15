@@ -1,7 +1,6 @@
 #ifndef __K_PROC_PROCESS_H
 #define __K_PROC_PROCESS_H
 
-#include "kernel.h"
 #include <stdint.h>
 
 #define PROCESS_STATE_STARTING           0x0

@@ -1,6 +1,5 @@
 #include <mod/elf.h>
 #include <string.h>
-#include "kernel.h"
 #include "mem/paging.h"
 #include "mod/modules.h"
 #include "util/log.h"

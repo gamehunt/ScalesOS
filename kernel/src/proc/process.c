@@ -8,7 +8,6 @@
 #include "mod/elf.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
-#include "util/path.h"
 
 #define KERNEL_STACK_SIZE MB(1)
 #define USER_STACK_SIZE   MB(4)
