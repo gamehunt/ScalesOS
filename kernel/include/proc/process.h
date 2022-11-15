@@ -24,6 +24,7 @@ typedef struct process {
 
 void k_proc_process_yield();
 void k_proc_process_init();
-void k_proc_exec(const char* path, int argc, char** argv);
+uint32_t k_proc_exec(const char* path, int argc, char** argv);
+uint32_t k_proc_fork();
 
 #endif

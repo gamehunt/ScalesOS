@@ -15,7 +15,9 @@
 #include <fs/vfs.h>
 #include "dev/console.h"
 #include "dev/fb.h"
+#include "dev/fpu.h"
 #include "dev/pci.h"
+#include "dev/rtc.h"
 #include "dev/timer.h"
 #include "fs/tar.h"
 #include "int/syscall.h"
@@ -45,6 +47,9 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_pmm_init(mb);
     k_mem_paging_init();
     k_mem_heap_init();
+
+    k_dev_fpu_init();
+    k_dev_rtc_init();
 
     k_fs_vfs_init();
     k_fs_vfs_create_entry("/dev");

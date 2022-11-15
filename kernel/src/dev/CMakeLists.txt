@@ -6,6 +6,10 @@ set(SOURCES
     speaker.c
     fb.c
     console.c
+    fpu.asm
+    fpu.c
+    cmos.c
+    rtc.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

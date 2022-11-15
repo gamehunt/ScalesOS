@@ -1,4 +1,5 @@
 #include <proc/process.h>
+#include <stdlib.h>
 #include <string.h>
 #include "fs/vfs.h"
 #include "kernel.h"
@@ -112,10 +113,14 @@ void k_proc_process_yield(){
     }
 }
 
-void k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
+uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
+    if(!total_processes){
+        return 0;
+    }
+
     fs_node_t* node = k_fs_vfs_open(path);
     if(!node){
-        return;
+        return 0;
     }
     
     uint8_t* buffer = k_malloc(node->size);
@@ -149,4 +154,45 @@ void k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     k_mem_paging_set_pd(prev, 1, 0);
 
     sti();
+
+    return proc->pid;
+}
+
+uint32_t k_proc_fork(){
+    if(!total_processes){
+        return 0;
+    }
+
+    cli();
+    process_t* src = processes[current_process];
+    process_t* new = k_malloc(sizeof(process_t));
+
+    memcpy(new, src, sizeof(process_t));
+
+    // -- TODO: 
+    // 1) Proper copy of address space
+    // 2) Save somewhere in the process syscall state
+    // 3) Push it onto copied stack
+    // 4) With helper function and iret return to the child with eax = 0
+
+    /*uint32_t prev = k_mem_paging_get_pd(0);
+    k_mem_paging_set_pd(new->context.page_directory, 1, 0);
+    k_mem_paging_clone_pd(0, &new->context.page_directory);
+    k_mem_paging_set_pd(prev, 1, 0);
+
+    uint32_t* old_stack = (uint32_t*) (new->context.ebp - KERNEL_STACK_SIZE);
+    uint32_t* new_stack = k_calloc(1, KERNEL_STACK_SIZE);
+
+    uint32_t esp_diff = new->context.ebp - new->context.esp;
+
+    memcpy(new_stack, old_stack, KERNEL_STACK_SIZE);
+
+    new->context.ebp = ((uint32_t) new_stack + KERNEL_STACK_SIZE);
+    new->context.esp = new->context.ebp - esp_diff;*/ 
+
+    k_proc_process_spawn(new);
+
+    sti();
+
+    return new->pid;
 }
