@@ -4,7 +4,6 @@ extern __k_int_irq_dispatcher
 	[global _irq%1]
     align 4
 	_irq%1:
-        cli
 		push 0
 		push %1
 		jmp irq_stub
@@ -37,5 +36,4 @@ irq_stub:
     mov esp, eax
     popad
     add esp, 8
-    sti
     iret

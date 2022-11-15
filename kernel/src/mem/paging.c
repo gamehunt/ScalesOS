@@ -18,6 +18,7 @@
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
 
 static volatile uint32_t* page_directory = (uint32_t*) 0xFFFFF000;
+static uint32_t           initial_directory = 0;
 
 extern void* _kernel_end;
 
@@ -33,6 +34,7 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx){
 void k_mem_paging_init(){
     k_int_isr_setup_handler(14, __pf_handler);
     uint32_t  phys = k_mem_paging_get_pd(1); 
+    initial_directory = phys;
     uint32_t* pd   = (uint32_t*) (phys + VIRTUAL_BASE); 
     pd[1023]       = (phys) | 0x03;
 }
@@ -66,6 +68,10 @@ uint32_t k_mem_paging_get_pd(uint8_t p){
 }
 
 void k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force){
+    if(!addr){
+        phys = 1;
+        addr = initial_directory;
+    }
     if(!force){
         uint32_t current = k_mem_paging_get_pd(phys);
         if(addr == current){
@@ -125,13 +131,21 @@ void  k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size, uin
     }
 }
 
-uint32_t k_mem_paging_clone_pd(uint32_t pd){
+uint32_t k_mem_paging_clone_pd(uint32_t pd, uint32_t* phys){
+    if(!pd){
+        pd = k_mem_paging_get_pd(0);
+    }
+    
     uint32_t* src  = (uint32_t*) pd;
     uint32_t* copy = k_valloc(0x1000, 0x1000);
 
     memcpy(copy, src, 0x1000);
 
     copy[1023] = (k_mem_paging_virt2phys((uint32_t)copy)) | 0x03;
+
+    if(phys){
+        *phys = k_mem_paging_virt2phys((uint32_t) copy);
+    }
 
     return (uint32_t) copy;
 }

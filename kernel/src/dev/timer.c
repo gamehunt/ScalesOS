@@ -2,7 +2,9 @@
 #include "int/isr.h"
 #include "int/pic.h"
 #include "kernel.h"
+#include "proc/process.h"
 #include "util/asm_wrappers.h"
+#include "util/log.h"
 #include <dev/timer.h>
 #include <mem/heap.h>
 
@@ -15,10 +17,15 @@ static interrupt_context_t* __irq0_handler(interrupt_context_t* registers){
     if(counter){
         counter--;
     }
+
     for(uint32_t i = 0; i < callback_count; i++){
         callbacks[i](registers);
     }
+
     k_int_pic_eoi(0);
+    
+    k_proc_process_yield();
+
     return registers;
 }
 

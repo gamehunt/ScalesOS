@@ -35,7 +35,7 @@ uint32_t k_mod_elf_load_exec(void* file){
     for(uint32_t i = 0; i < hdr->e_phnum; i++){
         if(phdr->p_type == PT_LOAD){
             k_debug("Creating ELF section: 0x%.8x - 0x%.8x", phdr->p_vaddr, phdr->p_vaddr+ phdr->p_memsz);
-            k_mem_paging_map_region(phdr->p_vaddr, 0, phdr->p_memsz / 0x1000 + 1, 0x7, 0x0);
+            k_mem_paging_map_region(phdr->p_vaddr & 0xFFFFF000, 0, phdr->p_memsz / 0x1000 + 1, 0x7, 0x0);
             memset((void*) phdr->p_vaddr, 0, phdr->p_memsz);
             memcpy((void*) phdr->p_vaddr, (void*) ((uint32_t) hdr + phdr->p_offset), phdr->p_filesz);
         }
