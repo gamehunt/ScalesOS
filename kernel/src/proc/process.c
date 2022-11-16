@@ -1,4 +1,5 @@
 #include <proc/process.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "fs/vfs.h"
@@ -9,15 +10,33 @@
 #include "mod/elf.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
+#include "util/panic.h"
 
-#define KERNEL_STACK_SIZE MB(1)
+#define KERNEL_STACK_SIZE MB(4)
 #define USER_STACK_SIZE   MB(4)
 #define USER_STACK_START  0x9000000
+
+#define GUARD_MAGIC       0xBEDAABED
 
 static process_t** processes;
 static uint32_t    total_processes;
 static uint32_t    current_process;
 static uint32_t    next_process;
+
+static uint8_t  __k_proc_process_check_stack(process_t* proc){
+    if(proc->pid == 1){
+        return 1;
+    }
+    return proc->context.kernel_stack[0] == GUARD_MAGIC;
+}
+
+static void __k_proc_process_create_kernel_stack(process_t* proc){
+    uint32_t* stack = k_calloc(1, KERNEL_STACK_SIZE);
+    stack[0] = GUARD_MAGIC;
+    proc->context.ebp = ((uint32_t)stack + KERNEL_STACK_SIZE);
+    proc->context.esp = proc->context.ebp;
+    proc->context.kernel_stack = stack;
+}
 
 static void __k_proc_process_idle(){
     while(1) {
@@ -31,7 +50,7 @@ void k_proc_process_spawn(process_t* proc){
     EXTEND(processes, total_processes, sizeof(process_t*));
     proc->pid = total_processes;
     processes[total_processes - 1] = proc;
-    k_info("Process spawned: %s (%d)", proc->name, proc->pid);
+    k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name, proc->pid, proc->context.ebp);
 }
 
 static void __k_proc_process_create_init(){
@@ -52,8 +71,8 @@ static void __k_proc_process_create_idle(){
 
     strcpy(proc->name, "[idle]");
 
-    proc->context.esp = ((uint32_t) k_calloc(1, KERNEL_STACK_SIZE)) + KERNEL_STACK_SIZE;
-    proc->context.ebp = proc->context.esp;
+    __k_proc_process_create_kernel_stack(proc);
+
     proc->context.eip = (uint32_t) &__k_proc_process_idle;         
     k_mem_paging_clone_pd(0, &proc->context.page_directory);
 
@@ -90,13 +109,17 @@ void k_proc_process_yield(){
         next_process = 0;
     }
 
-    // k_info("Current: %d", current_process);
-
     process_t* old_proc = processes[prev_process];
     process_t* new_proc = processes[current_process];
 
+    if(!__k_proc_process_check_stack(new_proc)){
+        char buffer[0x1000];
+        sprintf(buffer, "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = 0x%.8x in %s (%d)", new_proc->context.ebp, new_proc->context.esp, new_proc->name, new_proc->pid);
+        k_panic(buffer, 0);
+    }
+
     if(__k_proc_process_save(&old_proc->context)){
-            return; // Just returned from switch, do nothing and let it return
+        return; // Just returned from switch, do nothing and let it return
     }
 
     uint8_t jump = new_proc->state == PROCESS_STATE_PL_CHANGE_REQUIRED;
@@ -104,6 +127,7 @@ void k_proc_process_yield(){
         new_proc->state = PROCESS_STATE_STARTED;
     }
 
+    k_mem_gdt_set_directory(new_proc->context.page_directory);
     k_mem_gdt_set_stack(new_proc->context.esp);
 
     if(jump){
@@ -142,8 +166,9 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     if((entry = k_mod_elf_load_exec(buffer))){
         k_free(buffer);
         proc->context.eip = entry;
-        proc->context.esp = ((uint32_t) k_calloc(1, KERNEL_STACK_SIZE)) + KERNEL_STACK_SIZE;
-        proc->context.ebp = proc->context.esp;
+
+        __k_proc_process_create_kernel_stack(proc);
+        
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
         k_proc_process_spawn(proc);
         proc->state = PROCESS_STATE_PL_CHANGE_REQUIRED;
@@ -156,6 +181,14 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     sti();
 
     return proc->pid;
+}
+
+process_t* k_proc_current_process(){
+    if(!total_processes){
+        return 0;
+    }
+
+    return processes[current_process];
 }
 
 uint32_t k_proc_fork(){

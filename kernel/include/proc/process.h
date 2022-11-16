@@ -11,7 +11,9 @@ typedef struct context {
     uint32_t esp;            // +0
     uint32_t ebp;            // +4
     uint32_t eip;            // +8
-    uint32_t page_directory; // +12
+
+    uint32_t  page_directory; // +12
+    uint32_t* kernel_stack;
 }context_t;
 
 typedef struct process {
@@ -22,9 +24,11 @@ typedef struct process {
     uint8_t   state;
 } process_t;
 
-void k_proc_process_yield();
-void k_proc_process_init();
-uint32_t k_proc_exec(const char* path, int argc, char** argv);
-uint32_t k_proc_fork();
+void       k_proc_process_yield();
+void       k_proc_process_init();
+uint32_t   k_proc_exec(const char* path, int argc, char** argv);
+uint32_t   k_proc_fork();
+
+process_t* k_proc_current_process();
 
 #endif

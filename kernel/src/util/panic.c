@@ -2,6 +2,7 @@
 #include <util/asm_wrappers.h>
 #include <util/panic.h>
 #include "mod/symtable.h"
+#include "proc/process.h"
 
 struct stackframe {
   struct stackframe* ebp;
@@ -27,6 +28,10 @@ static void __k_panic_stacktrace(uint32_t stack){
 void k_panic(const char* reason, interrupt_context_t* ctx) {
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);
+    process_t* cur_proc = k_proc_current_process();
+    if(cur_proc){
+        printf("Current process: %s (%d)\r\n", cur_proc->name, cur_proc->pid);
+    }
     printf("Dump:\r\n");
     if (ctx) {
         printf("EAX: 0x%.8x EBX: 0x%.8x ECX: 0x%.8x EDX: 0x%.8x\r\n", ctx->eax,

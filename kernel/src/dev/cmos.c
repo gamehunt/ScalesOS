@@ -1,4 +1,3 @@
-#include "kernel.h"
 #include "util/asm_wrappers.h"
 #include <dev/cmos.h>
 

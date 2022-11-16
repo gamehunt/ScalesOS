@@ -33,8 +33,8 @@ __k_proc_process_load:
     
     setup_context
 
-    mov eax, 1    ; Make save function return 1
-    jmp [ebx + 8] ; Jump
+    mov  eax, 1    ; Make save function return 1
+    jmp [ebx + 8]  ; Jump
 
 [global __k_proc_process_enter_usermode]
 __k_proc_process_enter_usermode:
@@ -43,19 +43,19 @@ __k_proc_process_enter_usermode:
 
     setup_context
 
-	mov ax, 0x20 | 3 ; ring 3 data with bottom 2 bits set for ring 3
+	mov ax, 0x20 | 3 ; Ring 3 data
 	mov ds, ax
 	mov es, ax 
 	mov fs, ax 
 	mov gs, ax
  
-	push 0x20 | 3
-	push ecx ; user stack
-	pushf
-
-    pop eax
-    or eax, 0x200
-    push eax
+	push 0x20 | 3 ; SS
+	push ecx      ; ESP
+	
+    pushf
+    pop  eax
+    or   eax, 0x200
+    push eax ; Push eflags with interrupts enabled
 
     push 0x18 | 3  ; code selector (ring 3 code with bottom 2 bits set for ring 3)
 

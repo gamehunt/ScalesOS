@@ -1,5 +1,3 @@
-#include "dev/serial.h"
-#include "shared.h"
 #include "util/panic.h"
 #include <int/isr.h>
 #include <int/idt.h>
@@ -92,13 +90,6 @@ interrupt_context_t* __k_int_isr_dispatcher(interrupt_context_t* ctx){
     }
 }
 
-interrupt_context_t* __k_double_fault_handler(interrupt_context_t* ctx UNUSED){
-    const char* str = "[E] Double fault occured.";
-    k_dev_serial_write((char*) str, strlen(str));
-    halt();
-    __builtin_unreachable();
-}
-
 void k_int_isr_init(){
     memset(isr_handlers, 0, sizeof(isr_handler_t) * 256);
 
@@ -110,7 +101,7 @@ void k_int_isr_init(){
     k_int_idt_create_entry(5,  (uint32_t) &ISR(5),  0x8, 0x0, 0xE);
     k_int_idt_create_entry(6,  (uint32_t) &ISR(6),  0x8, 0x0, 0xE);
     k_int_idt_create_entry(7,  (uint32_t) &ISR(7),  0x8, 0x0, 0xE);
-    k_int_idt_create_entry(8,  (uint32_t) &ISR(8),  0x8, 0x0, 0xE);
+    k_int_idt_create_entry(8,  0,  0x30, 0x0, 0x5); // Double faults have their own tss
     k_int_idt_create_entry(9,  (uint32_t) &ISR(9),  0x8, 0x0, 0xE);
     k_int_idt_create_entry(10, (uint32_t) &ISR(10), 0x8, 0x0, 0xE);
     k_int_idt_create_entry(11, (uint32_t) &ISR(11), 0x8, 0x0, 0xE);
@@ -134,8 +125,6 @@ void k_int_isr_init(){
     k_int_idt_create_entry(29, (uint32_t) &ISR(29), 0x8, 0x0, 0xE);
     k_int_idt_create_entry(30, (uint32_t) &ISR(30), 0x8, 0x0, 0xE);
     k_int_idt_create_entry(31, (uint32_t) &ISR(31), 0x8, 0x0, 0xE);
-
-    k_int_isr_setup_handler(8, &__k_double_fault_handler);
 }
 
 void k_int_isr_setup_handler(uint8_t int_no, isr_handler_t handler){

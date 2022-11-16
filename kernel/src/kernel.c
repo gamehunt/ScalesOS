@@ -13,6 +13,7 @@
 #include <util/asm_wrappers.h>
 #include <util/log.h>
 #include <fs/vfs.h>
+#include "dev/acpi.h"
 #include "dev/console.h"
 #include "dev/fb.h"
 #include "dev/fpu.h"
@@ -50,6 +51,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_dev_fpu_init();
     k_dev_rtc_init();
+    k_dev_acpi_init();
 
     k_fs_vfs_init();
     k_fs_vfs_create_entry("/dev");
@@ -75,7 +77,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     }
 
     k_proc_exec("/init.sc", 0, 0);
-    
+
     while(1){
         halt();
     }

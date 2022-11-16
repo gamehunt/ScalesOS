@@ -10,6 +10,7 @@ set(SOURCES
     fpu.c
     cmos.c
     rtc.c
+    acpi.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

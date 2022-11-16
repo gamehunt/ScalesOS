@@ -2,6 +2,7 @@ set(SOURCES
     memset.c
     memcpy.c
     memmove.c
+    memcmp.c
     strcpy.c
     strlen.c
     strtok.c

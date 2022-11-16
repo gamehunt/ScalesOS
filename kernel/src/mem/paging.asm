@@ -5,12 +5,8 @@ __k_mem_paging_get_pd_phys:
 
 [global __k_mem_paging_set_pd]
 __k_mem_paging_set_pd:
-    push ebp
-    mov  ebp, esp
-    mov  eax, [esp + 8]
+    mov  eax, [esp + 4]
     mov  cr3, eax
-    mov  esp, ebp
-    pop  ebp
     ret
 
 [global k_mem_paging_get_fault_addr]
