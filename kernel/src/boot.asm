@@ -26,7 +26,7 @@ align 4
 section .initial_stack, nobits
 align 4
 stack_bottom:
-resb 4*104856 ; 4MB
+resb 16384 ; 16kb
 stack_top:
 
 section .data
@@ -34,10 +34,9 @@ align 4096
 boot_page_directory:
     dd 0x00000083
     times (KERNEL_PAGE_NUMBER - 1) dd 0                 ; Pages before kernel space.
-    ; This page directory entry defines a 2 4MB page containing the kernel.
+    ; This page directory entry defines a 4MB page containing the kernel.
     dd 0x00000083
-    dd 0x00040083
-    times (1024 - KERNEL_PAGE_NUMBER - 1) dd 0  ; Pages after the kernel image.
+    times (1024 - KERNEL_PAGE_NUMBER) dd 0  ; Pages after the kernel image.
  
 
 section .multiboot.text

@@ -24,11 +24,10 @@ struct __attribute__((packed)) mem_block{
 typedef struct mem_block mem_block_t;
 
 static mem_block_t* heap      = (mem_block_t*) HEAP_START;
-static uint32_t     heap_size = HEAP_SIZE;
 
 static uint8_t __k_mem_heap_is_valid_block(mem_block_t* block){
     uint32_t addr = (uint32_t) block;
-    return addr >= HEAP_START && addr < HEAP_START + heap_size && block->size;
+    return addr >= HEAP_START && addr < HEAP_END && block->size;
 }
 
 static void __k_mem_heap_init_block(mem_block_t* block, uint32_t size){
@@ -92,44 +91,18 @@ K_STATUS k_mem_heap_init(){
     return K_STATUS_OK;
 }
 
-mem_block_t* __k_mem_heap_increase(uint32_t size){
-    if(HEAP_START + heap_size + size > HEAP_END){
-        k_panic("Kernel heap max size exceeded.", 0);
-        __builtin_unreachable();
-    }
-    k_mem_paging_map_region((uint32_t)heap + heap_size, 0, (size) / 0x1000 + 1, 0x3, 0);
-    mem_block_t* block = (mem_block_t*)((uint32_t)heap + heap_size);
-    __k_mem_heap_init_block(block, size - sizeof(mem_block_t));
-    heap_size += ((size) / 0x1000 + 1) * 0x1000;
-    return block;
-}
-
 void* k_mem_heap_alloc(uint32_t size){
     __k_mem_merge();
 
     mem_block_t* block = heap;
-    mem_block_t* last_valid_block = block;
     while(__k_mem_heap_is_valid_block(block) && (!(block->flags & M_BLOCK_FREE) 
     || (block->size < size 
     || (block->size > size && block->size < size + sizeof(mem_block_t) + 1)))){
-        if(!__k_mem_heap_is_valid_block(block->next)){
-            last_valid_block = block;
-        }
         block = block->next;
     }
 
     if(!__k_mem_heap_is_valid_block(block)){
-        if(!__k_mem_heap_is_valid_block(last_valid_block)){
-            __k_d_mem_heap_print_block(last_valid_block);
-            k_panic("Failed to find valid block. Kmalloc failure.", 0);
-            __builtin_unreachable();
-        }
-        last_valid_block->next = __k_mem_heap_increase(size + sizeof(mem_block_t));
-        if(!__k_mem_heap_is_valid_block(last_valid_block->next)){
-            k_panic("Out of memory. Kmalloc failure.", 0);
-            __builtin_unreachable();
-        }
-        block = last_valid_block->next;
+        k_panic("Failed to find valid block. Kmalloc failure.", 0);
     }
 
     if(block->size == size){

@@ -8,13 +8,13 @@
 #define PROCESS_STATE_PL_CHANGE_REQUIRED 0xFF
 
 typedef struct context {
-    uint32_t esp;            // +0
-    uint32_t ebp;            // +4
-    uint32_t eip;            // +8
+    uint32_t esp;             // +0
+    uint32_t ebp;             // +4
+    uint32_t eip;             // +8
 
     uint32_t  page_directory; // +12
     uint32_t* kernel_stack;
-}context_t;
+} context_t;
 
 typedef struct process {
     char      name[256];

@@ -12,8 +12,8 @@
 #include "util/log.h"
 #include "util/panic.h"
 
-#define KERNEL_STACK_SIZE MB(4)
-#define USER_STACK_SIZE   MB(4)
+#define KERNEL_STACK_SIZE KB(16)
+#define USER_STACK_SIZE   KB(64)
 #define USER_STACK_START  0x9000000
 
 #define GUARD_MAGIC       0xBEDAABED
@@ -31,9 +31,10 @@ static uint8_t  __k_proc_process_check_stack(process_t* proc){
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc){
-    uint32_t* stack = k_calloc(1, KERNEL_STACK_SIZE);
+    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 4);
+    memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
-    proc->context.ebp = ((uint32_t)stack + KERNEL_STACK_SIZE);
+    proc->context.ebp = (((uint32_t)stack) + KERNEL_STACK_SIZE);
     proc->context.esp = proc->context.ebp;
     proc->context.kernel_stack = stack;
 }
@@ -173,11 +174,12 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
         k_proc_process_spawn(proc);
         proc->state = PROCESS_STATE_PL_CHANGE_REQUIRED;
     }else{
+        k_free(buffer);
         k_free(proc);
     }
 
     k_mem_paging_set_pd(prev, 1, 0);
-
+            
     sti();
 
     return proc->pid;

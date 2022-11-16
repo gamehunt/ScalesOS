@@ -11,7 +11,7 @@ static struct gdt_ptr		gp;
 static tss_entry_t tss;
 static tss_entry_t dfs;
 
-static uint32_t df_stack[MB(1)] __attribute__((aligned(4)));
+static uint32_t df_stack[1024]  __attribute__((aligned(4)));
 static uint32_t df_cr3[1024]    __attribute__((aligned(0x1000)));
 
 void k_mem_gdt_create_entry(uint8_t idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags){
@@ -29,8 +29,8 @@ extern uint32_t k_mem_paging_get_fault_addr();
 
 static void __k_mem_gdt_df_handler(){
     k_dev_serial_write("\r\n", 2);
-    char buffer[0x1000];
-    sprintf(buffer, "[E] Double fault occured.\r\nEIP: 0x%.8x \r\nEBP: 0x%.8x ESP: 0x%.8x \r\nCR2: 0x%.8x CR3: 0x%.08x", tss.eip, tss.ebp, tss.esp, k_mem_paging_get_fault_addr(), tss.cr3);
+    char buffer[256];
+    sprintf(buffer, "[E] Double fault occured.\r\nEIP: 0x%.8x \r\nEBP: 0x%.8x ESP: 0x%.8x \r\nCR2: 0x%.8x CR3: 0x%.08x\r\n", tss.eip, tss.ebp, tss.esp, k_mem_paging_get_fault_addr(), tss.cr3);
     k_dev_serial_write(buffer, strlen(buffer));
     cli();
     halt();
@@ -53,14 +53,12 @@ void k_mem_gdt_init(){
 	tss.esp0 = 0x0;
 
     memset(df_cr3, 0, 4096);
-    uint32_t p    = VIRTUAL_BASE >> 22;
-    df_cr3[0]     = 0x00000083;
-    df_cr3[p]     = 0x00000083;
-    df_cr3[p + 1] = 0x00040083;
+    df_cr3[0]                   = 0x00000083;
+    df_cr3[VIRTUAL_BASE >> 22]  = 0x00000083;
 
-    memset(df_stack, 0, MB(1));
+    memset(df_stack, 0, sizeof(df_stack));
 
-    memset(&dfs, 0, sizeof dfs);
+    memset(&dfs, 0, sizeof(dfs));
     dfs.prev_tss = 0x28;
     dfs.es       = 0x10;
     dfs.cs       = 0x8;

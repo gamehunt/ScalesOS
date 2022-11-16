@@ -1,6 +1,10 @@
 #include <sys/syscall.h>
 
 int main(){
-    while(1);
+    int i = 0;
+    while(1){
+        i++;
+        __syscall(0, i, 2, 3, 4 ,5);
+    }
     return 0;
 }
