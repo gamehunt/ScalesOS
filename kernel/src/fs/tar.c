@@ -4,8 +4,21 @@
 #include <mem/heap.h>
 #include <stdio.h>
 #include <string.h>
-#include "util/log.h"
 #include "util/path.h"
+
+struct tar_header
+{
+    char filename[100];
+    char mode[8];
+    char uid[8];
+    char gid[8];
+    char size[12];
+    char mtime[12];
+    char chksum[8];
+    char typeflag[1];
+};
+
+typedef struct tar_header tar_header_t;
 
 static uint32_t __k_fs_tar_get_size(char sz[12]) {
     unsigned int size = 0;

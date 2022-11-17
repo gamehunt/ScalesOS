@@ -11,15 +11,18 @@ typedef struct context {
     uint32_t esp;             // +0
     uint32_t ebp;             // +4
     uint32_t eip;             // +8
-
-    uint32_t  page_directory; // +12
-    uint32_t* kernel_stack;
 } context_t;
+
+typedef struct image{
+    uint32_t  page_directory;
+    uint32_t* kernel_stack;
+}image_t;
 
 typedef struct process {
     char      name[256];
     uint32_t  pid;
     context_t context;
+    image_t   image;
     uint32_t  flags;
     uint8_t   state;
 } process_t;

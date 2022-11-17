@@ -27,7 +27,7 @@ static uint8_t  __k_proc_process_check_stack(process_t* proc){
     if(proc->pid == 1){
         return 1;
     }
-    return proc->context.kernel_stack[0] == GUARD_MAGIC;
+    return proc->image.kernel_stack[0] == GUARD_MAGIC;
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc){
@@ -36,7 +36,7 @@ static void __k_proc_process_create_kernel_stack(process_t* proc){
     stack[0] = GUARD_MAGIC;
     proc->context.ebp = (((uint32_t)stack) + KERNEL_STACK_SIZE);
     proc->context.esp = proc->context.ebp;
-    proc->context.kernel_stack = stack;
+    proc->image.kernel_stack = stack;
 }
 
 static void __k_proc_process_idle(){
@@ -62,7 +62,7 @@ static void __k_proc_process_create_init(){
     proc->context.esp = 0;
     proc->context.ebp = 0;
     proc->context.eip = 0;  
-    k_mem_paging_clone_pd(0, &proc->context.page_directory);
+    k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
     k_proc_process_spawn(proc);
 }
@@ -75,7 +75,7 @@ static void __k_proc_process_create_idle(){
     __k_proc_process_create_kernel_stack(proc);
 
     proc->context.eip = (uint32_t) &__k_proc_process_idle;         
-    k_mem_paging_clone_pd(0, &proc->context.page_directory);
+    k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
     k_proc_process_spawn(proc);
 }
@@ -115,7 +115,7 @@ void k_proc_process_yield(){
 
     if(!__k_proc_process_check_stack(new_proc)){
         char buffer[256];
-        sprintf(buffer, "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = 0x%.8x (0x%.8x) in %s (%d)", new_proc->context.ebp, new_proc->context.esp, new_proc->context.kernel_stack[0], new_proc->name, new_proc->pid);
+        sprintf(buffer, "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = 0x%.8x (0x%.8x) in %s (%d)", new_proc->context.ebp, new_proc->context.esp, new_proc->image.kernel_stack[0], new_proc->name, new_proc->pid);
         k_panic(buffer, 0);
     }
 
@@ -128,8 +128,10 @@ void k_proc_process_yield(){
         new_proc->state = PROCESS_STATE_STARTED;
     }
 
-    k_mem_gdt_set_directory(new_proc->context.page_directory);
-    k_mem_gdt_set_stack((uint32_t)new_proc->context.kernel_stack + KERNEL_STACK_SIZE);
+    k_mem_gdt_set_directory(new_proc->image.page_directory);
+    k_mem_gdt_set_stack((uint32_t)new_proc->image.kernel_stack + KERNEL_STACK_SIZE);
+
+    k_mem_paging_set_pd(new_proc->image.page_directory, 1, 0);
 
     if(jump){
         __k_proc_process_enter_usermode(&new_proc->context, USER_STACK_START + USER_STACK_SIZE);
@@ -160,8 +162,8 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     uint32_t prev = k_mem_paging_get_pd(1);
 
     k_mem_paging_set_pd(0, 1, 0);
-    k_mem_paging_clone_pd(0, &proc->context.page_directory);
-    k_mem_paging_set_pd(proc->context.page_directory, 1, 0); 
+    k_mem_paging_clone_pd(0, &proc->image.page_directory);
+    k_mem_paging_set_pd(proc->image.page_directory, 1, 0); 
 
     uint32_t entry;
     if((entry = k_mod_elf_load_exec(buffer))){

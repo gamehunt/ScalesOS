@@ -2,7 +2,7 @@
 #define __K_DEV_PCI_H
 
 #define PCI_ADDRESS 0xCF8
-#define PCI_DATA 0xCFC
+#define PCI_DATA    0xCFC
 
 #include "kernel.h"
 

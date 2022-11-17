@@ -2,7 +2,6 @@
 #include <util/path.h>
 #include <string.h>
 #include "mem/heap.h"
-#include "util/log.h"
 
 char* k_util_path_canonize(const char* p){
     char* path = strdup(p);

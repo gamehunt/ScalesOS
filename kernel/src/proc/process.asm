@@ -1,17 +1,3 @@
-%macro setup_context 0
-    mov edx, [ebx + 12] ; Load new page directory if we need it
-    
-    push 0
-    push 1
-    push edx
-    call k_mem_paging_set_pd
-    pop edx
-    add esp, 8
-
-    mov esp, [ebx + 0] ; Restore ESP
-    mov ebp, [ebx + 4] ; Restore EBP
-%endmacro
-
 [global __k_proc_process_save]
 __k_proc_process_save:
     mov edi, [esp + 4] ; Get arg
@@ -31,7 +17,8 @@ extern k_mem_paging_set_pd
 __k_proc_process_load:
     mov ebx, [esp + 4] ; Get arg
     
-    setup_context
+    mov esp, [ebx + 0] ; Restore ESP
+    mov ebp, [ebx + 4] ; Restore EBP
 
     mov  eax, 1    ; Make save function return 1
     jmp [ebx + 8]  ; Jump
@@ -41,7 +28,8 @@ __k_proc_process_enter_usermode:
     mov ebx, [esp + 4]
     mov ecx, [esp + 8]
 
-    setup_context
+    mov esp, [ebx + 0] ; Restore ESP
+    mov ebp, [ebx + 4] ; Restore EBP
 
 	mov ax, 0x20 | 3 ; Ring 3 data
 	mov ds, ax
