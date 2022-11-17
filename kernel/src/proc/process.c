@@ -31,7 +31,7 @@ static uint8_t  __k_proc_process_check_stack(process_t* proc){
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc){
-    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 4);
+    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 16);
     memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
     proc->context.ebp = (((uint32_t)stack) + KERNEL_STACK_SIZE);
@@ -114,8 +114,8 @@ void k_proc_process_yield(){
     process_t* new_proc = processes[current_process];
 
     if(!__k_proc_process_check_stack(new_proc)){
-        char buffer[0x1000];
-        sprintf(buffer, "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = 0x%.8x in %s (%d)", new_proc->context.ebp, new_proc->context.esp, new_proc->name, new_proc->pid);
+        char buffer[256];
+        sprintf(buffer, "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = 0x%.8x (0x%.8x) in %s (%d)", new_proc->context.ebp, new_proc->context.esp, new_proc->context.kernel_stack[0], new_proc->name, new_proc->pid);
         k_panic(buffer, 0);
     }
 
@@ -129,7 +129,7 @@ void k_proc_process_yield(){
     }
 
     k_mem_gdt_set_directory(new_proc->context.page_directory);
-    k_mem_gdt_set_stack(new_proc->context.esp);
+    k_mem_gdt_set_stack((uint32_t)new_proc->context.kernel_stack + KERNEL_STACK_SIZE);
 
     if(jump){
         __k_proc_process_enter_usermode(&new_proc->context, USER_STACK_START + USER_STACK_SIZE);
@@ -169,8 +169,8 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
         proc->context.eip = entry;
 
         __k_proc_process_create_kernel_stack(proc);
-        
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
+
         k_proc_process_spawn(proc);
         proc->state = PROCESS_STATE_PL_CHANGE_REQUIRED;
     }else{

@@ -24,7 +24,7 @@ align 4
 	dd VIDDEPTH
 
 section .initial_stack, nobits
-align 4
+align 16
 stack_bottom:
 resb 16384 ; 16kb
 stack_top:

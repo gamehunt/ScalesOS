@@ -31,7 +31,7 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
                    mmap->addr + mmap->len, mmap->type);
             for (uint32_t i = 0; i < mmap->len; i += 0x1000) {
                 pmm_frame_t frame = mmap->addr + i;
-                if (frame > 6 * 1024 * 1024) {
+                if (frame > 4 * 1024 * 1024) {
                     k_mem_pmm_mark_frame(frame);
                 }
             }

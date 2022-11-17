@@ -8,8 +8,8 @@
     pop edx
     add esp, 8
 
-    mov ebp, [ebx + 4] ; Restore EBP
     mov esp, [ebx + 0] ; Restore ESP
+    mov ebp, [ebx + 4] ; Restore EBP
 %endmacro
 
 [global __k_proc_process_save]

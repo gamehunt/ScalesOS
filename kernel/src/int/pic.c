@@ -1,21 +1,20 @@
 
+#include "util/log.h"
 #include <int/pic.h>
 
 #include <util/asm_wrappers.h>
 
 void k_int_pic_eoi(uint8_t irq){
-	if(irq >= 8)
+	if(irq >= 8){
 		outb(PIC2_COMMAND,PIC_EOI);
+    }
  
 	outb(PIC1_COMMAND,PIC_EOI);
 }
 
 void k_int_pic_init(uint8_t offset1, uint8_t offset2)
 {
-	uint8_t a1, a2;
- 
-	a1 = inb(PIC1_DATA);                        // save masks
-	a2 = inb(PIC2_DATA);
+    cli();
  
 	outb(PIC1_COMMAND, ICW1_INIT | ICW1_ICW4);  // starts the initialization sequence (in cascade mode)
 	outb(PIC2_COMMAND, ICW1_INIT | ICW1_ICW4);
@@ -26,9 +25,11 @@ void k_int_pic_init(uint8_t offset1, uint8_t offset2)
  
 	outb(PIC1_DATA, ICW4_8086);
 	outb(PIC2_DATA, ICW4_8086);
- 
-	outb(PIC1_DATA, a1);   // restore saved masks.
-	outb(PIC2_DATA, a2);
+
+    outb(PIC1_DATA, 0xFF);
+    outb(PIC2_DATA, 0xFF);
+
+    sti();
 }
 
 void k_int_pic_mask_irq(uint8_t irq) {

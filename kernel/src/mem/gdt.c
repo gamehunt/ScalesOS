@@ -11,8 +11,8 @@ static struct gdt_ptr		gp;
 static tss_entry_t tss;
 static tss_entry_t dfs;
 
-static uint32_t df_stack[1024]  __attribute__((aligned(4)));
-static uint32_t df_cr3[1024]    __attribute__((aligned(0x1000)));
+static uint32_t df_stack[4096]   __attribute__((aligned(4)));
+static uint32_t df_cr3[1024]     __attribute__((aligned(0x1000)));
 
 void k_mem_gdt_create_entry(uint8_t idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags){
 	gdt[idx].base_low  = (base & 0xFFFF);
@@ -28,11 +28,11 @@ extern void __k_mem_gdt_flush_tss();
 extern uint32_t k_mem_paging_get_fault_addr();
 
 static void __k_mem_gdt_df_handler(){
+    cli();
     k_dev_serial_write("\r\n", 2);
     char buffer[256];
     sprintf(buffer, "[E] Double fault occured.\r\nEIP: 0x%.8x \r\nEBP: 0x%.8x ESP: 0x%.8x \r\nCR2: 0x%.8x CR3: 0x%.08x\r\n", tss.eip, tss.ebp, tss.esp, k_mem_paging_get_fault_addr(), tss.cr3);
     k_dev_serial_write(buffer, strlen(buffer));
-    cli();
     halt();
 }
 

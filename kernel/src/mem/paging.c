@@ -12,7 +12,7 @@
 #define PTE(addr) (addr >> 12 & 0x03FF)
 
 #define PD_PRESENT_FLAG (1 << 0)
-#define PD_SIZE_FLAG (1 << 7)
+#define PD_SIZE_FLAG    (1 << 7)
 
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
 
@@ -24,7 +24,7 @@ extern void *_kernel_end;
 extern uint32_t k_mem_paging_get_fault_addr();
 
 interrupt_context_t *__pf_handler(interrupt_context_t *ctx) {
-    char buffer[1024];
+    char buffer[128];
     sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x",
             k_mem_paging_get_fault_addr(), ctx->err_code);
     k_panic(buffer, ctx);

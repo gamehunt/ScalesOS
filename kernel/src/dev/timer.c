@@ -35,9 +35,9 @@ void k_dev_timer_add_callback(timer_callback_t callback){
 }
 
 K_STATUS k_dev_timer_init(){
-	k_int_pic_unmask_irq(0);
-    k_int_irq_setup_handler(0, __irq0_handler);
     callback_count = 0;
+    k_int_irq_setup_handler(0, __irq0_handler);
+    k_int_pic_unmask_irq(0);
     return K_STATUS_OK;
 }
 
