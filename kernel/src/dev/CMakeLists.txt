@@ -11,6 +11,7 @@ set(SOURCES
     cmos.c
     rtc.c
     acpi.c
+    ps2.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

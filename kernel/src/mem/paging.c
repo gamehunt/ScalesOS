@@ -1,7 +1,6 @@
 #include "int/isr.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
-#include "util/log.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 
@@ -19,7 +18,7 @@
 #define GET_FLAGS(pde) (pde & 0xFFF)
 
 #define PD_PRESENT_FLAG (1 << 0)
-#define PD_SIZE_FLAG (1 << 7)
+#define PD_SIZE_FLAG    (1 << 7)
 
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
 

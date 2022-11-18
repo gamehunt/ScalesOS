@@ -6,8 +6,8 @@
 typedef struct pipe{
     uint8_t* buffer;
     uint32_t size;
-    uint32_t in_pointer;
-    uint32_t out_pointer;
+    uint32_t write_ptr;
+    uint32_t read_ptr;
 } pipe_t;
 
 fs_node_t* k_fs_pipe_create(uint32_t size);

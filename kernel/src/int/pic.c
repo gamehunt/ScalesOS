@@ -26,7 +26,7 @@ void k_int_pic_init(uint8_t offset1, uint8_t offset2)
 	outb(PIC1_DATA, ICW4_8086);
 	outb(PIC2_DATA, ICW4_8086);
 
-    outb(PIC1_DATA, 0xFF);
+    outb(PIC1_DATA, 0xFB);
     outb(PIC2_DATA, 0xFF);
 
     sti();
