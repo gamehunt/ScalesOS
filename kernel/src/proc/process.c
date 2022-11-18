@@ -3,14 +3,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fs/vfs.h"
+#include "int/isr.h"
 #include "kernel.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
+#include "proc/spinlock.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 #include "util/panic.h"
+#include "util/types/stack.h"
 
 #define KERNEL_STACK_SIZE KB(16)
 #define USER_STACK_SIZE   KB(64)
@@ -22,6 +25,8 @@ static process_t** processes;
 static uint32_t    total_processes;
 static uint32_t    current_process;
 static uint32_t    next_process;
+
+static spinlock_t  proc_lock = 0;
 
 static uint8_t  __k_proc_process_check_stack(process_t* proc){
     if(proc->pid == 1){
@@ -48,10 +53,14 @@ static void __k_proc_process_idle(){
 }
 
 void k_proc_process_spawn(process_t* proc){
+    LOCK(proc_lock)
+
     EXTEND(processes, total_processes, sizeof(process_t*));
     proc->pid = total_processes;
     processes[total_processes - 1] = proc;
     k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name, proc->pid, proc->context.ebp);
+
+    UNLOCK(proc_lock)
 }
 
 static void __k_proc_process_create_init(){
@@ -140,7 +149,7 @@ void k_proc_process_yield(){
     }
 }
 
-uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
+uint32_t k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     if(!total_processes){
         return 0;
     }
@@ -187,7 +196,7 @@ uint32_t k_proc_exec(const char* path, int argc UNUSED, char** argv UNUSED){
     return proc->pid;
 }
 
-process_t* k_proc_current_process(){
+process_t* k_proc_process_current(){
     if(!total_processes){
         return 0;
     }
@@ -195,41 +204,34 @@ process_t* k_proc_current_process(){
     return processes[current_process];
 }
 
-uint32_t k_proc_fork(){
+extern void __attribute__((noreturn)) __k_proc_process_fork_return();
+
+uint32_t k_proc_process_fork(){
     if(!total_processes){
         return 0;
     }
 
-    cli();
     process_t* src = processes[current_process];
     process_t* new = k_malloc(sizeof(process_t));
 
+    new->state = PROCESS_STATE_STARTING;
+
     memcpy(new, src, sizeof(process_t));
-
-    // -- TODO: 
-    // 1) Proper copy of address space
-    // 2) Save somewhere in the process syscall state
-    // 3) Push it onto copied stack
-    // 4) With helper function and iret return to the child with eax = 0
-
-    /*uint32_t prev = k_mem_paging_get_pd(0);
-    k_mem_paging_set_pd(new->context.page_directory, 1, 0);
-    k_mem_paging_clone_pd(0, &new->context.page_directory);
+    
+    uint32_t prev = k_mem_paging_get_pd(1);
+    k_mem_paging_set_pd(new->image.page_directory, 1, 0);
+    k_mem_paging_clone_pd(0, &new->image.page_directory);
     k_mem_paging_set_pd(prev, 1, 0);
 
-    uint32_t* old_stack = (uint32_t*) (new->context.ebp - KERNEL_STACK_SIZE);
-    uint32_t* new_stack = k_calloc(1, KERNEL_STACK_SIZE);
+    __k_proc_process_create_kernel_stack(new);
 
-    uint32_t esp_diff = new->context.ebp - new->context.esp;
+    new->syscall_state.eax = 0;
 
-    memcpy(new_stack, old_stack, KERNEL_STACK_SIZE);
+    PUSH(new->context.esp, interrupt_context_t, new->syscall_state)
 
-    new->context.ebp = ((uint32_t) new_stack + KERNEL_STACK_SIZE);
-    new->context.esp = new->context.ebp - esp_diff;*/ 
+    new->context.eip = (uint32_t) &__k_proc_process_fork_return;
 
     k_proc_process_spawn(new);
-
-    sti();
 
     return new->pid;
 }

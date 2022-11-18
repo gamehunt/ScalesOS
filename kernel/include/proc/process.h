@@ -1,6 +1,7 @@
 #ifndef __K_PROC_PROCESS_H
 #define __K_PROC_PROCESS_H
 
+#include "int/isr.h"
 #include <stdint.h>
 
 #define PROCESS_STATE_STARTING           0x0
@@ -23,15 +24,16 @@ typedef struct process {
     uint32_t  pid;
     context_t context;
     image_t   image;
+    interrupt_context_t syscall_state;
     uint32_t  flags;
     uint8_t   state;
 } process_t;
 
 void       k_proc_process_yield();
 void       k_proc_process_init();
-uint32_t   k_proc_exec(const char* path, int argc, char** argv);
-uint32_t   k_proc_fork();
+uint32_t   k_proc_process_exec(const char* path, int argc, char** argv);
+uint32_t   k_proc_process_fork();
 
-process_t* k_proc_current_process();
+process_t* k_proc_process_current();
 
 #endif

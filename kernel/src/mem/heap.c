@@ -1,5 +1,6 @@
 #include "kernel.h"
 #include "mem/paging.h"
+#include "proc/spinlock.h"
 #include "util/log.h"
 #include "util/panic.h"
 #include "string.h"
@@ -24,6 +25,8 @@ struct __attribute__((packed)) mem_block{
 typedef struct mem_block mem_block_t;
 
 static mem_block_t* heap      = (mem_block_t*) HEAP_START;
+
+static spinlock_t heap_lock = 0;
 
 static uint8_t __k_mem_heap_is_valid_block(mem_block_t* block){
     uint32_t addr = (uint32_t) block;
@@ -92,6 +95,8 @@ K_STATUS k_mem_heap_init(){
 }
 
 void* k_mem_heap_alloc(uint32_t size){
+    LOCK(heap_lock)
+
     __k_mem_merge();
 
     mem_block_t* block = heap;
@@ -102,11 +107,13 @@ void* k_mem_heap_alloc(uint32_t size){
     }
 
     if(!__k_mem_heap_is_valid_block(block)){
-        k_panic("Failed to find valid block. Kmalloc failure.", 0);
+        UNLOCK(heap_lock);
+        return 0;
     }
 
     if(block->size == size){
         block->flags &= ~M_BLOCK_FREE;
+        UNLOCK(heap_lock)
         return (void*) (M_MEMORY(block));
     }else{
         mem_block_t* sblock;
@@ -115,17 +122,21 @@ void* k_mem_heap_alloc(uint32_t size){
             __builtin_unreachable();
         }
         block->flags &= ~M_BLOCK_FREE;
+        UNLOCK(heap_lock)
         return (void*) (M_MEMORY(block));
     }
 }
 
 void k_mem_heap_free(void* ptr){
+    LOCK(heap_lock)
     mem_block_t* header = M_HEADER(ptr);
     if(!__k_mem_heap_is_valid_block(header) || header->flags & M_BLOCK_FREE){
         k_warn("Tried to free invalid pointer: 0x%.8x", ptr);
+        UNLOCK(heap_lock)
         return;
     }
     header->flags |= M_BLOCK_FREE;
+    UNLOCK(heap_lock)
 }
 
 void* k_mem_heap_realloc(void* old, uint32_t size){

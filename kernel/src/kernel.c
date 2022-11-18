@@ -76,7 +76,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
         k_panic("Failed to mount root.", 0);
     }
 
-    if(!k_proc_exec("/init.sc", 0, 0)){
+    if(!k_proc_process_exec("/init.sc", 0, 0)){
         k_err("Failed to exec init");
     }
 

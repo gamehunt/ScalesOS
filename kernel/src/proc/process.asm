@@ -51,3 +51,9 @@ __k_proc_process_enter_usermode:
 	push eax ; instruction address to return to
 
 	iret
+
+[global __k_proc_process_fork_return]
+__k_proc_process_fork_return:
+    popad
+    add esp, 8
+    iret

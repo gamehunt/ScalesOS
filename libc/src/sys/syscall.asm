@@ -12,7 +12,7 @@ __syscall:
     mov esi, [ebp + 28]
 
     int 0x80
-    
+
     pop ebp
 
     ret

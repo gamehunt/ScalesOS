@@ -13,3 +13,8 @@ __k_mem_paging_set_pd:
 k_mem_paging_get_fault_addr:
     mov  eax, cr2
     ret
+
+[global __k_mem_paging_invlpg]
+__k_mem_paging_invlpg:
+    invlpg [esp + 4]
+    ret

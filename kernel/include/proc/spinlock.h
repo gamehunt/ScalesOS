@@ -4,7 +4,7 @@
 typedef volatile int spinlock_t;
 
 #define LOCK(spinlock) \
-    while(!__sync_bool_compare_and_swap(spinlock, 0, 1)){ asm("pause"); }
+    while(!__sync_bool_compare_and_swap(&spinlock, 0, 1)){ asm("pause"); }
 
 #define UNLOCK(spinlock) \
     spinlock = 0;
