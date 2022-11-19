@@ -12,6 +12,15 @@
 #define KB(v) ((v)*1024)
 #define MB(v) (KB((v)) * 1024)
 
+#define UPPER(data) \
+    (data & 0xFFFF0000) >> 16
+
+#define LOWER(data) \
+    (data & 0xFFFF)
+
+#define CONCAT(lower, upper) \
+    ((lower) >> 16)
+
 #include <stdint.h>
 
 struct dirent{

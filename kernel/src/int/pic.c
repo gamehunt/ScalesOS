@@ -1,5 +1,4 @@
 
-#include "util/log.h"
 #include <int/pic.h>
 
 #include <util/asm_wrappers.h>

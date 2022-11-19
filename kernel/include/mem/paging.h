@@ -12,5 +12,6 @@ void     k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags);
 void     k_mem_paging_unmap(uint32_t vaddr);
 void     k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size,
                              uint8_t flags, uint8_t cont);
+void*    k_mem_paging_map_mmio(uint32_t pstart, uint32_t size);
 
 #endif

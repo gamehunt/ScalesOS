@@ -6,7 +6,6 @@
 #include "kernel.h"
 
 #define HEAP_SIZE     MB(64)
-
 #define HEAP_START    0xC1000000
 #define HEAP_END      HEAP_START + HEAP_SIZE
 

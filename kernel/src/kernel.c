@@ -29,6 +29,7 @@
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
+#include "proc/smp.h"
 #include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
@@ -53,6 +54,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_fpu_init();
     k_dev_rtc_init();
     k_dev_acpi_init();
+    k_proc_smp_init();
 
     k_fs_vfs_init();
     k_fs_vfs_create_entry("/dev");

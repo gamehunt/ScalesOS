@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <mem/memory.h>
+
 #define PDE(addr)    (addr >> 22)
 #define PTE(addr)    (addr >> 12 & 0x03FF)
 #define ADDR(pd, pt) ((pd)*0x400000 + (pt)*0x1000)
@@ -21,9 +23,6 @@
 #define PD_SIZE_FLAG    (1 << 7)
 
 #define PT_PRESENT_FLAG PD_PRESENT_FLAG
-
-#define PT_TMP_MAP 0xEFFFE000
-#define PG_TMP_MAP 0xEFFFF000
 
 static volatile uint32_t* page_directory = (uint32_t*)0xFFFFF000;
 static uint32_t initial_directory = 0;
@@ -195,4 +194,13 @@ uint32_t k_mem_paging_clone_pd(uint32_t pd, uint32_t* phys) {
     }
 
     return (uint32_t)copy;
+}
+
+static uint32_t mmio_base = MMIO_START;
+
+void* k_mem_paging_map_mmio(uint32_t pstart, uint32_t size){
+    void* ptr = (void*) mmio_base;
+    k_mem_paging_map_region((uint32_t) ptr, pstart, size, 0x3, 1);
+    mmio_base += size * 0x1000;
+    return ptr;
 }

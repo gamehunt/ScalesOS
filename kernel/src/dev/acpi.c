@@ -1,12 +1,14 @@
 #include "kernel.h"
 #include "mem/paging.h"
+#include "proc/smp.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 #include <dev/acpi.h>
 #include <stdio.h>
 #include <string.h>
+#include <shared.h>
 
-#define ACPI_MAPPING_START 0xF0000000
+#include <mem/memory.h>
 
 #define FROM_PHYS(addr) (ACPI_MAPPING_START + ((addr) & 0xFFFF))
 
@@ -110,6 +112,52 @@ typedef struct fadt {
     generic_address_structure_t x_gpe1_block;
 } fadt_t;
 
+typedef struct local_apic_entry {
+    uint8_t  acpi_id;
+    uint8_t  apic_id;
+    uint32_t flags;
+}__attribute__ ((packed)) local_apic_entry_t;
+
+typedef struct io_apic_entry {
+    uint8_t  apic_id;
+    uint8_t  reserved;
+    uint32_t addr;
+    uint32_t int_base;
+}__attribute__ ((packed)) io_apic_entry_t;
+
+typedef struct io_apic_int_src_entry {
+    uint8_t  bus;
+    uint8_t  irq;
+    uint32_t glob;
+    uint16_t flags;
+}__attribute__ ((packed)) io_apic_int_src_entry_t;
+
+typedef struct io_apic_nmi_entry {
+    uint8_t  nmi;
+    uint8_t  reserved;
+    uint16_t flags;
+    uint32_t glob;
+}__attribute__ ((packed)) io_apic_nmi_entry_t;
+
+typedef struct local_apic_nmi {
+    uint8_t  acpi_id;
+    uint16_t flags;
+    uint8_t  lint;
+}__attribute__ ((packed)) local_apic_nmi_t;
+
+typedef struct madt_entry{
+    uint8_t  type;
+    uint8_t  length;
+    uint8_t  data[];
+}madt_entry_t;
+
+typedef struct madt {
+    acpi_sdt_header_t header;
+    uint32_t local_apic_addr;
+    uint32_t flags;
+    madt_entry_t first_entry;
+}madt_t;
+
 static rsdp_descriptor_t*  descriptor = 0;
 static rsdt_t* rsdt                   = 0;
 static fadt_t* fadt                   = 0;
@@ -169,6 +217,47 @@ static void __k_dev_acpi_parse_aml(uint8_t* buffer, uint32_t length){
 
 }
 
+static void __k_dev_acpi_parse_madt(madt_t* madt){
+    k_info("Local APIC: 0x%.8x Flags: 0x%.8x", madt->local_apic_addr, madt->flags);
+
+    k_proc_smp_set_lapic_addr(madt->local_apic_addr);
+    
+    madt_entry_t* entry = &madt->first_entry;
+    while((uint32_t)entry < (uint32_t)madt + madt->header.length){
+        k_info("Entry type: %d (%d)", entry->type, entry->length);
+        if(entry->type == 0){
+            local_apic_entry_t* e = (local_apic_entry_t*) &entry->data[0];
+            k_info("ACPI ID: 0x%.2x APIC ID: 0x%.2x FLAGS: 0x%.8x", e->acpi_id, e->apic_id, e->flags);
+            k_proc_smp_add_cpu(e->acpi_id, e->apic_id);
+        }else if(entry->type == 1){
+            io_apic_entry_t*    e = (io_apic_entry_t*) &entry->data[0];
+            k_info("-- IO APIC ID: 0x%.2x ADDR: 0x%.8x INT BASE: 0x%.8x", 
+                e->apic_id, 
+                e->addr,
+                e->int_base
+            );            
+        }else if(entry->type == 2){
+            io_apic_int_src_entry_t*    e = (io_apic_int_src_entry_t*) &entry->data[0];
+            k_info("-- BUS: 0x%.2x IRQ: 0x%.2x GLOB INT: 0x%.8x FLAGS: 0x%.4x", 
+                e->bus, 
+                e->irq, 
+                e->glob,
+                e->flags
+            );    
+        }else if(entry->type == 3){
+            io_apic_nmi_entry_t* e = (io_apic_nmi_entry_t*) &entry->data[0];
+        }else if(entry->type == 4){
+            local_apic_nmi_t* e = (local_apic_nmi_t*) &entry->data[0];
+            k_info("-- ACPI ID: 0x%.2x FLAGS: 0x%.4x LINT: 0x%.2x", 
+                   e->acpi_id, 
+                   e->flags, 
+                   e->lint
+                ); 
+        }
+        entry = (madt_entry_t*)((uint32_t)entry + entry->length);
+    }
+}
+
 K_STATUS k_dev_acpi_init() {
     if (!descriptor) {
         descriptor = (void*) __k_dev_acpi_probe(0xC0080000, 0xC0080400);
@@ -221,6 +310,12 @@ K_STATUS k_dev_acpi_init() {
     }
     
     __k_dev_acpi_parse_aml((uint8_t*) (dsdt+1), dsdt->length - sizeof(acpi_sdt_header_t));
+
+    madt_t* madt = (madt_t*) __k_dev_acpi_find(rsdt, "APIC");
+
+    if(madt){
+        __k_dev_acpi_parse_madt(madt);
+    }
 
     return K_STATUS_OK;
 }
