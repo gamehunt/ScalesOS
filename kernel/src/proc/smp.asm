@@ -3,6 +3,10 @@ org 0
 
 [global __k_proc_smp_ap_bootstrap]
 __k_proc_smp_ap_bootstrap:
+    cli
+
+    lgdt cs:__k_proc_smp_ap_init_gdt_ptr
+
     mov eax, 0x00000010 
     mov cr4, eax ; 4mib pages
 
@@ -12,14 +16,12 @@ __k_proc_smp_ap_bootstrap:
     mov eax, 0x80000001
     mov cr0, eax ; enable paging
 
-    lgdt cs:__k_proc_smp_ap_init_gdt_ptr
-
     jmp 0x08:__k_proc_smp_ap_stub
 
 [global __k_proc_smp_ap_init_gdt_ptr] 
 align 16
 __k_proc_smp_ap_init_gdt_ptr: 
-    dw __k_proc_smp_ap_init_gdt_end-__k_proc_smp_ap_init_gdt
+    dw __k_proc_smp_ap_init_gdt_end-__k_proc_smp_ap_init_gdt-1
     dq __k_proc_smp_ap_init_gdt
 
 [global __k_proc_smp_ap_init_gdt] 
