@@ -9,7 +9,7 @@ void k_dev_pit_init() {
 
 void k_dev_pit_set_phase(uint32_t phase) {
     cli();
-    outb(PIT_CH0_DATA, phase & 0xFF);           // Low byte
-    outb(PIT_CH0_DATA, phase >> 8);  // High byte
+    outb(PIT_CH0_DATA, phase & 0xFF);  // Low byte
+    outb(PIT_CH0_DATA, phase >> 8);    // High byte
     sti();
 }

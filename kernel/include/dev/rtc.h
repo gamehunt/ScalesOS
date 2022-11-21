@@ -11,4 +11,6 @@ typedef struct{
 
 K_STATUS k_dev_rtc_init();
 void     k_dev_rtc_gettime(rtc_time_t* t);
+void     k_dev_rtc_enable_centrury();
+
 #endif

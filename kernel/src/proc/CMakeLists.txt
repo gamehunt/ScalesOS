@@ -1,7 +1,6 @@
 set(SOURCES 
     process.asm
     process.c
-    smp.asm
     smp.c
 )
 

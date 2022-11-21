@@ -123,6 +123,9 @@ K_STATUS k_fs_vfs_init(){
     vfs_entry_t* root = k_fs_vfs_create_entry("[root]");
     tree_node_t* node = tree_create_node(root);
     tree_set_root(vfs_tree, node);
+
+    k_fs_vfs_create_entry("/dev");
+
     return K_STATUS_OK;
 }
 

@@ -2,12 +2,7 @@
 #define __K_MEM_HEAP_H
 
 #include <stdint.h>
-#include "shared.h"
 #include "kernel.h"
-
-#define HEAP_SIZE     MB(64)
-#define HEAP_START    0xC1000000
-#define HEAP_END      HEAP_START + HEAP_SIZE
 
 #define k_malloc  k_mem_heap_alloc
 #define k_calloc  k_mem_heap_calloc

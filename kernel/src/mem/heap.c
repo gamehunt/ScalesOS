@@ -4,6 +4,7 @@
 #include "util/log.h"
 #include "util/panic.h"
 #include "string.h"
+#include "mem/memory.h"
 #include <mem/heap.h>
 
 #define M_BLOCK_FREE    (1 << 0)

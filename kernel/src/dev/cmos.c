@@ -1,7 +1,7 @@
 #include "util/asm_wrappers.h"
 #include <dev/cmos.h>
 
-uint8_t nmi_enabled = 1;
+static uint8_t nmi_enabled = 1;
 
 void k_dev_cmos_nmi_enable(){
     outb(0x70, inb(0x70) & 0x7F);

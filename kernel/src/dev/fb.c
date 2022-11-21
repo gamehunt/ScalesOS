@@ -3,11 +3,12 @@
 #include <string.h>
 
 #include "kernel.h"
+#include "mem/memory.h"
 #include "mem/paging.h"
 #include "multiboot.h"
 #include "util/log.h"
 
-static uint8_t* framebuffer = (uint8_t*)(0xD0000000);
+static uint8_t* framebuffer = (uint8_t*)(FB_MAP);
 static uint8_t init = 0;
 
 static fb_info_t info;

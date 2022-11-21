@@ -8,6 +8,13 @@
 static uint8_t h24 = 0;
 static uint8_t bin = 0;
 
+static uint8_t century = 0;
+
+void  k_dev_rtc_enable_centrury(){
+    century = 1;
+    k_info("Enabled century register");
+}
+
 static uint8_t __k_dev_rtc_from_bcd(uint8_t bcd){
     return  ((bcd & 0xF0) >> 1) + ( (bcd & 0xF0) >> 3) + (bcd & 0xf);
 }
@@ -66,5 +73,16 @@ void k_dev_rtc_gettime(rtc_time_t* t){
 
     if(!h24){
         t->hour = ((t->hour & 0x7F) + 12) % 24;
+    }
+
+    if(century){
+        uint8_t c = k_dev_cmos_read(0x32);
+        if(!bin){
+            t->year += __k_dev_rtc_from_bcd(c) * 100;
+        }else{
+            t->year += c * 100;
+        }
+    }else{
+        t->year += (t->year < 70 ? 2000 : 1900);
     }
 }

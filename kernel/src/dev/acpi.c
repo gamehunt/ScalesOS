@@ -1,3 +1,4 @@
+#include "dev/rtc.h"
 #include "kernel.h"
 #include "mem/paging.h"
 #include "proc/smp.h"
@@ -307,6 +308,10 @@ K_STATUS k_dev_acpi_init() {
         outb(fadt->smi_command_port,fadt->acpi_enable);
         while ((inw(fadt->pm1a_control_block) & 1) == 0);
         k_info("ACPI enabled");
+    }
+
+    if(fadt->century){
+        k_dev_rtc_enable_centrury();
     }
     
     __k_dev_acpi_parse_aml((uint8_t*) (dsdt+1), dsdt->length - sizeof(acpi_sdt_header_t));
