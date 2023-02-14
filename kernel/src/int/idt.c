@@ -26,3 +26,11 @@ void k_int_idt_init(){
     k_int_load_idt((uint32_t)&idt_ptr);
     sti();
 }
+
+void k_int_idt_reinstall(void) {
+	idt_ptr.base  = (uintptr_t)&idt;
+	idt_ptr.limit = sizeof(struct idt_entry) * 256 - 1;
+    
+    k_int_load_idt((uint32_t)&idt_ptr);
+    sti();
+}

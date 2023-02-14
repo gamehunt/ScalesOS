@@ -1,9 +1,11 @@
 #include "dev/timer.h"
 #include "mem/heap.h"
-#include "mem/memory.h"
 #include "mem/paging.h"
+#include "util/asm_wrappers.h"
 #include "util/log.h"
 #include <proc/smp.h>
+#include "int/idt.h"
+#include "mem/memory.h"
 
 #include <cpuid.h>
 #include <string.h>
@@ -15,11 +17,13 @@ typedef struct proc_data {
 } proc_data_t;
 
 static proc_data_t cores[64];
-static uint8_t total_cores = 0;
-static uint32_t lapic_addr;
+static uint8_t     total_cores = 0;
+static uint32_t    lapic_addr;
 
 extern void* __k_proc_smp_ap_trampoline;
-uintptr_t __k_proc_smp_stack;
+uintptr_t    __k_proc_smp_stack;
+
+static uint8_t ap_startup_lock = 0;
 
 void __k_proc_smp_lapic_write(uint32_t addr, uint32_t value) {
     *((volatile uint32_t*)(lapic_addr + addr)) = value;
@@ -65,12 +69,17 @@ K_STATUS k_proc_smp_init() {
 
     for (int i = 1; i < total_cores; i++) {
         k_info("Now initializing core %d...", i);
+        
+        ap_startup_lock = 0;
         __k_proc_smp_stack = ((uintptr_t)k_valloc(KB(16), 16)) + KB(16);
+        
         k_info("Core stack = 0x%.8x", __k_proc_smp_stack);
 
         __k_proc_smp_lapic_send_ipi(cores[i].apic_id, 0x4500);
         __k_proc_smp_delay(5000UL);
         __k_proc_smp_lapic_send_ipi(cores[i].apic_id, 0x4601);
+
+        do { asm volatile ("pause" : : : "memory"); } while (!ap_startup_lock);
     }
 
     while(1);
@@ -98,6 +107,11 @@ void k_proc_smp_add_cpu(uint8_t cpu_id, uint8_t apic_id) {
 
 void __k_proc_smp_ap_startup() {
     k_info("AP_STARTUP");
-    while (1)
-        ;
+
+    k_int_idt_reinstall();
+    asm("int $0x1");
+    halt();
+
+    ap_startup_lock = 1;
+    while (1);
 }
