@@ -12,3 +12,4 @@ scripts/crosscompiler/gcc*
 toolchain/gcc/
 toolchain/binutils-gdb/
 toolchain/*-build/
+.nvim/

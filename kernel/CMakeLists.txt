@@ -23,14 +23,7 @@ add_custom_command(
     COMMAND objcopy -O elf32-i386 -B i386 -I binary font.psf font.o
 )
 
-add_custom_command(
-    OUTPUT smp.o
-    COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/src/proc/smp.asm .
-    COMMAND nasm -fbin smp.asm -o smp.bin
-    COMMAND objcopy -O elf32-i386 -B i386 -I binary smp.bin smp.o
-)
-
-add_executable(kernel.bin.tmp $<TARGET_OBJECTS:kernel.bin> font.o smp.o)
+add_executable(kernel.bin.tmp $<TARGET_OBJECTS:kernel.bin> font.o)
 target_link_options(kernel.bin.tmp PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld)
 add_dependencies(kernel.bin.tmp kernel.bin)
 
@@ -40,7 +33,7 @@ add_custom_command(
     COMMAND nasm -felf32 symtable.asm
 )
 
-add_executable(kernel.bin.final $<TARGET_OBJECTS:kernel.bin> font.o smp.o symtable.o)
+add_executable(kernel.bin.final $<TARGET_OBJECTS:kernel.bin> font.o symtable.o)
 set_target_properties(kernel.bin.final PROPERTIES OUTPUT_NAME kernel.bin)
 target_link_options(kernel.bin.final PRIVATE -T${CMAKE_CURRENT_SOURCE_DIR}/link.ld)
 add_dependencies(kernel.bin.final kernel.bin.tmp)
