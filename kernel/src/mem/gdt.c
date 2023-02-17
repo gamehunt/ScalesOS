@@ -2,26 +2,30 @@
 #include "shared.h"
 #include "util/asm_wrappers.h"
 #include <mem/gdt.h>
+#include <mem/heap.h>
 #include <stdio.h>
 #include <string.h>
+#include <proc/smp.h>
 
-static struct gdt_entry	    gdt[7];
+static struct gdt_entry	    gdt[8];
 static struct gdt_ptr		gp;
 
 static tss_entry_t tss;
 static tss_entry_t dfs;
 
-static uint32_t df_stack[4096]   __attribute__((aligned(4)));
+static uint32_t df_stack[4096]   __attribute__((aligned(4)));      //Double-fault handler structures
 static uint32_t df_cr3[1024]     __attribute__((aligned(0x1000)));
 
-void k_mem_gdt_create_entry(uint8_t idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags){
-	gdt[idx].base_low  = (base & 0xFFFF);
-	gdt[idx].base_mid  = (base >> 16) & 0xFF;
-	gdt[idx].base_high = (base >> 24) & 0xFF;
-	gdt[idx].limit     = (limit & 0xFFFF);
-	gdt[idx].flags     = (limit >> 16) & 0X0F;
-	gdt[idx].flags    |= (flags & 0xF0);
-	gdt[idx].access    = access;
+static core_t initial_core;
+
+void k_mem_gdt_create_entry(struct gdt_entry* gdt_instance, uint8_t idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags){
+	gdt_instance[idx].base_low  = (base & 0xFFFF);
+	gdt_instance[idx].base_mid  = (base >> 16) & 0xFF;
+	gdt_instance[idx].base_high = (base >> 24) & 0xFF;
+	gdt_instance[idx].limit     = (limit & 0xFFFF);
+	gdt_instance[idx].flags     = (limit >> 16) & 0X0F;
+	gdt_instance[idx].flags    |= (flags & 0xF0);
+	gdt_instance[idx].access    = access;
 }
 
 extern void __k_mem_gdt_flush_tss();
@@ -37,16 +41,17 @@ static void __k_mem_gdt_df_handler(){
 }
 
 void k_mem_gdt_init(){
-	gp.limit = (sizeof(struct gdt_entry) * 7) - 1;
+	gp.limit = (sizeof(struct gdt_entry) * 8) - 1;
 	gp.base  = (uint32_t)&gdt;
 
-	k_mem_gdt_create_entry(0, 0, 0, 0, 0);                               // null     0x0
-	k_mem_gdt_create_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);                // code     0x8
-	k_mem_gdt_create_entry(2, 0, 0xFFFFFFFF, 0x92, 0xCF);                // data     0x10
-	k_mem_gdt_create_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);                // usr code 0x18
-	k_mem_gdt_create_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);                // usr data 0x20
-	k_mem_gdt_create_entry(5, (uint32_t) &tss, sizeof(tss), 0xE9, 0x00); // tss      0x28
-    k_mem_gdt_create_entry(6, (uint32_t) &dfs, sizeof(dfs), 0xE9, 0x00); // dfs      0x30
+	k_mem_gdt_create_entry(gdt, 0, 0, 0, 0, 0);                               // null      0x0
+	k_mem_gdt_create_entry(gdt, 1, 0, 0xFFFFFFFF, 0x9A, 0xCF);                // code      0x8
+	k_mem_gdt_create_entry(gdt, 2, 0, 0xFFFFFFFF, 0x92, 0xCF);                // data      0x10
+	k_mem_gdt_create_entry(gdt, 3, 0, 0xFFFFFFFF, 0xFA, 0xCF);                // usr code  0x18
+	k_mem_gdt_create_entry(gdt, 4, 0, 0xFFFFFFFF, 0xF2, 0xCF);                // usr data  0x20
+	k_mem_gdt_create_entry(gdt, 5, (uint32_t) &tss, sizeof(tss), 0xE9, 0x40); // tss       0x28
+    k_mem_gdt_create_entry(gdt, 6, (uint32_t) &dfs, sizeof(dfs), 0xE9, 0x40); // dfs       0x30
+    k_mem_gdt_create_entry(gdt, 7, (uint32_t) &initial_core, sizeof(initial_core), 0x92, 0x40);                         // core data 0x38
 
 	memset(&tss, 0, sizeof tss);
 	tss.ss0  = 0x10;
@@ -64,7 +69,7 @@ void k_mem_gdt_init(){
     dfs.cs       = 0x8;
     dfs.ds       = 0x10;
     dfs.fs       = 0x10;
-    dfs.gs       = 0x10;
+    dfs.gs       = 0x38;
     dfs.ss       = 0x10;
     dfs.esp      = ((uint32_t) &df_stack[0]) + MB(1);
     dfs.ebp      = dfs.esp;
@@ -75,12 +80,38 @@ void k_mem_gdt_init(){
 
     k_mem_load_gdt((uint32_t)&gp);
     __k_mem_gdt_flush_tss();
+
+    initial_core.gdt = gdt;
+    initial_core.tss = &tss;
 }
 
 void k_mem_gdt_set_stack(uint32_t stack){
-	tss.esp0 = stack;
+	current_core->tss->esp0 = stack;
 }
 
 void k_mem_gdt_set_directory(uint32_t dir){
-    tss.cr3 = dir;
+    current_core->tss->cr3 = dir;
+}
+
+void k_mem_gdt_init_core(){
+    struct gdt_entry* gdt_copy = (struct gdt_entry*) k_malloc(sizeof(struct gdt_entry) * 8);
+    memcpy(gdt_copy, &gdt, sizeof(struct gdt_entry) * 7);
+    struct gdt_ptr* gdt_copy_ptr = (struct gdt_ptr*) k_malloc(sizeof(struct gdt_ptr));
+    memcpy(gdt_copy_ptr, &gp, sizeof(struct gdt_ptr));
+
+    gdt_copy_ptr->base = (uint32_t) gdt_copy;
+
+    core_t* core_info = k_malloc(sizeof(core_t));
+
+    tss_entry_t* tss_copy = (tss_entry_t*) k_malloc(sizeof(tss_entry_t));
+    memcpy(tss_copy, &tss, sizeof(tss_entry_t));
+
+	k_mem_gdt_create_entry(gdt_copy, 5, (uint32_t) tss_copy, sizeof(tss_entry_t), 0xE9, 0x40); // tss       0x28
+    k_mem_gdt_create_entry(gdt_copy, 7, (uint32_t) core_info, sizeof(core_t), 0x92, 0x40);
+    
+    k_mem_load_gdt((uint32_t) gdt_copy_ptr);
+    __k_mem_gdt_flush_tss();
+
+    core_info->gdt = gdt_copy;
+    core_info->tss = tss_copy;
 }

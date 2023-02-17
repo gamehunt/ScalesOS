@@ -1,4 +1,5 @@
 #include "dev/timer.h"
+#include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "util/asm_wrappers.h"
@@ -24,6 +25,7 @@ extern void* __k_proc_smp_ap_trampoline;
 uintptr_t    __k_proc_smp_stack;
 
 static uint8_t ap_startup_lock = 0;
+static uint8_t ap_current_core = 0;
 
 void __k_proc_smp_lapic_write(uint32_t addr, uint32_t value) {
     *((volatile uint32_t*)(lapic_addr + addr)) = value;
@@ -72,7 +74,8 @@ K_STATUS k_proc_smp_init() {
         
         ap_startup_lock = 0;
         __k_proc_smp_stack = ((uintptr_t)k_valloc(KB(16), 16)) + KB(16);
-        
+        ap_current_core = i;
+
         k_info("Core stack = 0x%.8x", __k_proc_smp_stack);
 
         __k_proc_smp_lapic_send_ipi(cores[i].apic_id, 0x4500);
@@ -106,11 +109,10 @@ void k_proc_smp_add_cpu(uint8_t cpu_id, uint8_t apic_id) {
 }
 
 void __k_proc_smp_ap_startup() {
-    k_info("AP_STARTUP");
+    k_info("AP_STARTUP (%d)", ap_current_core);
 
     k_int_idt_reinstall();
-    asm("int $0x1");
-    halt();
+    k_mem_gdt_init_core();
 
     ap_startup_lock = 1;
     while (1);

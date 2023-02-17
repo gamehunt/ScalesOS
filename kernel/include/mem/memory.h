@@ -11,7 +11,7 @@
 
 #define FB_MAP             0xD0000000
 
-#define AP_BOOTSTRAP_MAP   0xEFFF0000
+// #define AP_BOOTSTRAP_MAP   0xEFFF0000
 #define PT_TMP_MAP         0xEFFFE000
 #define PG_TMP_MAP         0xEFFFF000
 #define ACPI_MAPPING_START 0xF0000000
