@@ -1,4 +1,4 @@
 #!/bin/bash
 
 git push origin master
-git push --mirrir mirror
+git push --mirror mirror
