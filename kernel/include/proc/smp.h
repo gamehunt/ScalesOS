@@ -2,6 +2,7 @@
 #define __K_PROC_SMP_H
 
 #include "kernel.h"
+#include "proc/process.h"
 
 struct gdt_entry;
 struct tss_entry;
@@ -10,10 +11,11 @@ typedef struct {
     struct gdt_entry* gdt;
     struct tss_entry* tss;
 
-    uint32_t page_directory;
-} core_t;
+    volatile process_t* current_process;
+    process_t* idle_process;
+} core;
 
-static core_t __seg_gs *current_core = 0;
+static core __seg_gs * const current_core __attribute__((__used__)) = 0;
 
 K_STATUS k_proc_smp_init();
 void     k_proc_smp_add_cpu(uint8_t cpu_id, uint8_t apic_id);

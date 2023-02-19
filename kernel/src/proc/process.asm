@@ -16,7 +16,7 @@ extern k_mem_paging_set_pd
 [global __k_proc_process_load]
 __k_proc_process_load:
     mov ebx, [esp + 4] ; Get arg
-    
+
     mov esp, [ebx + 0] ; Restore ESP
     mov ebp, [ebx + 4] ; Restore EBP
 
@@ -33,13 +33,13 @@ __k_proc_process_enter_usermode:
 
 	mov ax, 0x20 | 3 ; Ring 3 data
 	mov ds, ax
-	mov es, ax 
-	mov fs, ax 
+	mov es, ax
+	mov fs, ax
 	mov gs, ax
- 
+
 	push 0x20 | 3 ; SS
 	push ecx      ; ESP
-	
+
     pushf
     pop  eax
     or   eax, 0x200

@@ -73,7 +73,7 @@ static interrupt_context_t* __irq0_handler(interrupt_context_t* registers){
     }
 
     k_int_pic_eoi(0);
-    
+
     k_proc_process_yield();
 
     return registers;

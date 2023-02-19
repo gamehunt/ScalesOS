@@ -2,6 +2,7 @@
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
+#include "proc/process.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 #include <proc/smp.h>
@@ -51,6 +52,8 @@ static void __k_proc_smp_delay(unsigned long amount) {
 }
 
 K_STATUS k_proc_smp_init() {
+    cli();
+
     k_info("Initializing SMP with %d cores", total_cores);
 
     lapic_addr = (uint32_t)k_mem_paging_map_mmio(lapic_addr, 1);
@@ -85,7 +88,7 @@ K_STATUS k_proc_smp_init() {
         do { asm volatile ("pause" : : : "memory"); } while (!ap_startup_lock);
     }
 
-    while(1);
+    sti();
 
     return K_STATUS_OK;
 }
@@ -113,7 +116,9 @@ void __k_proc_smp_ap_startup() {
 
     k_int_idt_reinstall();
     k_mem_gdt_init_core();
+    // k_proc_init_core();
 
     ap_startup_lock = 1;
-    while (1);
+    
+    // sti();
 }

@@ -17,7 +17,7 @@ typedef struct context {
 typedef struct image{
     uint32_t  page_directory;
     uint32_t* kernel_stack;
-}image_t;
+} image_t;
 
 typedef struct process {
     char      name[256];
@@ -33,7 +33,9 @@ void       k_proc_process_yield();
 void       k_proc_process_init();
 uint32_t   k_proc_process_exec(const char* path, int argc, char** argv);
 uint32_t   k_proc_process_fork();
+void       k_proc_init_core();
 
 process_t* k_proc_process_current();
+process_t* k_proc_process_next();
 
 #endif

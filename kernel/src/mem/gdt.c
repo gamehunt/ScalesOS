@@ -16,7 +16,7 @@ static tss_entry_t dfs;
 static uint32_t df_stack[4096]   __attribute__((aligned(4)));      //Double-fault handler structures
 static uint32_t df_cr3[1024]     __attribute__((aligned(0x1000)));
 
-static core_t initial_core;
+static core initial_core;
 
 void k_mem_gdt_create_entry(struct gdt_entry* gdt_instance, uint8_t idx, uint32_t base, uint32_t limit, uint8_t access, uint8_t flags){
 	gdt_instance[idx].base_low  = (base & 0xFFFF);
@@ -101,13 +101,13 @@ void k_mem_gdt_init_core(){
 
     gdt_copy_ptr->base = (uint32_t) gdt_copy;
 
-    core_t* core_info = k_malloc(sizeof(core_t));
+    core* core_info = k_malloc(sizeof(core));
 
     tss_entry_t* tss_copy = (tss_entry_t*) k_malloc(sizeof(tss_entry_t));
     memcpy(tss_copy, &tss, sizeof(tss_entry_t));
 
 	k_mem_gdt_create_entry(gdt_copy, 5, (uint32_t) tss_copy, sizeof(tss_entry_t), 0xE9, 0x40); // tss       0x28
-    k_mem_gdt_create_entry(gdt_copy, 7, (uint32_t) core_info, sizeof(core_t), 0x92, 0x40);
+    k_mem_gdt_create_entry(gdt_copy, 7, (uint32_t) core_info, sizeof(core), 0x92, 0x40);
     
     k_mem_load_gdt((uint32_t) gdt_copy_ptr);
     __k_mem_gdt_flush_tss();
