@@ -90,13 +90,13 @@ index 00000000000..1cec8308d6b
 +    builtin_assert ("system=posix");   \
 +  } while(0);
 diff --git a/libgcc/config.host b/libgcc/config.host
-index 8c56fcae5d2..28453b53a6f 100644
+index 8c56fcae5d2..76d7d005f31 100644
 --- a/libgcc/config.host
 +++ b/libgcc/config.host
-@@ -337,6 +337,14 @@ case ${host} in
- *-*-uclinux*)
-   extra_parts="crtbegin.o crtend.o"
-   ;;
+@@ -797,6 +797,14 @@ i[34567]86-*-solaris2* | x86_64-*-solaris2*)
+ 	tm_file="${tm_file} i386/elf-lib.h"
+ 	md_unwind_header=i386/sol2-unwind.h
+ 	;;
 +i[34567]86-*-scales*)
 +	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
 +	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
@@ -105,9 +105,9 @@ index 8c56fcae5d2..28453b53a6f 100644
 +	extra_parts="$extra_parts crti.o crtbegin.o crtend.o crtn.o"
 +	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
 +	;;
- *-*-*vms*)
-   tmake_file="vms/t-vms"
-   extra_parts="crt0.o crtbegin.o crtbeginS.o crtend.o crtendS.o"
+ i[4567]86-wrs-vxworks*|x86_64-wrs-vxworks*)
+ 	;;
+ i[34567]86-*-cygwin*)
 diff --git a/libstdc++-v3/crossconfig.m4 b/libstdc++-v3/crossconfig.m4
 index ae5283b7ad3..21fbd820bf5 100644
 --- a/libstdc++-v3/crossconfig.m4
