@@ -6,6 +6,7 @@ env/
 *.o
 scripts/crosscompiler/binutils*
 scripts/crosscompiler/gcc*
+scripts/crosscompiler/hosted/
 .vs/
 .cache/
 .clangd
