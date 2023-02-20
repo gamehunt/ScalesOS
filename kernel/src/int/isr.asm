@@ -50,8 +50,15 @@ isr_err   29
 isr_err   30
 isr_noerr 31
 
+%macro fix_gs 0
+    push eax
+    mov ax, 0x38
+    mov gs, ax
+    pop eax
+%endmacro
 
 isr_stub:
+    fix_gs
     pushad
     cld
     mov edi, esp

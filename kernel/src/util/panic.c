@@ -25,12 +25,20 @@ static void __k_panic_stacktrace(uint32_t stack){
     }
 }
 
+static uint8_t __nested = 0;
+
 void k_panic(const char* reason, interrupt_context_t* ctx) {
+    cli(); 
+    __nested = 1;
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);
-    process_t* cur_proc = k_proc_process_current();
-    if(cur_proc){
-        printf("Current process: %s (%d)\r\n", cur_proc->name, cur_proc->pid);
+    if(!__nested){
+        process_t* cur_proc = k_proc_process_current();
+        if(cur_proc){
+            printf("Current process: %s (%d)\r\n", cur_proc->name, cur_proc->pid);
+        }
+    }else{
+        printf("!! Nested exception !!\r\n");
     }
     printf("Dump:\r\n");
     if (ctx) {
@@ -51,6 +59,5 @@ void k_panic(const char* reason, interrupt_context_t* ctx) {
         printf("Not available.\r\n");
     }
     printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-    cli();
     halt();
 }

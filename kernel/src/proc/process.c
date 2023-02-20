@@ -9,8 +9,8 @@
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 #include "util/panic.h"
-#include "util/types/stack.h"
 #include "util/types/list.h"
+#include "util/types/stack.h"
 #include <proc/process.h>
 #include <proc/smp.h>
 #include <stdio.h>
@@ -24,55 +24,65 @@
 #define GUARD_MAGIC 0xBEDAABED
 
 static list_t* processes = 0;
-static volatile uint32_t next_process;
-
-static spinlock_t proc_lock = 0;
+static list_t* ready_processes = 0;
 
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
     if (proc->pid == 1) {
         return 1;
     }
-    return proc->image.kernel_stack[0] == GUARD_MAGIC;
+    return proc->image.kernel_stack[-1] == GUARD_MAGIC;
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc) {
-    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 4);
+    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE + sizeof(uint32_t), 4);
     memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
-    proc->context.ebp = (((uint32_t)stack) + KERNEL_STACK_SIZE);
-    proc->context.esp = proc->context.ebp;
-    proc->image.kernel_stack = stack;
+    proc->image.kernel_stack = stack + 1;
 }
 
 static void __k_proc_process_idle() {
     while (1) {
-        asm("pause");
+        asm volatile(
+            "sti\n"
+            "hlt\n"
+            "cli\n"
+        );
     }
 }
 
-void k_proc_process_spawn(process_t* proc) {
-    LOCK(proc_lock)
-
-    proc->pid = processes->size + 1;
-	list_push_back(processes, proc);
-
-    k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
-           proc->pid, proc->context.ebp);
-
-    UNLOCK(proc_lock)
+void k_proc_process_mark_ready(process_t* process) {
+    LOCK(ready_processes->lock)
+    list_push_back(ready_processes, process);
+    UNLOCK(ready_processes->lock)
 }
 
-static void __k_proc_process_create_init() {
+void __k_proc_process_spawn(process_t* proc) {
+    LOCK(processes->lock)
+
+    proc->pid = processes->size + 1;
+    list_push_back(processes, proc);
+
+    k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
+           proc->pid, proc->image.kernel_stack);
+
+    UNLOCK(processes->lock)
+}
+
+static process_t* __k_proc_process_create_init() {
     process_t* proc = k_calloc(1, sizeof(process_t));
 
     strcpy(proc->name, "[kernel]");
+
+    __k_proc_process_create_kernel_stack(proc);
 
     proc->context.esp = 0;
     proc->context.ebp = 0;
     proc->context.eip = 0;
     k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
-    k_proc_process_spawn(proc);
+    __k_proc_process_spawn(proc);
+
+    return proc;
 }
 
 static process_t* __k_proc_process_create_idle() {
@@ -85,41 +95,27 @@ static process_t* __k_proc_process_create_idle() {
     proc->context.eip = (uint32_t)&__k_proc_process_idle;
     k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
-    k_proc_process_spawn(proc);
     return proc;
 }
 
-void k_proc_init_core() {
-    current_core->idle_process = __k_proc_process_create_idle();
+void k_proc_process_init_core() {
+    current_core->idle_process    = __k_proc_process_create_idle();
     current_core->current_process = current_core->idle_process;
 }
 
 void k_proc_process_init() {
-    cli();
+    processes       = list_create();
+    ready_processes = list_create();
 
-	processes = list_create();
-    next_process    = 0;
-
-    __k_proc_process_create_init();
-
-    k_proc_init_core();
-    current_core->current_process = processes->data[0];
-
-    sti();
+    current_core->idle_process    = __k_proc_process_create_idle();
+    current_core->current_process = __k_proc_process_create_init();
 }
 
-extern __attribute__((returns_twice)) uint8_t
-__k_proc_process_save(context_t* ctx);
+extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* ctx);
 extern __attribute__((noreturn)) void __k_proc_process_load(context_t* ctx);
-extern __attribute__((noreturn)) void
-__k_proc_process_enter_usermode(context_t* ctx, uint32_t userstack);
+extern __attribute__((noreturn)) void __k_proc_process_enter_usermode(uint32_t entry, uint32_t userstack);
 
-void k_proc_process_yield() {
-    if (!processes || !processes->size) {
-        return;
-    }
-
-    process_t* old_proc = k_proc_process_current();
+void k_proc_process_switch() {
     process_t* new_proc = k_proc_process_next();
 
     current_core->current_process = new_proc;
@@ -134,76 +130,70 @@ void k_proc_process_yield() {
         k_panic(buffer, 0);
     }
 
+    k_mem_gdt_set_directory(new_proc->image.page_directory);
+    k_mem_gdt_set_stack((uint32_t)new_proc->image.kernel_stack +
+                        KERNEL_STACK_SIZE);
+    k_mem_paging_set_pd(new_proc->image.page_directory, 1, 0);
+
+    __k_proc_process_load(&new_proc->context);
+}
+
+void k_proc_process_yield() {
+    if (!processes || !processes->size) {
+        return;
+    }
+
+    process_t* old_proc = k_proc_process_current();
+    if(!old_proc){
+        return;
+    }
+
+    if(old_proc == current_core->idle_process){
+        k_proc_process_switch();
+        return;
+    }
+
     if (__k_proc_process_save(&old_proc->context)) {
         return; // Just returned from switch, do nothing and let it return
     }
 
-    uint8_t jump = new_proc->state == PROCESS_STATE_PL_CHANGE_REQUIRED;
-    if (new_proc->state == PROCESS_STATE_STARTING || jump) {
-        new_proc->state = PROCESS_STATE_STARTED;
-    }
+    k_proc_process_mark_ready(old_proc);
 
-    k_mem_gdt_set_directory(new_proc->image.page_directory);
-    k_mem_gdt_set_stack((uint32_t)new_proc->image.kernel_stack +
-                        KERNEL_STACK_SIZE);
-
-    k_mem_paging_set_pd(new_proc->image.page_directory, 1, 0);
-
-    if (jump) {
-        __k_proc_process_enter_usermode(&new_proc->context,
-                                        USER_STACK_START + USER_STACK_SIZE);
-    } else {
-        __k_proc_process_load(&new_proc->context);
-    }
+    k_proc_process_switch(); 
 }
 
-uint32_t k_proc_process_exec(const char* path, int argc UNUSED,
-                             char** argv UNUSED) {
+void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) {
     if (!processes || !processes->size) {
-        return 0;
+        return;
     }
 
     fs_node_t* node = k_fs_vfs_open(path);
     if (!node) {
-        return 0;
+        return;
     }
 
     uint8_t* buffer = k_malloc(node->size);
     k_fs_vfs_read(node, 0, node->size, buffer);
 
-    process_t* proc = k_calloc(1, sizeof(process_t));
+    process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
+
+    k_info("Executing: %s", proc->name);
+
     k_fs_vfs_close(node);
-
-    cli();
-
-    uint32_t prev = k_mem_paging_get_pd(1);
-
-    k_mem_paging_set_pd(0, 1, 0);
-    k_mem_paging_clone_pd(0, &proc->image.page_directory);
-    k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
 
     uint32_t entry;
     if ((entry = k_mod_elf_load_exec(buffer))) {
         k_free(buffer);
-        proc->context.eip = entry;
 
-        __k_proc_process_create_kernel_stack(proc);
-        k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000,
-                                0x7, 0);
+        k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 
-        k_proc_process_spawn(proc);
-        proc->state = PROCESS_STATE_PL_CHANGE_REQUIRED;
+        k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack + KERNEL_STACK_SIZE);
+        k_mem_gdt_set_directory(proc->image.page_directory);
+        __k_proc_process_enter_usermode(entry, USER_STACK_START + USER_STACK_SIZE);
     } else {
         k_free(buffer);
-        k_free(proc);
     }
-
-    k_mem_paging_set_pd(prev, 1, 0);
-
-    sti();
-
-    return proc->pid;
 }
 
 process_t* k_proc_process_current() {
@@ -211,21 +201,14 @@ process_t* k_proc_process_current() {
 }
 
 process_t* k_proc_process_next() {
-    LOCK(proc_lock)
+    LOCK(ready_processes->lock)
 
-    if (!processes || !processes->size) {
-        k_panic("k_proc_process_next(): no idle task?", 0); //TODO idle task should not be on queue, it should just exists in current core
+    process_t* process = list_pop_front(ready_processes);
+    if(!process){
+        return current_core->idle_process;
     }
 
-    process_t* process = processes->data[next_process];
-    // k_info("Next: %s", process->name);
-
-    next_process++;
-    if(next_process >= processes->size){
-        next_process = 0;
-    }
-
-    UNLOCK(proc_lock)
+    UNLOCK(ready_processes->lock)
     return process;
 }
 
@@ -256,7 +239,8 @@ uint32_t k_proc_process_fork() {
 
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
 
-    k_proc_process_spawn(new);
+    __k_proc_process_spawn(new);
+    k_proc_process_mark_ready(new);
 
     return new->pid;
 }

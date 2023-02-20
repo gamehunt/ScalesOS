@@ -72,15 +72,13 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_load_modules(mb);
 
     k_proc_process_init();
-    // k_proc_smp_init();
+    k_proc_smp_init();
 
     if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){
         k_panic("Failed to mount root.", 0);
     }
 
-    if(!k_proc_process_exec("/init.sc", 0, 0)){
-        k_err("Failed to exec init");
-    }
+    k_proc_process_exec("/init.sc", 0, 0);
 
     while(1){
         halt();

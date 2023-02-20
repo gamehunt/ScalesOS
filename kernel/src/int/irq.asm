@@ -26,7 +26,15 @@ irq 13
 irq 14
 irq 15
 
+%macro fix_gs 0
+    push eax
+    mov ax, 0x38
+    mov gs, ax
+    pop eax
+%endmacro
+
 irq_stub:
+    fix_gs
     pushad
     cld
     mov edi, esp

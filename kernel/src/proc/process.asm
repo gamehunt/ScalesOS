@@ -28,14 +28,10 @@ __k_proc_process_enter_usermode:
     mov ebx, [esp + 4]
     mov ecx, [esp + 8]
 
-    mov esp, [ebx + 0] ; Restore ESP
-    mov ebp, [ebx + 4] ; Restore EBP
-
 	mov ax, 0x20 | 3 ; Ring 3 data
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
-	mov gs, ax
 
 	push 0x20 | 3 ; SS
 	push ecx      ; ESP
@@ -47,8 +43,7 @@ __k_proc_process_enter_usermode:
 
     push 0x18 | 3  ; code selector (ring 3 code with bottom 2 bits set for ring 3)
 
-    mov  eax, [ebx + 8]
-	push eax ; instruction address to return to
+	push ebx ; instruction address to return to
 
 	iret
 

@@ -5,9 +5,7 @@
 #include <string.h>
 
 list_t* list_create(){
-	list_t* list = k_malloc(sizeof(list_t));
-	list->size = 0;
-	list->data = 0;
+	list_t* list = k_calloc(1, sizeof(list_t));
 	return list;
 }
 
@@ -20,7 +18,7 @@ void list_free(list_t* list){
 
 void list_push_front(list_t* list, void* data){
 	EXTEND(list->data, list->size, sizeof(void*));
-	memmove(list->data + 1, list->data, list->size - 1);
+	memmove(list->data + 1, list->data, (list->size - 1) * sizeof(void*));
 	list->data[0] = data;
 }
 
@@ -30,16 +28,42 @@ void list_push_back(list_t* list, void* data){
 }
 
 void* list_pop_back(list_t* list){
-	void* data = list->data[list->size - 1];
+	if(!list->size){
+        return 0;
+    }
+    void* data = list->data[list->size - 1];
 	list->size--;
-	list->data = k_realloc(list->data, list->size);
+	list->data = k_realloc(list->data, list->size * sizeof(void*));
 	return data;
 }
 
 void* list_pop_front(list_t* list){
+    if(!list->size){
+        return 0;
+    }
 	void* data = list->data[0];
 	list->size--;
-	memmove(list->data, list->data + 1, list->size);
-	list->data = k_realloc(list->data, list->size);
+    if(!list->size){
+        k_free(list->data);
+    }else{
+	    memmove(list->data, list->data + 1, list->size * sizeof(void*));
+	    list->data = k_realloc(list->data, list->size * sizeof(void*));
+    }
 	return data;
+}
+
+void list_delete_element(list_t* list, void* data){
+    for(uint32_t i = 0; i < list->size; i++){
+        if(list->data[i] == data){
+            list->data[i] = 0;
+            list->size--;
+            if(!list->size){
+                memmove(list->data + i, list->data + i + 1, list->size * sizeof(void*));
+                list->data = k_realloc(list->data, list->size * sizeof(void*));
+            }else{
+                k_free(list->data);
+            }
+            break;
+        }
+    }
 }

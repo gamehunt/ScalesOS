@@ -116,9 +116,7 @@ void __k_proc_smp_ap_startup() {
 
     k_int_idt_reinstall();
     k_mem_gdt_init_core();
-    // k_proc_init_core();
+    k_proc_process_init_core();
 
     ap_startup_lock = 1;
-    
-    // sti();
 }

@@ -6,7 +6,7 @@
 
 #define PROCESS_STATE_STARTING           0x0
 #define PROCESS_STATE_STARTED            0x1
-#define PROCESS_STATE_PL_CHANGE_REQUIRED 0xFF
+#define PROCESS_STATE_FINISHED           0x2
 
 typedef struct context {
     uint32_t esp;             // +0
@@ -30,10 +30,13 @@ typedef struct process {
 } process_t;
 
 void       k_proc_process_yield();
+void       k_proc_process_switch();
 void       k_proc_process_init();
-uint32_t   k_proc_process_exec(const char* path, int argc, char** argv);
+void       k_proc_process_exec(const char* path, int argc, char** argv);
 uint32_t   k_proc_process_fork();
-void       k_proc_init_core();
+void       k_proc_process_init_core();
+
+void       k_proc_process_mark_ready(process_t* process);
 
 process_t* k_proc_process_current();
 process_t* k_proc_process_next();
