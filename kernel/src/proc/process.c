@@ -10,6 +10,7 @@
 #include "util/log.h"
 #include "util/panic.h"
 #include "util/types/stack.h"
+#include "util/types/list.h"
 #include <proc/process.h>
 #include <proc/smp.h>
 #include <stdio.h>
@@ -22,9 +23,8 @@
 
 #define GUARD_MAGIC 0xBEDAABED
 
-static process_t** processes;
-static uint32_t total_processes;
-static uint32_t next_process;
+static list_t* processes = 0;
+static volatile uint32_t next_process;
 
 static spinlock_t proc_lock = 0;
 
@@ -36,7 +36,7 @@ static uint8_t __k_proc_process_check_stack(process_t* proc) {
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc) {
-    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 16);
+    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE, 4);
     memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
     proc->context.ebp = (((uint32_t)stack) + KERNEL_STACK_SIZE);
@@ -53,9 +53,9 @@ static void __k_proc_process_idle() {
 void k_proc_process_spawn(process_t* proc) {
     LOCK(proc_lock)
 
-    EXTEND(processes, total_processes, sizeof(process_t*));
-    proc->pid = total_processes;
-    processes[total_processes - 1] = proc;
+    proc->pid = processes->size + 1;
+	list_push_back(processes, proc);
+
     k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
            proc->pid, proc->context.ebp);
 
@@ -97,13 +97,13 @@ void k_proc_init_core() {
 void k_proc_process_init() {
     cli();
 
-    total_processes = 0;
+	processes = list_create();
     next_process    = 0;
 
     __k_proc_process_create_init();
 
     k_proc_init_core();
-    current_core->current_process = processes[0];
+    current_core->current_process = processes->data[0];
 
     sti();
 }
@@ -115,7 +115,7 @@ extern __attribute__((noreturn)) void
 __k_proc_process_enter_usermode(context_t* ctx, uint32_t userstack);
 
 void k_proc_process_yield() {
-    if (!total_processes) {
+    if (!processes || !processes->size) {
         return;
     }
 
@@ -159,7 +159,7 @@ void k_proc_process_yield() {
 
 uint32_t k_proc_process_exec(const char* path, int argc UNUSED,
                              char** argv UNUSED) {
-    if (!total_processes) {
+    if (!processes || !processes->size) {
         return 0;
     }
 
@@ -213,15 +213,15 @@ process_t* k_proc_process_current() {
 process_t* k_proc_process_next() {
     LOCK(proc_lock)
 
-    if(!total_processes){
+    if (!processes || !processes->size) {
         k_panic("k_proc_process_next(): no idle task?", 0); //TODO idle task should not be on queue, it should just exists in current core
     }
 
-    process_t* process = processes[next_process];
+    process_t* process = processes->data[next_process];
     // k_info("Next: %s", process->name);
 
     next_process++;
-    if(next_process >= total_processes){
+    if(next_process >= processes->size){
         next_process = 0;
     }
 
@@ -232,7 +232,7 @@ process_t* k_proc_process_next() {
 extern void __attribute__((noreturn)) __k_proc_process_fork_return();
 
 uint32_t k_proc_process_fork() {
-    if (!total_processes) {
+    if (!processes || !processes->size) {
         return 0;
     }
 

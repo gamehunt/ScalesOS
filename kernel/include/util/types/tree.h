@@ -1,5 +1,5 @@
-#ifndef __SHARED_TYPES_TREE_H
-#define __SHARED_TYPES_TREE_H
+#ifndef __K_UTIL_TYPES_TREE_H
+#define __K_UTIL_TYPES_TREE_H
 
 #include <stdint.h>
 
