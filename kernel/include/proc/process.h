@@ -15,8 +15,9 @@ typedef struct context {
 } context_t;
 
 typedef struct image{
-    uint32_t  page_directory;
-    uint32_t* kernel_stack;
+    uint32_t   page_directory;
+    uint32_t   kernel_stack;
+	uint32_t*  kernel_stack_base;
 } image_t;
 
 typedef struct process {

@@ -30,14 +30,15 @@ static uint8_t __k_proc_process_check_stack(process_t* proc) {
     if (proc->pid == 1) {
         return 1;
     }
-    return proc->image.kernel_stack[-1] == GUARD_MAGIC;
+    return proc->image.kernel_stack_base[0] == GUARD_MAGIC;
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc) {
     uint32_t* stack = k_valloc(KERNEL_STACK_SIZE + sizeof(uint32_t), 4);
     memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
-    proc->image.kernel_stack = stack + 1;
+    proc->image.kernel_stack = (uint32_t) stack + KERNEL_STACK_SIZE;
+	proc->image.kernel_stack_base = stack;
 }
 
 static void __k_proc_process_idle() {
@@ -126,13 +127,12 @@ void k_proc_process_switch() {
                 "Kernel stack smashing detected. \r\n EBP = 0x%.8x ESP = "
                 "0x%.8x (0x%.8x) in %s (%d)",
                 new_proc->context.ebp, new_proc->context.esp,
-                new_proc->image.kernel_stack[0], new_proc->name, new_proc->pid);
+                new_proc->image.kernel_stack_base[0], new_proc->name, new_proc->pid);
         k_panic(buffer, 0);
     }
 
     k_mem_gdt_set_directory(new_proc->image.page_directory);
-    k_mem_gdt_set_stack((uint32_t)new_proc->image.kernel_stack +
-                        KERNEL_STACK_SIZE);
+    k_mem_gdt_set_stack((uint32_t) new_proc->image.kernel_stack);
     k_mem_paging_set_pd(new_proc->image.page_directory, 1, 0);
 
     __k_proc_process_load(&new_proc->context);
@@ -188,7 +188,7 @@ void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) 
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 
-        k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack + KERNEL_STACK_SIZE);
+        k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
         k_mem_gdt_set_directory(proc->image.page_directory);
         __k_proc_process_enter_usermode(entry, USER_STACK_START + USER_STACK_SIZE);
     } else {
@@ -235,8 +235,10 @@ uint32_t k_proc_process_fork() {
 
     new->syscall_state.eax = 0;
 
-    PUSH(new->context.esp, interrupt_context_t, new->syscall_state)
+    PUSH(new->image.kernel_stack, interrupt_context_t, new->syscall_state)
 
+	new->context.esp = new->image.kernel_stack;
+	new->context.ebp = new->image.kernel_stack;
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
 
     __k_proc_process_spawn(new);

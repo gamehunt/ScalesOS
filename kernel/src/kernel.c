@@ -19,7 +19,6 @@
 #include "dev/fpu.h"
 #include "dev/pci.h"
 #include "dev/ps2.h"
-#include "dev/rtc.h"
 #include "dev/timer.h"
 #include "fs/tar.h"
 #include "int/syscall.h"
@@ -72,7 +71,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_load_modules(mb);
 
     k_proc_process_init();
-    k_proc_smp_init();
+    // k_proc_smp_init();
 
     if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){
         k_panic("Failed to mount root.", 0);
