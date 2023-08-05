@@ -8,9 +8,7 @@ void* calloc(size_t num, size_t size);
 void  free(void* mem);
 
 void  abort();
-
 int   abs(int num);
-
 int   atoi(const char* str);
 
 #if !defined(__LIBK) && !defined(__KERNEL)

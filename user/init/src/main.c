@@ -1,13 +1,13 @@
-#include <stdint.h>
-#include <sys/syscall.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 int main(){
-	for(int i = 0; i < 10; i++) {
-		if(!__syscall(1, 0, 0, 0, 0, 0)) {
-			__syscall(0, "FORK!", 0, 0, 0 ,0);
-			while(1);
-		}
+	printf("Hello, world!\r\n");
+	if(fork()) {
+		while(1);
+	} else{
+		printf("Forked!\r\n");
 	}
-	while(1);
     return 0;
 }

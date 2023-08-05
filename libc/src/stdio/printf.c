@@ -145,10 +145,7 @@ static inline void _out_null(char character, void* buffer, size_t idx, size_t ma
   (void)character; (void)buffer; (void)idx; (void)maxlen;
 }
 
-#ifdef __LIBK
 extern void _putchar(char c);
-#endif
-
 void putchar(char c){
    _putchar(c);
 }
@@ -921,42 +918,3 @@ int fctprintf(void (*out)(char character, void* arg), void* arg, const char* for
   return ret;
 }
 
-#if !defined(__LIBK) && !defined(__KERNEL)
-
-int fprintf( FILE * stream, const char * format, ... ){
-  //TODO
-}
-
-int fflush(FILE *stream){
-  //TODO
-}
-
-FILE* fopen(const char *path, const char *mode){
-  //TODO
-}
-
-int fclose(FILE * stream){
-  //TODO
-}
-
-int fseek(FILE * stream, long offset, int whence){
-  //TODO
-}
-
-long ftell(FILE * stream){
-  //TODO
-}
-
-int   vfprintf(FILE * device, const char *format, va_list ap){
-  //TODO
-}
-
-size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
-  //TODO
-}
-
-size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream){
-  //TODO
-}
-
-#endif

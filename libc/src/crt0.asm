@@ -1,5 +1,6 @@
 extern main
-extern exit
+extern libc_init
+extern libc_exit
 
 section .text
 global _start
@@ -12,8 +13,9 @@ _start:
 
 	mov  ebp, esp
 
+	call libc_init
     call main
 
     push eax
 
-    call exit
+    call libc_exit

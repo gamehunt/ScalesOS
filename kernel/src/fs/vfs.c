@@ -161,10 +161,18 @@ fs_node_t*  k_fs_vfs_open(const char* path){
         return 0;
     }
 
-    fs_node_t* node = __k_fs_vfs_find_node(path);
-    if(node && node->fs.open){
+    fs_node_t* root_node = __k_fs_vfs_find_node(path);
+	if(!root_node) {
+		return 0;
+	}
+
+	fs_node_t* node = (fs_node_t*) k_malloc(sizeof(fs_node_t));
+	memcpy(node, root_node, sizeof(fs_node_t));
+
+    if(node->fs.open){
         node->fs.open(node);
     }
+
     return node;
 }
 

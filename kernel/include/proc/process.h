@@ -1,7 +1,10 @@
 #ifndef __K_PROC_PROCESS_H
 #define __K_PROC_PROCESS_H
 
+#include "fs/vfs.h"
 #include "int/isr.h"
+#include "proc/spinlock.h"
+#include "sys/types.h"
 #include <stdint.h>
 
 #define PROCESS_STATE_STARTING           0x0
@@ -20,14 +23,22 @@ typedef struct image{
 	uint32_t*  kernel_stack_base;
 } image_t;
 
+typedef struct fd_list {
+	fs_node_t** nodes;
+	uint32_t    amount;
+	uint32_t    size;
+	spinlock_t  lock;
+} fd_list_t;
+
 typedef struct process {
     char      name[256];
-    uint32_t  pid;
+    pid_t  pid;
     context_t context;
     image_t   image;
     interrupt_context_t syscall_state;
     uint32_t  flags;
     uint8_t   state;
+	fd_list_t fds;
 } process_t;
 
 void       k_proc_process_yield();
@@ -41,5 +52,10 @@ void       k_proc_process_mark_ready(process_t* process);
 
 process_t* k_proc_process_current();
 process_t* k_proc_process_next();
+
+uint32_t   k_proc_process_open_node(process_t* process, fs_node_t* node);
+void       k_proc_process_close_fd(process_t* process, uint32_t fd);
+
+void       k_proc_process_exit(process_t* process, int code);
 
 #endif

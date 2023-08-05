@@ -117,7 +117,11 @@ extern __attribute__((noreturn)) void __k_proc_process_load(context_t* ctx);
 extern __attribute__((noreturn)) void __k_proc_process_enter_usermode(uint32_t entry, uint32_t userstack);
 
 void k_proc_process_switch() {
-    process_t* new_proc = k_proc_process_next();
+    process_t* new_proc;
+
+	do {
+		new_proc = k_proc_process_next();
+	}while(new_proc->state == PROCESS_STATE_FINISHED);
 
     current_core->current_process = new_proc;
 
@@ -245,4 +249,54 @@ uint32_t k_proc_process_fork() {
     k_proc_process_mark_ready(new);
 
     return new->pid;
+}
+
+uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
+	LOCK(process->fds.lock);
+	if(process->fds.size == process->fds.amount) {
+		uint32_t fd = process->fds.size;
+		EXTEND(process->fds.nodes, process->fds.size, sizeof(fs_node_t));
+		process->fds.nodes[fd] = node;
+		process->fds.amount++;
+		UNLOCK(process->fds.lock);
+		return fd;
+	} else{
+		for(uint32_t i = 0; i < process->fds.size; i++) {
+			if(!process->fds.nodes[i]){
+				process->fds.nodes[i] = node;
+				UNLOCK(process->fds.lock);
+				return i;
+			}
+		}
+	}
+	__builtin_unreachable();
+}
+
+void k_proc_process_close_fd(process_t* process, uint32_t fd){
+	LOCK(process->fds.lock);
+	if(process->fds.size <= fd) {
+		k_warn("Process %s (%d) tried to close invalid fd: %d", process->name, process->pid, fd);
+		UNLOCK(process->fds.lock);
+		return;
+	}
+	process->fds.amount--;
+	k_fs_vfs_close(process->fds.nodes[fd]);
+	process->fds.nodes[fd] = 0;
+	UNLOCK(process->fds.lock);
+}
+
+void k_proc_process_exit(process_t* process, int code) {
+	k_info("Process %s (%d) exited with code %d", process->name, process->pid, code);
+
+	fd_list_t* list = &process->fds;
+	for(uint32_t i = 0; i < list->size; i++){
+		if(list->nodes[i]) {
+			k_fs_vfs_close(list->nodes[i]);
+		}
+	}
+	k_free(list->nodes);
+
+	process->state = PROCESS_STATE_FINISHED;
+
+	k_proc_process_switch();
 }

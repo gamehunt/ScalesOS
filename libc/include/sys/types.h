@@ -3,6 +3,6 @@
 
 #include <stdint.h>
 
-typedef uint32_t pid_t;
+typedef int32_t pid_t;
 
 #endif

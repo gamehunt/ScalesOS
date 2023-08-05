@@ -1,7 +1,9 @@
 #ifndef __STDIO_H
 #define __STDIO_H
+
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 
 
 #ifdef __cplusplus
@@ -11,12 +13,13 @@ extern "C" {
 #if !defined(__LIBK) && !defined(__KERNEL)
 
 typedef struct{
-    char pad[64];
-}FILE;
+    uint32_t fd;
+} FILE;
 
-extern  FILE* stdout;
-extern  FILE* stderr;
-extern  FILE* stdint;
+
+extern FILE* stdin ;
+extern FILE* stdout;
+extern FILE* stderr;
 
 #define SEEK_SET 0
 #define SEEK_CUR 1
@@ -31,12 +34,12 @@ int    fprintf(FILE * stream, const char * format, ...);
 int    fflush(FILE *stream);
 long   ftell(FILE * stream);
 int    vfprintf(FILE * device, const char *format, va_list ap);
+int    puts(const char *str);
 
 #endif
 
 
 void putchar(char c);
-
 int printf(const char* format, ...);
 int sprintf(char* buffer, const char* format, ...);
 int snprintf(char* buffer, size_t count, const char* format, ...);
