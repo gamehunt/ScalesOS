@@ -1,6 +1,5 @@
 set(SHARED_SOURCES 
-    malloc.c
-    free.c
+	alloc.c
     abort.c
     abs.c
     atoi.c

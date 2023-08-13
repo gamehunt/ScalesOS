@@ -6,6 +6,9 @@
 void* malloc(size_t size);
 void* calloc(size_t num, size_t size);
 void  free(void* mem);
+void  vfree(void* mem);
+void* valloc(size_t size, size_t alignment);
+void* realloc(void* old, size_t size);
 
 void  abort();
 int   abs(int num);

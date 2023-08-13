@@ -28,11 +28,3 @@ void _putchar(char a){
         buff_idx++;
     }
 }
-
-void* _malloc(size_t size){
-    return k_malloc(size);
-}
-
-void _free(void* mem){
-    return k_free(mem);
-}

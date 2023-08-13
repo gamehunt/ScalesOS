@@ -4,9 +4,9 @@
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
+#include "mem/memory.h"
 #include "mod/elf.h"
 #include "proc/spinlock.h"
-#include "util/asm_wrappers.h"
 #include "util/log.h"
 #include "util/panic.h"
 #include "util/types/list.h"
@@ -16,10 +16,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#define KERNEL_STACK_SIZE KB(16)
-#define USER_STACK_SIZE KB(64)
-#define USER_STACK_START 0x9000000
 
 #define GUARD_MAGIC 0xBEDAABED
 
@@ -34,7 +30,7 @@ static uint8_t __k_proc_process_check_stack(process_t* proc) {
 }
 
 static void __k_proc_process_create_kernel_stack(process_t* proc) {
-    uint32_t* stack = k_valloc(KERNEL_STACK_SIZE + sizeof(uint32_t), 4);
+    uint32_t* stack = (uint32_t*) k_valloc(KERNEL_STACK_SIZE + sizeof(uint32_t), 4);
     memset(stack, 0, KERNEL_STACK_SIZE);
     stack[0] = GUARD_MAGIC;
     proc->image.kernel_stack = (uint32_t) stack + KERNEL_STACK_SIZE;
@@ -184,6 +180,9 @@ void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) 
 
     k_info("Executing: %s", proc->name);
 
+	proc->image.heap      = USER_HEAP_START;
+	proc->image.heap_size = USER_HEAP_INITIAL_SIZE;
+
     k_fs_vfs_close(node);
 
     uint32_t entry;
@@ -191,6 +190,7 @@ void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) 
         k_free(buffer);
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
+		k_mem_paging_map_region(USER_HEAP_START, 0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
 
         k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
         k_mem_gdt_set_directory(proc->image.page_directory);
@@ -299,4 +299,15 @@ void k_proc_process_exit(process_t* process, int code) {
 	process->state = PROCESS_STATE_FINISHED;
 
 	k_proc_process_switch();
+}
+
+void k_proc_process_grow_heap(process_t* process, int32_t size){
+	uint32_t old_pd = k_mem_paging_get_pd(1);
+	if(size > 0) {
+		k_mem_paging_map_region(process->image.heap + process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
+		process->image.heap_size += size * 0x1000;
+	} else {
+		//TODO unmap
+	}
+	k_mem_paging_set_pd(old_pd, 1, 0);
 }

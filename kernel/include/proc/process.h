@@ -19,6 +19,8 @@ typedef struct context {
 
 typedef struct image{
     uint32_t   page_directory;
+	uint32_t   heap;
+	uint32_t   heap_size;
     uint32_t   kernel_stack;
 	uint32_t*  kernel_stack_base;
 } image_t;
@@ -55,6 +57,8 @@ process_t* k_proc_process_next();
 
 uint32_t   k_proc_process_open_node(process_t* process, fs_node_t* node);
 void       k_proc_process_close_fd(process_t* process, uint32_t fd);
+
+void       k_proc_process_grow_heap(process_t* process, int32_t size);
 
 void       k_proc_process_exit(process_t* process, int code);
 

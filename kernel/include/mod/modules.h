@@ -4,8 +4,6 @@
 #include "kernel.h"
 #include "multiboot.h"
 
-#define MOD_START 0xE0000000
-
 typedef struct{
     const char* name;
     K_STATUS (*load)   ();

@@ -84,6 +84,13 @@ static uint32_t sys_exit(uint32_t code) {
 	__builtin_unreachable();
 }
 
+static uint32_t sys_grow(int32_t size) {
+	process_t* current = k_proc_process_current();
+	uint32_t   addr    = current->image.heap + current->image.heap_size;
+	k_proc_process_grow_heap(k_proc_process_current(), size);
+	return addr;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -91,6 +98,7 @@ DEFN_SYSCALL1(sys_close, uint32_t);
 DEFN_SYSCALL0(sys_fork);
 DEFN_SYSCALL0(sys_getpid);
 DEFN_SYSCALL1(sys_exit, uint32_t);
+DEFN_SYSCALL1(sys_grow, int32_t);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -103,6 +111,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_FORK,  REF_SYSCALL(sys_fork));
 	k_int_syscall_setup_handler(SYS_GETPID,  REF_SYSCALL(sys_getpid));
 	k_int_syscall_setup_handler(SYS_EXIT, REF_SYSCALL(sys_exit));
+	k_int_syscall_setup_handler(SYS_GROW, REF_SYSCALL(sys_grow));
     
 	return K_STATUS_OK;
 }

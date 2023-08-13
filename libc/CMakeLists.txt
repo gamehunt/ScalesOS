@@ -4,7 +4,7 @@ project(Scales-LibC C ASM_NASM)
 
 add_compile_definitions(PRINTF_DISABLE_SUPPORT_PTRDIFF_T)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ ${CMAKE_CURRENT_SOURCE_DIR}/../kernel/include)
 
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -mno-red-zone")
 

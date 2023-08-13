@@ -1,6 +1,7 @@
 #include "int/isr.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "proc/process.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 #include <util/log.h>
@@ -34,6 +35,12 @@ extern uint32_t k_mem_paging_get_fault_addr();
 extern void __k_mem_paging_invlpg(uint32_t addr);
 
 interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
+	process_t* proc = k_proc_process_current();
+	if((ctx->err_code & 0x4) && proc) {
+		k_err("Process %s (%d) caused page fault at 0x%x (0x%x).", proc->name, proc->pid, k_mem_paging_get_fault_addr(), ctx->err_code);
+		k_proc_process_exit(proc, 3);
+		__builtin_unreachable();
+	}
     char buffer[128];
     sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x",
             k_mem_paging_get_fault_addr(), ctx->err_code);

@@ -10,6 +10,7 @@
 #define SYS_FORK   4
 #define SYS_GETPID 5
 #define SYS_EXIT   6
+#define SYS_GROW   7
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -28,6 +29,7 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_fork()                  __syscall(SYS_FORK, UNUSED5)
 #define __sys_getpid()                __syscall(SYS_GETPID, UNUSED5)
 #define __sys_exit(code)              __syscall(SYS_EXIT, code, UNUSED4)
+#define __sys_grow(size)              __syscall(SYS_GROW, size, UNUSED4)
 
 #endif
 

@@ -8,7 +8,7 @@
 #include "multiboot.h"
 #include "util/log.h"
 
-static uint8_t* framebuffer = (uint8_t*)(FB_MAP);
+static uint8_t* framebuffer = (uint8_t*)(FRAMEBUFFER_START);
 static uint8_t init = 0;
 
 static fb_info_t info;
