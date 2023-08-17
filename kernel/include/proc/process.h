@@ -23,6 +23,8 @@ typedef struct image{
 	uint32_t   heap_size;
     uint32_t   kernel_stack;
 	uint32_t*  kernel_stack_base;
+	uint32_t   user_stack;
+	uint32_t   entry;
 } image_t;
 
 typedef struct fd_list {

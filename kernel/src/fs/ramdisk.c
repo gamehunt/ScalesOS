@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "fs/vfs.h"
-#include "mem/heap.h"
 #include "util/log.h"
 
 static uint32_t num = 0;

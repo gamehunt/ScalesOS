@@ -6,15 +6,18 @@ section .text
 global _start
 
 _start:
-    mov  ebp, 0
-	
     push ebp
-    push ebp
-
 	mov  ebp, esp
 
 	call libc_init
-    call main
+
+	mov  ecx, [ebp + 4] ; argc
+	mov  edx, [ebp + 8] ; argv
+
+	push edx
+	push ecx
+
+	call main
 
     push eax
 

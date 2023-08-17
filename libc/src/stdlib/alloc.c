@@ -130,9 +130,9 @@ void* malloc(size_t size){
 #ifdef __LIBK
 		k_panic("Out of memory.", 0);
 #else 
-		uint32_t grow = size / 0x1000 + 1;
+		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
-		__mem_heap_init_block(block, grow);
+		__mem_heap_init_block(block, grow * 0x1000);
 		last_valid_block->next = block;
 		heap_size += grow;
 #endif

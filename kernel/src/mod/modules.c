@@ -13,8 +13,13 @@ K_STATUS k_mod_load_modules(multiboot_info_t* mb){
         const char* cmd = (const char*) (modules[i].cmdline + VIRTUAL_BASE);
         k_info("Module: 0x%.8x - 0x%.8x (CMD: %s)", start, end, cmd);
         if(!strcmp(cmd, "ramdisk")){
-            k_fs_ramdisk_mount(start, end - start);
+			k_mod_load_ramdisk(start, end - start);
         }
     }
     return K_STATUS_OK;
+}
+
+K_STATUS k_mod_load_ramdisk(uint32_t addr, uint32_t size) {
+    k_fs_ramdisk_mount(addr, size);
+	return K_STATUS_OK;
 }

@@ -28,7 +28,6 @@
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
-#include "proc/smp.h"
 #include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
@@ -77,7 +76,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
         k_panic("Failed to mount root.", 0);
     }
 
-    k_proc_process_exec("/init.sc", 0, 0);
+    k_proc_process_exec("/init.sc", 12345, 0);
 
     while(1){
         halt();

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
 
@@ -21,7 +22,11 @@ int puts(const char *str) {
 }
 
 int fprintf(FILE * stream, const char * format, ... ){
-  //TODO
+	va_list argptr;
+    va_start(argptr, format);
+	int result = vfprintf(stream, format, argptr);
+	va_end(argptr);
+	return result;
 }
 
 int fflush(FILE *stream){
@@ -30,7 +35,7 @@ int fflush(FILE *stream){
 
 FILE* fopen(const char *path, const char *mode){
   FILE* file = malloc(sizeof(FILE));
-  file->fd = __sys_open(path, 0, 0);
+  file->fd = __sys_open((uint32_t) path, 0, 0);
   return file;
 }
 
@@ -48,14 +53,18 @@ long ftell(FILE * stream){
   //TODO
 }
 
-int   vfprintf(FILE * device, const char *format, va_list ap){
-  //TODO
+int   vfprintf(FILE * device, const char *format, va_list argptr){
+	char* buffer = (char*) malloc(4096); //TODO implement it properly
+	vsnprintf(buffer, 4096, format, argptr);
+    int result = __sys_write(device->fd, strlen(buffer), (uint32_t) buffer);
+	free(buffer);
+	return result;
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
-  return __sys_read(stream->fd, size * nmemb, ptr);
+  return __sys_read(stream->fd, size * nmemb, (uint32_t) ptr);
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE * stream){
-  return __sys_write(stream->fd, size * nmemb, ptr);
+  return __sys_write(stream->fd, size * nmemb, (uint32_t) ptr);
 }

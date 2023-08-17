@@ -11,6 +11,7 @@
 #include "util/panic.h"
 #include "util/types/list.h"
 #include "util/types/stack.h"
+#include "util/types/tree.h"
 #include <proc/process.h>
 #include <proc/smp.h>
 #include <stdio.h>
@@ -19,8 +20,10 @@
 
 #define GUARD_MAGIC 0xBEDAABED
 
-static list_t* processes = 0;
-static list_t* ready_processes = 0;
+static tree_t* process_tree    = 0;
+static list_t* process_list    = 0;
+static list_t* ready_queue     = 0;
+static list_t* sleep_queue     = 0;
 
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
     if (proc->pid == 1) {
@@ -48,21 +51,21 @@ static void __k_proc_process_idle() {
 }
 
 void k_proc_process_mark_ready(process_t* process) {
-    LOCK(ready_processes->lock)
-    list_push_back(ready_processes, process);
-    UNLOCK(ready_processes->lock)
+    LOCK(ready_queue->lock)
+    list_push_back(ready_queue, process);
+    UNLOCK(ready_queue->lock)
 }
 
 void __k_proc_process_spawn(process_t* proc) {
-    LOCK(processes->lock)
+    LOCK(process_list->lock)
 
-    proc->pid = processes->size + 1;
-    list_push_back(processes, proc);
+    proc->pid = process_list->size + 1;
+    list_push_back(process_list, proc);
 
     k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
            proc->pid, proc->image.kernel_stack);
 
-    UNLOCK(processes->lock)
+    UNLOCK(process_list->lock)
 }
 
 static process_t* __k_proc_process_create_init() {
@@ -101,8 +104,9 @@ void k_proc_process_init_core() {
 }
 
 void k_proc_process_init() {
-    processes       = list_create();
-    ready_processes = list_create();
+	process_tree       = tree_create();
+    process_list       = list_create();
+    ready_queue        = list_create();
 
     current_core->idle_process    = __k_proc_process_create_idle();
     current_core->current_process = __k_proc_process_create_init();
@@ -139,7 +143,7 @@ void k_proc_process_switch() {
 }
 
 void k_proc_process_yield() {
-    if (!processes || !processes->size) {
+    if (!process_list || !process_list->size) {
         return;
     }
 
@@ -162,8 +166,8 @@ void k_proc_process_yield() {
     k_proc_process_switch(); 
 }
 
-void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) {
-    if (!processes || !processes->size) {
+void k_proc_process_exec(const char* path, int argc, char** argv) {
+    if (!process_list || !process_list->size) {
         return;
     }
 
@@ -180,8 +184,9 @@ void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) 
 
     k_info("Executing: %s", proc->name);
 
-	proc->image.heap      = USER_HEAP_START;
-	proc->image.heap_size = USER_HEAP_INITIAL_SIZE;
+	proc->image.heap       = USER_HEAP_START;
+	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
+	proc->image.user_stack = USER_STACK_START + USER_STACK_SIZE;
 
     k_fs_vfs_close(node);
 
@@ -192,9 +197,38 @@ void k_proc_process_exec(const char* path, int argc UNUSED, char** argv UNUSED) 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START, 0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
 
+		if(argv) {
+			char** ptrs = k_calloc(argc, sizeof(uint32_t)); 
+			
+			for(int i = argc - 1; i >= 0; i--) {
+				for(size_t j = strlen(argv[i]) - 1; j >= 0; j--) {
+					PUSH(proc->image.user_stack, char, argv[i][j])		
+				}
+				ptrs[i] = (char*) proc->image.user_stack;
+			}
+
+			PUSH(proc->image.user_stack, uintptr_t, 0)
+			for(int i = 0; i < argc; i++) {
+				PUSH(proc->image.user_stack, char*, ptrs[i])
+			}
+
+			k_free(ptrs);
+		} else {
+			PUSH(proc->image.user_stack, uintptr_t, 0);
+		}
+
+		PUSH(proc->image.user_stack, int, argc)
+
+		// uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
+		// for(uint32_t i = 0; (uint32_t) i < USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack; i += 4) {
+		// 	k_debug("[%d/%d] 0x%x [+%d]", i, occupied_stack_size, *((uint32_t*) (proc->image.user_stack + i)), i);
+		// }
+
+		proc->image.entry = entry;
+
         k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
         k_mem_gdt_set_directory(proc->image.page_directory);
-        __k_proc_process_enter_usermode(entry, USER_STACK_START + USER_STACK_SIZE);
+        __k_proc_process_enter_usermode(entry, proc->image.user_stack);
     } else {
         k_free(buffer);
     }
@@ -205,21 +239,21 @@ process_t* k_proc_process_current() {
 }
 
 process_t* k_proc_process_next() {
-    LOCK(ready_processes->lock)
+    LOCK(ready_queue->lock)
 
-    process_t* process = list_pop_front(ready_processes);
+    process_t* process = list_pop_front(ready_queue);
     if(!process){
         return current_core->idle_process;
     }
 
-    UNLOCK(ready_processes->lock)
+    UNLOCK(ready_queue->lock)
     return process;
 }
 
 extern void __attribute__((noreturn)) __k_proc_process_fork_return();
 
 uint32_t k_proc_process_fork() {
-    if (!processes || !processes->size) {
+    if (!process_list || !process_list->size) {
         return 0;
     }
 
@@ -304,7 +338,7 @@ void k_proc_process_exit(process_t* process, int code) {
 void k_proc_process_grow_heap(process_t* process, int32_t size){
 	uint32_t old_pd = k_mem_paging_get_pd(1);
 	if(size > 0) {
-		k_mem_paging_map_region(process->image.heap + process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
+		k_mem_paging_map_region(process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
 		process->image.heap_size += size * 0x1000;
 	} else {
 		//TODO unmap

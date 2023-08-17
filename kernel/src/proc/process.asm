@@ -25,8 +25,8 @@ __k_proc_process_load:
 
 [global __k_proc_process_enter_usermode]
 __k_proc_process_enter_usermode:
-    mov ebx, [esp + 4]
-    mov ecx, [esp + 8]
+    mov ebx, [esp + 4] ; entry
+    mov ecx, [esp + 8] ; userstack
 
 	mov ax, 0x20 | 3 ; Ring 3 data
 	mov ds, ax
