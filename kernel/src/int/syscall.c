@@ -91,6 +91,10 @@ static uint32_t sys_grow(int32_t size) {
 	return addr;
 }
 
+static uint32_t sys_waitpid(pid_t pid, int* status, int options) {
+	return k_proc_process_waitpid(k_proc_process_current(), pid, status, options);
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -99,6 +103,7 @@ DEFN_SYSCALL0(sys_fork);
 DEFN_SYSCALL0(sys_getpid);
 DEFN_SYSCALL1(sys_exit, uint32_t);
 DEFN_SYSCALL1(sys_grow, int32_t);
+DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -112,6 +117,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_GETPID,  REF_SYSCALL(sys_getpid));
 	k_int_syscall_setup_handler(SYS_EXIT, REF_SYSCALL(sys_exit));
 	k_int_syscall_setup_handler(SYS_GROW, REF_SYSCALL(sys_grow));
+	k_int_syscall_setup_handler(SYS_WAITPID, REF_SYSCALL(sys_waitpid));
     
 	return K_STATUS_OK;
 }

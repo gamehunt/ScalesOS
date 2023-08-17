@@ -56,11 +56,17 @@ void k_proc_process_mark_ready(process_t* process) {
     UNLOCK(ready_queue->lock)
 }
 
-void __k_proc_process_spawn(process_t* proc) {
+static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
     LOCK(process_list->lock)
 
-    proc->pid = process_list->size + 1;
+    proc->pid  = process_list->size + 1;
     list_push_back(process_list, proc);
+
+	proc->node = tree_create_node(proc);
+
+	if(parent) {
+		tree_insert_node(process_tree, proc->node, parent->node);
+	}
 
     k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
            proc->pid, proc->image.kernel_stack);
@@ -80,7 +86,9 @@ static process_t* __k_proc_process_create_init() {
     proc->context.eip = 0;
     k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
-    __k_proc_process_spawn(proc);
+	proc->wait_queue = list_create();
+
+    __k_proc_process_spawn(proc, 0);
 
     return proc;
 }
@@ -110,6 +118,8 @@ void k_proc_process_init() {
 
     current_core->idle_process    = __k_proc_process_create_idle();
     current_core->current_process = __k_proc_process_create_init();
+
+	tree_set_root(process_tree, current_core->current_process->node);
 }
 
 extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* ctx);
@@ -124,6 +134,10 @@ void k_proc_process_switch() {
 	}while(new_proc->state == PROCESS_STATE_FINISHED);
 
     current_core->current_process = new_proc;
+
+	if(current_core->current_process->state == PROCESS_STATE_STARTING) {
+		current_core->current_process->state = PROCESS_STATE_RUNNING;
+	}
 
     if (!__k_proc_process_check_stack(new_proc)) {
         char buffer[256];
@@ -161,7 +175,9 @@ void k_proc_process_yield() {
         return; // Just returned from switch, do nothing and let it return
     }
 
-    k_proc_process_mark_ready(old_proc);
+	if(old_proc->state != PROCESS_STATE_SLEEPING && old_proc->state != PROCESS_STATE_FINISHED) {
+    	k_proc_process_mark_ready(old_proc);
+	}
 
     k_proc_process_switch(); 
 }
@@ -279,7 +295,7 @@ uint32_t k_proc_process_fork() {
 	new->context.ebp = new->image.kernel_stack;
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
 
-    __k_proc_process_spawn(new);
+    __k_proc_process_spawn(new, src);
     k_proc_process_mark_ready(new);
 
     return new->pid;
@@ -319,6 +335,16 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	UNLOCK(process->fds.lock);
 }
 
+static void __k_proc_process_wakeup_queue(list_t* queue) {
+	while(queue->size > 0) {
+		process_t* process = list_pop_back(queue);
+		if(process->state != PROCESS_STATE_FINISHED) {
+			process->state = PROCESS_STATE_RUNNING;
+			k_proc_process_mark_ready(process);
+		}
+	}
+}
+
 void k_proc_process_exit(process_t* process, int code) {
 	k_info("Process %s (%d) exited with code %d", process->name, process->pid, code);
 
@@ -331,6 +357,11 @@ void k_proc_process_exit(process_t* process, int code) {
 	k_free(list->nodes);
 
 	process->state = PROCESS_STATE_FINISHED;
+	
+	process_t* parent = process->node->parent->value;
+	if(parent) {
+		__k_proc_process_wakeup_queue(parent->wait_queue);
+	}
 
 	k_proc_process_switch();
 }
@@ -344,4 +375,49 @@ void k_proc_process_grow_heap(process_t* process, int32_t size){
 		//TODO unmap
 	}
 	k_mem_paging_set_pd(old_pd, 1, 0);
+}
+
+uint8_t __k_proc_process_waitpid_can_pick(process_t* process, process_t* parent, int pid) {
+	if(pid < -1) {
+		return process->pid == -pid;
+	} else if(pid == 0) {
+		return 1; //TODO groups
+	} else if(pid > 0) {
+		return process->pid == pid;
+	} else {
+		return 1;
+	}
+}
+
+pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int options) {
+	do {
+		process_t* child = 0;
+		for(uint32_t i = 0; i < process->node->child_count; i++) {
+			process_t* candidate = process->node->childs[i]->value;
+			if(candidate->state == PROCESS_STATE_FINISHED &&
+					__k_proc_process_waitpid_can_pick(candidate, process, pid)) {
+				child = candidate;
+				break;
+			}	
+		}
+		
+		if(child) {
+			k_proc_process_destroy(child);
+			return child->pid;
+		} else {
+			process->state = PROCESS_STATE_SLEEPING;
+			list_push_back(process->wait_queue, process);
+			k_proc_process_switch();
+		}
+	} while(1);
+}
+
+
+void k_proc_process_destroy(process_t* process) {
+	list_delete_element(process_list, process);
+	tree_remove_node(process_tree, process->node);
+	tree_free_node(process->node);
+	list_free(process->wait_queue);
+	k_vfree(process->image.kernel_stack_base);
+	k_free(process);
 }

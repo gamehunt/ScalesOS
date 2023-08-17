@@ -5,11 +5,14 @@
 #include "int/isr.h"
 #include "proc/spinlock.h"
 #include "sys/types.h"
+#include "util/types/list.h"
+#include "util/types/tree.h"
 #include <stdint.h>
 
 #define PROCESS_STATE_STARTING           0x0
-#define PROCESS_STATE_STARTED            0x1
+#define PROCESS_STATE_RUNNING            0x1
 #define PROCESS_STATE_FINISHED           0x2
+#define PROCESS_STATE_SLEEPING           0x3
 
 typedef struct context {
     uint32_t esp;             // +0
@@ -36,13 +39,17 @@ typedef struct fd_list {
 
 typedef struct process {
     char      name[256];
-    pid_t  pid;
+    pid_t     pid;
     context_t context;
     image_t   image;
     interrupt_context_t syscall_state;
     uint32_t  flags;
     uint8_t   state;
 	fd_list_t fds;
+
+	tree_node_t* node;
+
+	list_t*    wait_queue;
 } process_t;
 
 void       k_proc_process_yield();
@@ -62,6 +69,9 @@ void       k_proc_process_close_fd(process_t* process, uint32_t fd);
 
 void       k_proc_process_grow_heap(process_t* process, int32_t size);
 
+pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
+
 void       k_proc_process_exit(process_t* process, int code);
+void       k_proc_process_destroy(process_t* process);
 
 #endif

@@ -33,7 +33,11 @@ void* list_pop_back(list_t* list){
     }
     void* data = list->data[list->size - 1];
 	list->size--;
-	list->data = k_realloc(list->data, list->size * sizeof(void*));
+	if(list->size > 0) {
+		list->data = k_realloc(list->data, list->size * sizeof(void*));
+	} else {
+		k_free(list->data);
+	}
 	return data;
 }
 
