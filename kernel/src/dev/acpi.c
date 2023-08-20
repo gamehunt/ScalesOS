@@ -1,9 +1,11 @@
+#include "dev/pci.h"
 #include "dev/rtc.h"
 #include "kernel.h"
 #include "mem/paging.h"
 #include "proc/smp.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
+#include "util/panic.h"
 #include <dev/acpi.h>
 #include <stdio.h>
 #include <string.h>
@@ -327,4 +329,26 @@ K_STATUS k_dev_acpi_init() {
 
 void k_dev_acpi_set_addr(void *buff) {
     descriptor = buff;
+}
+
+void k_dev_acpi_reboot() {
+	if(descriptor->revision == 0) {
+		k_debug("Reset register unsupported, using keyboard fallback.");
+		uint8_t good = 0x02;
+    	while (good & 0x02)
+        	good = inb(0x64);
+    	outb(0x64, 0xFE);
+	} 
+	switch(fadt->reset_reg.address_space) {
+		case 0: /*Memory mapped*/
+			k_mem_paging_map(fadt->reset_reg.address, fadt->reset_reg.address, 0);
+			*((uint8_t*)fadt->reset_reg.address) = fadt->reset_value;
+		case 1: /*System IO*/
+			outb(fadt->reset_reg.address, fadt->reset_value);
+		case 2: /*PCI*/
+			k_dev_pci_write_word(0, (fadt->reset_reg.address >> 32) & 0xFFFF, (fadt->reset_reg.address >> 16) & 0xFFFF, fadt->reset_reg.address & 0xFFFF, fadt->reset_value);
+		default:
+			k_panic("Reboot fail.", 0);
+			__builtin_unreachable();
+	}
 }

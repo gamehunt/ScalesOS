@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <util/asm_wrappers.h>
 #include <util/panic.h>
+#include "mem/paging.h"
 #include "mod/symtable.h"
-#include "proc/process.h"
 
 struct stackframe {
   struct stackframe* ebp;
@@ -14,7 +14,7 @@ extern void* _kernel_end;
 static void __k_panic_stacktrace(uint32_t stack){
     struct stackframe* frame = (struct stackframe*) stack;
     uint8_t depth = 0;
-    while(frame && (uint32_t) frame < (uint32_t) &_kernel_end){
+    while(frame && IS_VALID_PTR((uint32_t) frame)){
         uint32_t eip = frame->eip;
         sym_t* sym = k_mod_symtable_get_nearest_symbol(eip);
         if(sym){
@@ -25,21 +25,10 @@ static void __k_panic_stacktrace(uint32_t stack){
     }
 }
 
-static uint8_t __nested = 0;
-
 void k_panic(const char* reason, interrupt_context_t* ctx) {
     cli(); 
-    __nested = 1;
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);
-    if(!__nested){
-        process_t* cur_proc = k_proc_process_current();
-        if(cur_proc){
-            printf("Current process: %s (%d)\r\n", cur_proc->name, cur_proc->pid);
-        }
-    }else{
-        printf("!! Nested exception !!\r\n");
-    }
     printf("Dump:\r\n");
     if (ctx) {
         printf("EAX: 0x%.8x EBX: 0x%.8x ECX: 0x%.8x EDX: 0x%.8x\r\n", ctx->eax,

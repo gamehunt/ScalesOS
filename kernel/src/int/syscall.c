@@ -1,4 +1,5 @@
 #include <int/syscall.h>
+#include "dev/acpi.h"
 #include "fs/vfs.h"
 #include "sys/syscall.h"
 #include <stdio.h>
@@ -99,6 +100,11 @@ static uint32_t sys_sleep(uint64_t microseconds) {
 	return k_proc_process_sleep(k_proc_process_current(), microseconds);
 }
 
+static uint32_t sys_reboot() {
+	k_dev_acpi_reboot();
+	__builtin_unreachable();
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -109,6 +115,7 @@ DEFN_SYSCALL1(sys_exit, uint32_t);
 DEFN_SYSCALL1(sys_grow, int32_t);
 DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
 DEFN_SYSCALL1(sys_sleep, uint64_t);
+DEFN_SYSCALL0(sys_reboot);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -124,6 +131,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_GROW, REF_SYSCALL(sys_grow));
 	k_int_syscall_setup_handler(SYS_WAITPID, REF_SYSCALL(sys_waitpid));
 	k_int_syscall_setup_handler(SYS_SLEEP, REF_SYSCALL(sys_sleep));
+	k_int_syscall_setup_handler(SYS_REBOOT, REF_SYSCALL(sys_reboot));
     
 	return K_STATUS_OK;
 }

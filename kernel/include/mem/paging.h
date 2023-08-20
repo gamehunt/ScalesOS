@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define  IS_VALID_PTR(x) (k_mem_paging_virt2phys(x) != 0)
+
 void     k_mem_paging_init();
 uint32_t k_mem_paging_get_pd(uint8_t phys);
 void     k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force);

@@ -9,5 +9,7 @@
 K_STATUS k_dev_pci_init();
 uint16_t k_dev_pci_read_word(uint8_t bus, uint8_t slot, uint8_t func,
                              uint8_t offset);
+void     k_dev_pci_write_word(uint8_t bus, uint8_t slot, uint8_t func,
+                              uint8_t offset, uint16_t value);
 
 #endif
