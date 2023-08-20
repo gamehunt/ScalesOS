@@ -15,6 +15,8 @@ int main(int argc, char** argv){
 
 	printf("Hello, world!\r\n");
 
+	while(1);
+
 	__sys_reboot();
 	__builtin_unreachable();
 }

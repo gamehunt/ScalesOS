@@ -53,7 +53,7 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
                 fsnode = k_fs_vfs_finddir(fsnode, part);
                 i++;
             }
-            if(strcmp(filename, fsnode->name)){
+            if(fsnode && strcmp(filename, fsnode->name)){
                 fsnode = 0;
             }
             k_free(filename);
