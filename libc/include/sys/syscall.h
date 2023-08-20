@@ -3,18 +3,21 @@
 
 #include <stdint.h>
 
-#define SYS_READ    0
-#define SYS_WRITE   1
-#define SYS_OPEN    2
-#define SYS_CLOSE   3
-#define SYS_FORK    4
-#define SYS_GETPID  5
-#define SYS_EXIT    6
-#define SYS_GROW    7
-#define SYS_WAITPID 8
-#define SYS_EXEC    9
-#define SYS_SLEEP   10
-#define SYS_REBOOT  11
+#define SYS_READ    	 0
+#define SYS_WRITE   	 1
+#define SYS_OPEN    	 2
+#define SYS_CLOSE   	 3
+#define SYS_FORK    	 4
+#define SYS_GETPID  	 5
+#define SYS_EXIT    	 6
+#define SYS_GROW    	 7
+#define SYS_WAITPID 	 8
+#define SYS_EXEC    	 9
+#define SYS_SLEEP   	 10
+#define SYS_REBOOT  	 11
+#define SYS_TIMES   	 12
+#define SYS_GETTIMEOFDAY 13
+#define SYS_SETTIMEOFDAY 14
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -38,6 +41,9 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_exec(path, argv, envp)            __syscall(SYS_EXEC, path, argv, envp, UNUSED2)
 #define __sys_sleep(microseconds)               __syscall(SYS_SLEEP, microseconds, UNUSED4)
 #define __sys_reboot()                          __syscall(SYS_REBOOT, UNUSED5)
+#define __sys_times(tms)                        __syscall(SYS_TIMES, tms, UNUSED4)
+#define __sys_gettimeofday(tv, tz)              __syscall(SYS_GETTIMEOFDAY, tv, tz, UNUSED3)
+#define __sys_settimeofday(tv, tz)              __syscall(SYS_SETTIMEOFDAY, tv, tz, UNUSED3)
 
 #endif
 

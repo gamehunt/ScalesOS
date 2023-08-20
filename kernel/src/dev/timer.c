@@ -125,3 +125,7 @@ void  k_dev_timer_sleep(uint32_t msec){
         halt();
     }
 }
+
+uint64_t k_dev_timer_get_initial_timestamp() {
+	return initial_timestamp;
+}

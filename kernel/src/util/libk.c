@@ -1,7 +1,4 @@
-#include "dev/fb.h"
 #include "dev/serial.h"
-#include "fs/vfs.h"
-#include "mem/heap.h"
 
 #include <stddef.h>
 

@@ -51,12 +51,15 @@ typedef struct process {
 	fd_list_t fds;
 
 	tree_node_t* node;
-	struct wait_node* wait_node;
 
+	struct wait_node* wait_node;
 	list_t*    wait_queue;
 
-	uint64_t   wait_seconds;
-	uint64_t   wait_microseconds;
+	uint64_t   time_total;
+	uint64_t   time_system;
+
+	uint64_t   last_entrance;
+	uint64_t   last_sys;
 } process_t;
 
 typedef struct wait_node {

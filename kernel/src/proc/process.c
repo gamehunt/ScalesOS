@@ -134,6 +134,21 @@ extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* c
 extern __attribute__((noreturn)) void __k_proc_process_load(context_t* ctx);
 extern __attribute__((noreturn)) void __k_proc_process_enter_usermode(uint32_t entry, uint32_t userstack);
 
+static void __k_proc_process_update_stats() {
+	uint64_t current_stamp = k_dev_timer_read_tsc();
+	process_t* proc 	   = k_proc_process_current();
+
+	if(proc->last_entrance && proc->last_entrance < current_stamp) {
+		proc->time_total += current_stamp - proc->last_entrance;
+	}
+	proc->last_entrance = 0;
+
+	if(proc->last_sys && proc->last_sys < current_stamp) {
+		proc->time_system += current_stamp - proc->last_sys;
+	}
+	proc->last_sys = 0;
+}
+
 void k_proc_process_switch() {
     process_t* new_proc;
 
@@ -142,6 +157,11 @@ void k_proc_process_switch() {
 	}while(new_proc->state == PROCESS_STATE_FINISHED);
 
     current_core->current_process = new_proc;
+
+	__k_proc_process_update_stats();
+
+	current_core->current_process->last_entrance = k_dev_timer_read_tsc();
+	current_core->current_process->last_sys = current_core->current_process->last_entrance;
 
 	if(current_core->current_process->state == PROCESS_STATE_STARTING) {
 		current_core->current_process->state = PROCESS_STATE_RUNNING;
@@ -510,9 +530,6 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 		return 0;
 	}
 }
-
-// c0106ab9
-// c0106abe
 
 void k_proc_process_update_timings() {
 	uint64_t ticks = __k_proc_get_tsc_ticks();

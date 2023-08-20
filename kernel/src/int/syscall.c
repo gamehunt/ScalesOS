@@ -1,6 +1,9 @@
 #include <int/syscall.h>
 #include "dev/acpi.h"
+#include "dev/rtc.h"
+#include "dev/timer.h"
 #include "fs/vfs.h"
+#include "mem/paging.h"
 #include "sys/syscall.h"
 #include <stdio.h>
 #include "int/idt.h"
@@ -8,6 +11,8 @@
 #include "kernel.h"
 #include "util/log.h"
 #include "shared.h"
+#include "sys/times.h"
+#include "sys/time.h"
 
 #include <proc/process.h>
 #include <string.h>
@@ -105,6 +110,36 @@ static uint32_t sys_reboot() {
 	__builtin_unreachable();
 }
 
+static uint32_t sys_times(struct tms* tms) {
+	if(tms && IS_VALID_PTR((uint32_t) tms)) {
+		process_t* proc = k_proc_process_current();
+		tms->tms_utime = proc->time_total;
+		tms->tms_stime = proc->time_system;
+	}
+	return k_dev_timer_read_tsc() / k_dev_timer_get_core_speed();
+}
+
+static uint32_t sys_gettimeofday(struct timeval* tv, struct timezone* tz) {
+	if(!IS_VALID_PTR((uint32_t) tv)) {
+		return 0;
+	}
+
+	uint64_t base    = k_dev_timer_tsc_base();
+	uint64_t speed   = k_dev_timer_get_core_speed();
+	uint64_t ticks   = k_dev_timer_read_tsc() / speed - base;
+	uint64_t init_ts = k_dev_timer_get_initial_timestamp();
+
+	tv->tv_sec  = ticks / 1000000 + init_ts;
+	tv->tv_msec = ticks % 1000000;
+
+	return 0;
+}
+
+static uint32_t sys_settimeofday(struct timeval* tv, struct timezone* tz) {
+	UNIMPLEMENTED;
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -116,6 +151,9 @@ DEFN_SYSCALL1(sys_grow, int32_t);
 DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
 DEFN_SYSCALL1(sys_sleep, uint64_t);
 DEFN_SYSCALL0(sys_reboot);
+DEFN_SYSCALL1(sys_times, struct tms*);
+DEFN_SYSCALL2(sys_gettimeofday, struct timeval*, struct timezone*);
+DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -132,6 +170,10 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_WAITPID, REF_SYSCALL(sys_waitpid));
 	k_int_syscall_setup_handler(SYS_SLEEP, REF_SYSCALL(sys_sleep));
 	k_int_syscall_setup_handler(SYS_REBOOT, REF_SYSCALL(sys_reboot));
+	k_int_syscall_setup_handler(SYS_TIMES, REF_SYSCALL(sys_times));
+	k_int_syscall_setup_handler(SYS_GETTIMEOFDAY, REF_SYSCALL(sys_gettimeofday));
+	k_int_syscall_setup_handler(SYS_SETTIMEOFDAY, REF_SYSCALL(sys_settimeofday));
+	
     
 	return K_STATUS_OK;
 }

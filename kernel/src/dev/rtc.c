@@ -8,7 +8,7 @@
 static uint8_t h24 = 0;
 static uint8_t bin = 0;
 
-static uint8_t century = 0;
+static uint8_t    century = 0;
 
 void  k_dev_rtc_enable_centrury(){
     century = 1;
@@ -44,10 +44,10 @@ K_STATUS k_dev_rtc_init(){
 
     printf("\r\n");
 
-    rtc_time_t time;
-    k_dev_rtc_gettime(&time);
+	rtc_time_t boot_time;
+    k_dev_rtc_gettime(&boot_time);
 
-    k_debug("RTC time: %.2d:%.2d:%.2d %d.%d.%d", time.hour, time.minute, time.second, time.day, time.month, time.year);
+    k_debug("RTC time: %.2d:%.2d:%.2d %d.%d.%d", boot_time.hour, boot_time.minute, boot_time.second, boot_time.day, boot_time.month, boot_time.year);
 
     k_dev_cmos_nmi_enable();
     sti();

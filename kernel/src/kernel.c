@@ -20,6 +20,7 @@
 #include "dev/pci.h"
 #include "dev/ps2.h"
 #include "dev/timer.h"
+#include "fs/null.h"
 #include "fs/tar.h"
 #include "int/syscall.h"
 #include "kernel.h"

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/syscall.h>
@@ -13,7 +14,7 @@ void init_output() {
 int main(int argc, char** argv){
 	init_output();
 
-	printf("Hello, world!\r\n");
+	printf("Hello, world! %ld\r\n", time(0));
 
 	while(1);
 
