@@ -37,6 +37,9 @@ typedef struct fd_list {
 	spinlock_t  lock;
 } fd_list_t;
 
+struct wait_node;
+
+
 typedef struct process {
     char      name[256];
     pid_t     pid;
@@ -48,12 +51,25 @@ typedef struct process {
 	fd_list_t fds;
 
 	tree_node_t* node;
+	struct wait_node* wait_node;
 
 	list_t*    wait_queue;
+
+	uint64_t   wait_seconds;
+	uint64_t   wait_microseconds;
 } process_t;
+
+typedef struct wait_node {
+	process_t* process;
+	uint64_t   seconds;
+	uint64_t   microseconds;
+
+	struct wait_node* next;
+} wait_node_t;
 
 void       k_proc_process_yield();
 void       k_proc_process_switch();
+void       k_proc_process_update_timings();
 void       k_proc_process_init();
 void       k_proc_process_exec(const char* path, int argc, char** argv);
 uint32_t   k_proc_process_fork();
@@ -69,6 +85,7 @@ void       k_proc_process_close_fd(process_t* process, uint32_t fd);
 
 void       k_proc_process_grow_heap(process_t* process, int32_t size);
 
+uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 
 void       k_proc_process_exit(process_t* process, int code);

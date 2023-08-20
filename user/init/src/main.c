@@ -20,9 +20,11 @@ int main(int argc, char** argv){
 		heaped  = malloc(16 * 1024 * 1024);
 		*heaped = 12345; 
 		printf("0x%x %d\r\n", heaped, *heaped);
-		for(int i = 0; i < 25; i++) {
-			printf("%d\r\n", i);
+		for(int i = 0; i < 5; i++) {
+			printf("%d ", i);
+			usleep(500000);
 		}
+		printf("\r\n");
 	}
     return 0;
 }

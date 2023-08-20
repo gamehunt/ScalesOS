@@ -18,7 +18,9 @@ tree_node_t* tree_create_node(void* value) {
 }
 
 void tree_free_node(tree_node_t* node) {
-    k_free(node->childs);
+	if(node->childs) {
+    	k_free(node->childs);
+	}
     k_free(node);
 }
 

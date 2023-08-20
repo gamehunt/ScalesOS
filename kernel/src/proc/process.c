@@ -1,3 +1,4 @@
+#include "dev/timer.h"
 #include "fs/vfs.h"
 #include "int/isr.h"
 #include "kernel.h"
@@ -20,10 +21,11 @@
 
 #define GUARD_MAGIC 0xBEDAABED
 
+
 static tree_t* process_tree    = 0;
 static list_t* process_list    = 0;
 static list_t* ready_queue     = 0;
-static list_t* sleep_queue     = 0;
+static wait_node_t* sleep_queue     = 0;
 
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
     if (proc->pid == 1) {
@@ -101,6 +103,8 @@ static process_t* __k_proc_process_create_idle() {
     __k_proc_process_create_kernel_stack(proc);
 
     proc->context.eip = (uint32_t)&__k_proc_process_idle;
+	proc->context.esp = proc->image.kernel_stack;
+	proc->context.ebp = proc->image.kernel_stack;
     k_mem_paging_clone_pd(0, &proc->image.page_directory);
 
     return proc;
@@ -111,6 +115,8 @@ void k_proc_process_init_core() {
     current_core->current_process = current_core->idle_process;
 }
 
+static void __k_proc_process_timer_callback(interrupt_context_t*);
+
 void k_proc_process_init() {
 	process_tree       = tree_create();
     process_list       = list_create();
@@ -120,6 +126,8 @@ void k_proc_process_init() {
     current_core->current_process = __k_proc_process_create_init();
 
 	tree_set_root(process_tree, current_core->current_process->node);
+
+	k_dev_timer_add_callback(__k_proc_process_timer_callback);
 }
 
 extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* ctx);
@@ -255,14 +263,10 @@ process_t* k_proc_process_current() {
 }
 
 process_t* k_proc_process_next() {
-    LOCK(ready_queue->lock)
-
     process_t* process = list_pop_front(ready_queue);
     if(!process){
         return current_core->idle_process;
     }
-
-    UNLOCK(ready_queue->lock)
     return process;
 }
 
@@ -407,7 +411,7 @@ pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int optio
 		} else {
 			process->state = PROCESS_STATE_SLEEPING;
 			list_push_back(process->wait_queue, process);
-			k_proc_process_switch();
+			k_proc_process_yield();
 		}
 	} while(1);
 }
@@ -420,4 +424,101 @@ void k_proc_process_destroy(process_t* process) {
 	list_free(process->wait_queue);
 	k_vfree(process->image.kernel_stack_base);
 	k_free(process);
+}
+
+static void __k_proc_process_timer_callback(interrupt_context_t* regs UNUSED) {
+	k_proc_process_update_timings();
+}
+
+#define MICROSECONDS_PER_SECOND 1000000
+#define TICKS_SECONDS(x)      (x / MICROSECONDS_PER_SECOND)
+#define TICKS_MICROSECONDS(x) (x % MICROSECONDS_PER_SECOND)
+
+static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microseconds) {
+	wait_node_t* node = sleep_queue; 
+	while(node && (node->seconds < seconds || (node->seconds == seconds && node->microseconds <= microseconds))) {
+		sleep_queue = node->next;
+		process_t* process = node->process;
+		if(process->state != PROCESS_STATE_FINISHED) {
+			process->state = PROCESS_STATE_RUNNING;
+			k_proc_process_mark_ready(process);
+		}
+		node->process->wait_node = 0;
+		k_free(node);
+		node = sleep_queue;
+	}
+}
+
+static uint64_t __k_proc_get_tsc_ticks() {
+	uint64_t tsc_ticks = k_dev_timer_read_tsc();
+	uint64_t speed     = k_dev_timer_get_core_speed();
+	uint64_t base      = k_dev_timer_tsc_base();
+
+	uint64_t ticks     = (tsc_ticks / speed) - base; 
+
+	return ticks;
+}
+
+uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
+	uint64_t seconds = TICKS_SECONDS(microseconds);
+	microseconds     = TICKS_MICROSECONDS(microseconds);
+
+	uint64_t ticks   = __k_proc_get_tsc_ticks();
+
+	uint64_t cur_seconds      = TICKS_SECONDS(ticks);
+	uint64_t cur_microseconds = TICKS_MICROSECONDS(ticks);
+
+	cur_seconds      += seconds;
+	cur_microseconds += microseconds;
+
+	if(cur_microseconds >= MICROSECONDS_PER_SECOND) {
+		cur_seconds      += cur_microseconds / MICROSECONDS_PER_SECOND;
+		cur_microseconds %= MICROSECONDS_PER_SECOND;
+	}
+
+	wait_node_t* new_node  = malloc(sizeof(wait_node_t));
+	new_node->process      = process;
+	new_node->seconds      = cur_seconds;
+	new_node->microseconds = cur_microseconds;
+	process->wait_node 	   = new_node;
+
+	if(!sleep_queue) {
+		sleep_queue = new_node;
+		sleep_queue->next = 0;
+	} else {
+		wait_node_t* node 	   = sleep_queue;
+		wait_node_t* prev_node = node;
+		while(node && (node->seconds > cur_seconds || (node->seconds == cur_seconds && node->microseconds > cur_microseconds))) {
+			prev_node = node;
+			node      = node->next;
+		}
+		prev_node->next = new_node;
+		new_node->next  = node;
+	}
+
+	process->state = PROCESS_STATE_SLEEPING;
+	k_proc_process_yield();
+
+	ticks   = __k_proc_get_tsc_ticks();
+
+	uint64_t new_seconds      = TICKS_SECONDS(ticks);
+	uint64_t new_microseconds = TICKS_MICROSECONDS(ticks);
+
+	if(cur_seconds > new_seconds || (cur_seconds == new_microseconds && cur_microseconds > new_microseconds)) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+// c0106ab9
+// c0106abe
+
+void k_proc_process_update_timings() {
+	uint64_t ticks = __k_proc_get_tsc_ticks();
+
+	uint64_t seconds      = TICKS_SECONDS(ticks);
+	uint64_t microseconds = TICKS_MICROSECONDS(ticks);
+
+	__k_proc_process_wakeup_timing(seconds, microseconds);
 }

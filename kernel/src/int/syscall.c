@@ -95,6 +95,10 @@ static uint32_t sys_waitpid(pid_t pid, int* status, int options) {
 	return k_proc_process_waitpid(k_proc_process_current(), pid, status, options);
 }
 
+static uint32_t sys_sleep(uint64_t microseconds) {
+	return k_proc_process_sleep(k_proc_process_current(), microseconds);
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -104,6 +108,7 @@ DEFN_SYSCALL0(sys_getpid);
 DEFN_SYSCALL1(sys_exit, uint32_t);
 DEFN_SYSCALL1(sys_grow, int32_t);
 DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
+DEFN_SYSCALL1(sys_sleep, uint64_t);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -118,6 +123,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_EXIT, REF_SYSCALL(sys_exit));
 	k_int_syscall_setup_handler(SYS_GROW, REF_SYSCALL(sys_grow));
 	k_int_syscall_setup_handler(SYS_WAITPID, REF_SYSCALL(sys_waitpid));
+	k_int_syscall_setup_handler(SYS_SLEEP, REF_SYSCALL(sys_sleep));
     
 	return K_STATUS_OK;
 }

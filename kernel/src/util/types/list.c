@@ -71,3 +71,18 @@ void list_delete_element(list_t* list, void* data){
         }
     }
 }
+
+
+void* list_head(list_t* list) {
+	if(!list->size) {
+		return 0;
+	}
+	return list->data[0];
+}
+
+void* list_tail(list_t* list) {
+	if(!list->size) {
+		return 0;
+	}
+	return list->data[list->size - 1];
+}

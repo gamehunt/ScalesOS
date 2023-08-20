@@ -28,6 +28,10 @@ uint64_t k_dev_timer_get_core_speed(){
     return core_speed;
 }
 
+uint64_t k_dev_timer_tsc_base() {
+	return initial_tsc;
+}
+
 static uint64_t __k_dev_timer_month_to_timestamp(int month, int year){
     static const int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
     uint64_t days = 0;
@@ -98,6 +102,8 @@ K_STATUS k_dev_timer_init(){
 
     initial_tsc = s_hi;
     initial_tsc = (initial_tsc << 32) | s_lo;
+
+	initial_tsc /= core_speed;
 
     rtc_time_t t;
     k_dev_rtc_gettime(&t);

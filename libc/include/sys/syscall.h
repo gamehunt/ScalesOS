@@ -12,6 +12,8 @@
 #define SYS_EXIT    6
 #define SYS_GROW    7
 #define SYS_WAITPID 8
+#define SYS_EXEC    9
+#define SYS_SLEEP   10
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -32,6 +34,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_exit(code)              			__syscall(SYS_EXIT, code, UNUSED4)
 #define __sys_grow(size)              			__syscall(SYS_GROW, size, UNUSED4)
 #define __sys_waitpid(pid, status, options)     __syscall(SYS_WAITPID, pid, status, options, UNUSED2)
+#define __sys_exec(path, argv, envp)            __syscall(SYS_EXEC, path, argv, envp, UNUSED2)
+#define __sys_sleep(microseconds)               __syscall(SYS_SLEEP, microseconds, UNUSED4)
 
 #endif
 

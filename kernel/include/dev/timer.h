@@ -14,5 +14,6 @@ void     k_dev_timer_sleep(uint32_t msec);
 
 uint64_t k_dev_timer_read_tsc();
 uint64_t k_dev_timer_get_core_speed();
+uint64_t k_dev_timer_tsc_base();
 
 #endif

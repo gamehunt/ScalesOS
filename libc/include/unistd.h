@@ -13,6 +13,9 @@ int execlp(const char *file, const char *arg, ...);
 int execv(const char *path, char *const argv[]);
 int execvp(const char *file, char *const argv[]);  
 
+unsigned int sleep(unsigned int seconds);
+unsigned int usleep(unsigned long usec);
+
 #endif
 
 #endif
