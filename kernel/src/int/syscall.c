@@ -167,6 +167,11 @@ static uint32_t sys_kill(pid_t pid, int sig) {
 	return 0;
 }
 
+static uint32_t sys_yield() {
+	k_proc_process_yield();
+	__builtin_unreachable();
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -183,6 +188,7 @@ DEFN_SYSCALL2(sys_gettimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
 DEFN_SYSCALL2(sys_kill, pid_t, int);
+DEFN_SYSCALL0(sys_yield);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -204,6 +210,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_SETTIMEOFDAY, REF_SYSCALL(sys_settimeofday));
 	k_int_syscall_setup_handler(SYS_SIGNAL, REF_SYSCALL(sys_signal));
 	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
+	k_int_syscall_setup_handler(SYS_YIELD, REF_SYSCALL(sys_yield));
 	
     
 	return K_STATUS_OK;
