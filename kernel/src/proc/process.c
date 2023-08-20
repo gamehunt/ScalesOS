@@ -8,6 +8,7 @@
 #include "mem/memory.h"
 #include "mod/elf.h"
 #include "proc/spinlock.h"
+#include "signal.h"
 #include "util/log.h"
 #include "util/panic.h"
 #include "util/types/list.h"
@@ -538,4 +539,100 @@ void k_proc_process_update_timings() {
 	uint64_t microseconds = TICKS_MICROSECONDS(ticks);
 
 	__k_proc_process_wakeup_timing(seconds, microseconds);
+}
+
+
+uint8_t k_proc_process_is_ready(process_t* process) {
+	return process->state == PROCESS_STATE_RUNNING || process->state == PROCESS_STATE_STARTING;
+}
+
+void k_proc_process_send_signal(process_t* process, int sig) {
+	if(sig < 0 || sig >= MAX_SIGNAL) {
+		return;
+	}
+
+	process->signal_queue |= (1 << sig);
+
+	if(process != current_core->current_process && !k_proc_process_is_ready(process)) {
+		k_proc_process_mark_ready(process);
+	}
+}
+
+static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt_context_t* ctx) {
+	if(sig < 0 || sig >= MAX_SIGNAL) {
+		return 1;
+	}
+
+	signal_t cfg = process->signals[sig];
+
+	if(!cfg.handler) {
+		// TODO default signal actions
+	} else {
+		uint32_t esp = ctx->esp;
+
+		PUSH(esp, interrupt_context_t, *ctx);
+		PUSH(esp, int, sig);
+		PUSH(esp, uintptr_t, 0xDEADBEEF);
+
+		__k_proc_process_enter_usermode((uint32_t) cfg.handler, esp);
+		__builtin_unreachable();
+	}
+
+	return !process->signal_queue;
+}
+
+void k_proc_process_process_signals(process_t* process, interrupt_context_t* ctx) {
+	if(!process->signal_queue) {
+		return;
+	}
+	for(int i = 0; i < MAX_SIGNAL; i++) {
+		uint64_t check = (1 << i);
+		if(process->signal_queue & check) {
+			process->signal_queue &= ~check;
+			if(__k_proc_process_handle_signal(process, i, ctx)){
+				return;
+			}
+		}
+	}
+}
+
+process_t* k_proc_process_find_by_pid(pid_t pid) {
+	for(uint32_t i = 0; i < process_list->size; i++) {
+		process_t* process = process_list->data[i];
+		if(process->pid == pid) {
+			return process;
+		}
+	}
+	return 0;
+}
+
+void k_proc_process_return_from_signal(interrupt_context_t* ctx) {
+	k_info("Returning from signal handler...");
+
+	process_t* proc = k_proc_process_current();
+
+	int sig;
+	POP(ctx->esp, int, sig);
+
+	interrupt_context_t out;
+	POP(ctx->esp, interrupt_context_t, out);
+
+	ctx->eip = out.eip;
+
+	ctx->esp = out.esp;
+	ctx->ebp = out.ebp;
+
+	ctx->eax = out.eax;
+	ctx->ebx = out.ebx;
+	ctx->ecx = out.ecx;
+	ctx->edx = out.edx;
+	
+	ctx->edi = out.edi;
+	ctx->esi = out.esi;
+
+	if(proc->signal_queue) {
+		k_proc_process_process_signals(proc, ctx);
+	}
+
+	//TODO restart syscall
 }

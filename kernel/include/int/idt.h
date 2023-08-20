@@ -22,4 +22,16 @@ void k_int_idt_init();
 void k_int_idt_reinstall();
 extern void k_int_load_idt(uint32_t addr);
 
+#define PRE_INTERRUPT \
+	uint8_t from_userspace = ctx->cs != 0x08;  \
+	process_t* proc = k_proc_process_current(); \
+	if(from_userspace && proc) { \
+		proc->last_sys = k_dev_timer_read_tsc(); \
+	} \
+
+#define POST_INTERRUPT \
+	if(from_userspace && proc && proc->state != PROCESS_STATE_FINISHED) { \
+		k_proc_process_process_signals(proc, ctx); \
+	} \
+
 #endif

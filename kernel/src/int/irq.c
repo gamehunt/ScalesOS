@@ -1,3 +1,5 @@
+#include "dev/timer.h"
+#include "proc/process.h"
 #include "util/log.h"
 #include <int/pic.h>
 #include <int/idt.h>
@@ -55,11 +57,16 @@ void k_int_irq_setup_handler(uint8_t int_no, irq_handler_t handler){
 }
 
 interrupt_context_t* __k_int_irq_dispatcher(interrupt_context_t* ctx){
+	PRE_INTERRUPT
+
     uint8_t irq = ctx->int_no;
     if(irq_handlers[irq]){
-        return irq_handlers[irq](ctx);
+        ctx = irq_handlers[irq](ctx);
     }else{
         k_int_pic_eoi(irq);
-        return ctx;
     }
+
+	POST_INTERRUPT
+
+	return ctx;
 }

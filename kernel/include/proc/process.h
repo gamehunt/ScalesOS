@@ -5,6 +5,8 @@
 #include "int/isr.h"
 #include "proc/spinlock.h"
 #include "sys/types.h"
+#include "sys/signal.h"
+#include "signal.h"
 #include "util/types/list.h"
 #include "util/types/tree.h"
 #include <stdint.h>
@@ -37,8 +39,12 @@ typedef struct fd_list {
 	spinlock_t  lock;
 } fd_list_t;
 
-struct wait_node;
+typedef struct signal {
+	signal_handler_t handler;
+	uint8_t          flags;
+} signal_t;
 
+struct wait_node;
 
 typedef struct process {
     char      name[256];
@@ -60,6 +66,9 @@ typedef struct process {
 
 	uint64_t   last_entrance;
 	uint64_t   last_sys;
+
+	signal_t   signals[MAX_SIGNAL];
+	uint64_t   signal_queue;
 } process_t;
 
 typedef struct wait_node {
@@ -93,5 +102,12 @@ pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int 
 
 void       k_proc_process_exit(process_t* process, int code);
 void       k_proc_process_destroy(process_t* process);
+
+uint8_t    k_proc_process_is_ready(process_t* process);
+void       k_proc_process_send_signal(process_t* process, int sig);
+void       k_proc_process_process_signals(process_t* process, interrupt_context_t* ctx);
+void       k_proc_process_return_from_signal(interrupt_context_t* ctx);
+
+process_t* k_proc_process_find_by_pid(pid_t pid);
 
 #endif

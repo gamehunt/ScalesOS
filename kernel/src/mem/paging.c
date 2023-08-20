@@ -35,15 +35,20 @@ extern uint32_t k_mem_paging_get_fault_addr();
 extern void __k_mem_paging_invlpg(uint32_t addr);
 
 interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
-	process_t* proc = k_proc_process_current();
+	process_t* proc          = k_proc_process_current();
+	uint32_t   fault_address = k_mem_paging_get_fault_addr(); 
 	if((ctx->err_code & 0x4) && proc) {
-		k_err("Process %s (%d) caused page fault at 0x%x (0x%x).", proc->name, proc->pid, k_mem_paging_get_fault_addr(), ctx->err_code);
-		k_proc_process_exit(proc, 3);
-		__builtin_unreachable();
+		if(fault_address == 0xDEADBEEF) {
+			k_proc_process_return_from_signal(ctx);
+			return ctx;
+		} else {
+			k_err("Process %s (%d) caused page fault at 0x%x (0x%x).", proc->name, proc->pid, fault_address, ctx->err_code);
+			k_proc_process_exit(proc, 3);
+			__builtin_unreachable();
+		}
 	}
     char buffer[128];
-    sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x",
-            k_mem_paging_get_fault_addr(), ctx->err_code);
+    sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x", fault_address, ctx->err_code);
     k_panic(buffer, ctx);
     __builtin_unreachable();
 }

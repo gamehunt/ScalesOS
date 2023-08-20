@@ -1,6 +1,5 @@
 #include <int/syscall.h>
 #include "dev/acpi.h"
-#include "dev/rtc.h"
 #include "dev/timer.h"
 #include "fs/vfs.h"
 #include "mem/paging.h"
@@ -13,6 +12,7 @@
 #include "shared.h"
 #include "sys/times.h"
 #include "sys/time.h"
+#include "sys/signal.h"
 
 #include <proc/process.h>
 #include <string.h>
@@ -38,6 +38,8 @@ extern void _syscall_stub();
 static syscall_handler_t syscalls[MAX_SYSCALL + 1];
 
 interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
+	PRE_INTERRUPT
+
     process_t* cur = k_proc_process_current();
     memcpy((void*) &cur->syscall_state, ctx, sizeof(interrupt_context_t));
 	if(syscalls[ctx->eax]) {
@@ -45,6 +47,9 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 	} else {
 		k_warn("Unknown syscall: %d!", ctx->eax);
 	}
+
+	POST_INTERRUPT
+
     return ctx;
 }
 
@@ -119,7 +124,7 @@ static uint32_t sys_times(struct tms* tms) {
 	return k_dev_timer_read_tsc() / k_dev_timer_get_core_speed();
 }
 
-static uint32_t sys_gettimeofday(struct timeval* tv, struct timezone* tz) {
+static uint32_t sys_gettimeofday(struct timeval* tv, struct timezone* tz UNUSED) {
 	if(!IS_VALID_PTR((uint32_t) tv)) {
 		return 0;
 	}
@@ -140,6 +145,28 @@ static uint32_t sys_settimeofday(struct timeval* tv, struct timezone* tz) {
 	return 0;
 }
 
+static uint32_t sys_signal(int sig, signal_handler_t handler) {
+	if(sig < 0 || sig >= MAX_SIGNAL) {
+		return 1;
+	}
+
+	process_t* proc = k_proc_process_current();
+	
+	signal_handler_t* old = proc->signals[sig].handler;
+
+	proc->signals[sig].handler = handler;
+
+	return (uint32_t) old;
+}
+
+static uint32_t sys_kill(pid_t pid, int sig) {
+	process_t* proc = k_proc_process_find_by_pid(pid);
+	if(proc && proc->state != PROCESS_STATE_FINISHED) {
+		k_proc_process_send_signal(proc, sig);
+	}
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -154,6 +181,8 @@ DEFN_SYSCALL0(sys_reboot);
 DEFN_SYSCALL1(sys_times, struct tms*);
 DEFN_SYSCALL2(sys_gettimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
+DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
+DEFN_SYSCALL2(sys_kill, pid_t, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -173,6 +202,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_TIMES, REF_SYSCALL(sys_times));
 	k_int_syscall_setup_handler(SYS_GETTIMEOFDAY, REF_SYSCALL(sys_gettimeofday));
 	k_int_syscall_setup_handler(SYS_SETTIMEOFDAY, REF_SYSCALL(sys_settimeofday));
+	k_int_syscall_setup_handler(SYS_SIGNAL, REF_SYSCALL(sys_signal));
+	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
 	
     
 	return K_STATUS_OK;

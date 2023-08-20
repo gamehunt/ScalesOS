@@ -1,3 +1,6 @@
+#include "dev/timer.h"
+#include "proc/process.h"
+#include "util/log.h"
 #include "util/panic.h"
 #include <int/isr.h>
 #include <int/idt.h>
@@ -80,14 +83,16 @@ static const char *panic_messages[] = {
 	"Reserved"};
 
 interrupt_context_t* __k_int_isr_dispatcher(interrupt_context_t* ctx){
-    if(!isr_handlers[ctx->int_no]){
+	if(!isr_handlers[ctx->int_no]){
         char buffer[1024];
         sprintf(buffer, "Unhandled exception: %s (%d). Error code: %d", panic_messages[ctx->int_no], ctx->int_no, ctx->err_code);
         k_panic(buffer, ctx);
         __builtin_unreachable();
     }else{
-        return isr_handlers[ctx->int_no](ctx);
+        ctx = isr_handlers[ctx->int_no](ctx);
     }
+
+	return ctx;
 }
 
 void k_int_isr_init(){

@@ -5,4 +5,8 @@
     sp -= sizeof(type);       \
     *((type*)sp) = value;     \
 
+#define POP(sp, type, value) \
+	value = *((type*) sp);   \
+	sp  += sizeof(type);     \
+
 #endif
