@@ -25,9 +25,6 @@ int main(int argc, char** argv){
 	pid_t child = fork();
 	if(!child) {
 		signal(0, test_handler);
-		for(int i = 0; i < 255; i++){
-			printf("%d\r\n", i);
-		}
 	} else {
 		sleep(2);
 		printf("Sending signal...\r\n");

@@ -211,7 +211,6 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_SIGNAL, REF_SYSCALL(sys_signal));
 	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
 	k_int_syscall_setup_handler(SYS_YIELD, REF_SYSCALL(sys_yield));
-	
     
 	return K_STATUS_OK;
 }
