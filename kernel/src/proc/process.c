@@ -22,6 +22,14 @@
 
 #define GUARD_MAGIC 0xBEDAABED
 
+#define SIG_IGNORE     0
+#define SIG_TERMINATE  1
+#define SIG_STOP       2
+
+static uint8_t sig_defaults[] = {
+	SIG_IGNORE,
+	[SIGKILL] = SIG_TERMINATE
+};
 
 static tree_t* process_tree    = 0;
 static list_t* process_list    = 0;
@@ -566,7 +574,21 @@ static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt
 	signal_t cfg = process->signals[sig];
 
 	if(!cfg.handler) {
-		// TODO default signal actions
+		uint8_t def = sig_defaults[sig];
+		if(def == SIG_TERMINATE) {
+			k_proc_process_exit(process, ((128 + sig) << 4) | sig);
+			__builtin_unreachable();
+		} else if (def == SIG_STOP) {
+			process->state = PROCESS_STATE_SLEEPING;
+
+			process_t* parent = process->node->parent->value;
+
+			if(parent) {
+				__k_proc_process_wakeup_queue(parent->wait_queue);
+			}
+
+			return 1;
+		}
 	} else {
 		uint32_t esp = ctx->esp;
 

@@ -31,7 +31,7 @@ int main(int argc, char** argv){
 	} else {
 		sleep(2);
 		printf("Sending signal...\r\n");
-		kill(child, 0);
+		kill(child, SIGKILL);
 	}
 
 	while(1);

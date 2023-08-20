@@ -5,6 +5,8 @@
 
 #define MAX_SIGNAL 64
 
+#define SIGKILL 9
+
 typedef void (*_signal_handler_ptr)(int);
 
 int kill(pid_t pid, int sig);
