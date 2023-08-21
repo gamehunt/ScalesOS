@@ -13,6 +13,10 @@ set(SOURCES
     rtc.c
     acpi.c
     ps2.c
+	null.c
+	tty.c
+	random.asm
+	random.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

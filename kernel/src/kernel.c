@@ -19,8 +19,9 @@
 #include "dev/fpu.h"
 #include "dev/pci.h"
 #include "dev/ps2.h"
+#include "dev/random.h"
 #include "dev/timer.h"
-#include "fs/null.h"
+#include "dev/null.h"
 #include "fs/tar.h"
 #include "int/syscall.h"
 #include "kernel.h"
@@ -64,9 +65,10 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_dev_pci_init();
     k_dev_ps2_init();
+	k_dev_null_init();
+	k_dev_random_init();
 
     k_fs_tar_init();
-	k_fs_null_init();
 
     k_mod_symtable_init();
     k_mod_load_modules(mb);
@@ -77,8 +79,6 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){
         k_panic("Failed to mount root.", 0);
     }
-
-	k_d_fs_vfs_print();
 
     k_proc_process_exec("/init.sc", 12345, 0);
 

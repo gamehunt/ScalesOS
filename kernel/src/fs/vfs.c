@@ -26,7 +26,7 @@ static fs_node_t* __k_fs_vfs_root_node(){
 
 static fs_node_t* __k_fs_vfs_find_node(const char* path){
     tree_node_t* cur_node  = vfs_tree->root;
-    uint32_t len = k_util_path_length(path);
+    uint32_t len   = k_util_path_length(path);
     char* filename = k_util_path_filename(path);
     for(uint32_t i = 0; i < len; i++){
         char* part = k_util_path_segment(path, i);
@@ -50,6 +50,13 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
                 if(!part){
                     break;
                 }
+				if(fsnode->flags & VFS_SYMLINK) {
+					char buff[4096];
+					k_fs_vfs_readlink(fsnode, buff, 4096);
+					k_free(part);
+					k_free(filename);
+					return __k_fs_vfs_find_node(buff);
+				}
                 fsnode = k_fs_vfs_finddir(fsnode, part);
                 i++;
             }
@@ -191,6 +198,14 @@ struct dirent*   k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
     }
 
     return node->fs.readdir(node, index);
+}
+
+uint32_t  k_fs_vfs_readlink(fs_node_t* node, uint8_t* buf, uint32_t size) {
+	if(!node->fs.readlink) {
+		return 0;
+	}
+
+	return node->fs.readlink(node, buf, size);
 }
 
 fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
