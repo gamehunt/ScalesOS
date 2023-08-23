@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 #define GUARD_MAGIC 0xBEDAABED
 
@@ -76,6 +77,8 @@ static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
 	proc->node = tree_create_node(proc);
 
 	if(parent) {
+		proc->uid      = parent->uid;
+		proc->group_id = parent->pid;
 		tree_insert_node(process_tree, proc->node, parent->node);
 	}
 
@@ -219,12 +222,12 @@ void k_proc_process_yield() {
     k_proc_process_switch(); 
 }
 
-void k_proc_process_exec(const char* path, int argc, char** argv) {
+void k_proc_process_exec(const char* path, char** argv, char** envp) {
     if (!process_list || !process_list->size) {
         return;
     }
 
-    fs_node_t* node = k_fs_vfs_open(path);
+    fs_node_t* node = k_fs_vfs_open(path, FS_READ);
     if (!node) {
         return;
     }
@@ -235,13 +238,14 @@ void k_proc_process_exec(const char* path, int argc, char** argv) {
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
+    k_fs_vfs_close(node);
+
     k_info("Executing: %s", proc->name);
 
 	proc->image.heap       = USER_HEAP_START;
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
 	proc->image.user_stack = USER_STACK_START + USER_STACK_SIZE;
 
-    k_fs_vfs_close(node);
 
     uint32_t entry;
     if ((entry = k_mod_elf_load_exec(buffer))) {
@@ -250,33 +254,85 @@ void k_proc_process_exec(const char* path, int argc, char** argv) {
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START, 0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
 
-		if(argv) {
-			char** ptrs = k_calloc(argc, sizeof(uint32_t)); 
-			
-			for(int i = argc - 1; i >= 0; i--) {
-				for(size_t j = strlen(argv[i]) - 1; j >= 0; j--) {
-					PUSH(proc->image.user_stack, char, argv[i][j])		
+		
+		if(envp) {
+			int envc = 0;
+			while(envp[envc]) {
+				envc++;
+			}
+
+			if(envc) {
+				char** ptrs = k_calloc(envc, sizeof(char*));
+				int j = 0;
+				for(int env = envc - 1; env >= 0; env--) {
+					PUSH(proc->image.user_stack, char, '\0');
+					for(int i = strlen(envp[env]) - 1; i >= 0; i--) {
+						PUSH(proc->image.user_stack, char, envp[env][i]);
+					}
+					ptrs[j] = (char*) proc->image.user_stack;
+					j++;
 				}
-				ptrs[i] = (char*) proc->image.user_stack;
+            	
+				for(int i = 0; i < envc; i++) {
+					PUSH(proc->image.user_stack, char*, ptrs[i]);
+				}
+				
+				k_free(ptrs);
+
+				char** _envp = (char**) proc->image.user_stack;
+				PUSH(proc->image.user_stack, char**, _envp);
+			} else {
+				PUSH(proc->image.user_stack, uintptr_t, 0);
 			}
 
-			PUSH(proc->image.user_stack, uintptr_t, 0)
-			for(int i = 0; i < argc; i++) {
-				PUSH(proc->image.user_stack, char*, ptrs[i])
-			}
-
-			k_free(ptrs);
+			PUSH(proc->image.user_stack, int, envc);
 		} else {
 			PUSH(proc->image.user_stack, uintptr_t, 0);
+			PUSH(proc->image.user_stack, int, 0);
+		}		
+
+		if(argv) {				
+			int argc = 0;
+
+			while(argv[argc]) {
+				argc++;
+			}
+
+			if(argc) {
+				char** ptrs = k_calloc(argc, sizeof(char*)); 
+				
+				for(int i = argc - 1; i >= 0; i--) {
+					PUSH(proc->image.user_stack, char, '\0');
+					for(int j = strlen(argv[i]) - 1; j >= 0; j--) {
+						PUSH(proc->image.user_stack, char, argv[i][j])		
+					}
+					ptrs[i] = (char*) proc->image.user_stack;
+				}
+            	
+				PUSH(proc->image.user_stack, uintptr_t, 0)
+				for(int i = 0; i < argc; i++) {
+					PUSH(proc->image.user_stack, char*, ptrs[i])
+				}
+            	
+				k_free(ptrs);
+
+				char** _argv = (char**) proc->image.user_stack;
+				PUSH(proc->image.user_stack, char**, _argv);
+			} else{
+				PUSH(proc->image.user_stack, uintptr_t, 0);
+			}
+			PUSH(proc->image.user_stack, int, argc)
+		} else {
+			PUSH(proc->image.user_stack, uintptr_t, 0);
+			PUSH(proc->image.user_stack, int, 0);
 		}
 
-		PUSH(proc->image.user_stack, int, argc)
 
 		// uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
 		// for(uint32_t i = 0; (uint32_t) i < USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack; i += 4) {
 		// 	k_debug("[%d/%d] 0x%x [+%d]", i, occupied_stack_size, *((uint32_t*) (proc->image.user_stack + i)), i);
 		// }
-
+		
 		proc->image.entry = entry;
 
         k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
@@ -309,7 +365,7 @@ uint32_t k_proc_process_fork() {
     process_t* src = current_core->current_process;
     process_t* new = k_malloc(sizeof(process_t));
 
-    new->state = PROCESS_STATE_STARTING;
+    new->state    = PROCESS_STATE_STARTING;
 
     memcpy(new, src, sizeof(process_t));
 
@@ -381,6 +437,8 @@ static void __k_proc_process_wakeup_queue(list_t* queue) {
 void k_proc_process_exit(process_t* process, int code) {
 	k_info("Process %s (%d) exited with code %d", process->name, process->pid, code);
 
+	process->status = code;
+
 	fd_list_t* list = &process->fds;
 	for(uint32_t i = 0; i < list->size; i++){
 		if(list->nodes[i]) {
@@ -414,7 +472,7 @@ uint8_t __k_proc_process_waitpid_can_pick(process_t* process, process_t* parent,
 	if(pid < -1) {
 		return process->pid == -pid;
 	} else if(pid == 0) {
-		return 1; //TODO groups
+		return process->group_id == parent->group_id; 
 	} else if(pid > 0) {
 		return process->pid == pid;
 	} else {
@@ -423,24 +481,40 @@ uint8_t __k_proc_process_waitpid_can_pick(process_t* process, process_t* parent,
 }
 
 pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int options) {
+	if(options > PROCESS_WAITPID_WUNTRACED) {
+		return -EINVAL;
+	}
+
 	do {
 		process_t* child = 0;
+		uint8_t was = 0;
 		for(uint32_t i = 0; i < process->node->child_count; i++) {
 			process_t* candidate = process->node->childs[i]->value;
-			if(candidate->state == PROCESS_STATE_FINISHED &&
-					__k_proc_process_waitpid_can_pick(candidate, process, pid)) {
-				child = candidate;
-				break;
-			}	
+			if(__k_proc_process_waitpid_can_pick(candidate, process, pid)) {
+				was = 1;
+				if(candidate->state == PROCESS_STATE_FINISHED) {
+					child = candidate;
+					break;
+				}	
+			}
+		}
+
+		if(!was) {
+			return -ECHILD;
 		}
 		
 		if(child) {
+			if(status && IS_VALID_PTR((uint32_t) status)){
+				*status = child->status;
+			}
 			k_proc_process_destroy(child);
 			return child->pid;
-		} else {
+		} else if(!(options & PROCESS_WAITPID_WNOHANG)) {
 			process->state = PROCESS_STATE_SLEEPING;
 			list_push_back(process->wait_queue, process);
 			k_proc_process_yield();
+		} else{
+			return -EINTR;
 		}
 	} while(1);
 }

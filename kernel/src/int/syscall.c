@@ -3,6 +3,8 @@
 #include "dev/timer.h"
 #include "fs/vfs.h"
 #include "mem/paging.h"
+#include "mod/elf.h"
+#include "mod/modules.h"
 #include "sys/syscall.h"
 #include <stdio.h>
 #include "int/idt.h"
@@ -55,7 +57,7 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 
 static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(fds->size >= fd && !fds->nodes[fd]) {
+	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
 		return 0;
 	}
 	return k_fs_vfs_read(fds->nodes[fd], 0, count, buffer);
@@ -63,14 +65,14 @@ static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
 
 static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(fds->size >= fd && !fds->nodes[fd]) {
+	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
 		return 0;
 	}
 	return k_fs_vfs_write(fds->nodes[fd], 0, count, buffer);
 }
 
 static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
-	fs_node_t* node = k_fs_vfs_open(path);
+	fs_node_t* node = k_fs_vfs_open(path, mode);
 	if(!node) {
 		return 0;
 	}
@@ -100,6 +102,11 @@ static uint32_t sys_grow(int32_t size) {
 	uint32_t   addr    = current->image.heap + current->image.heap_size;
 	k_proc_process_grow_heap(k_proc_process_current(), size);
 	return addr;
+}
+
+static uint32_t sys_exec(const char* path, char** argv, char** envp) {
+	k_proc_process_exec(path, argv, envp);
+	return 1; 
 }
 
 static uint32_t sys_waitpid(pid_t pid, int* status, int options) {
@@ -172,6 +179,14 @@ static uint32_t sys_yield() {
 	__builtin_unreachable();
 }
 
+static uint32_t sys_insmod(void* buffer) {
+	module_info_t* mod = k_mod_elf_load_module(buffer);
+	if(!mod) {
+		return 1;
+	}
+	return mod->load();
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -179,6 +194,7 @@ DEFN_SYSCALL1(sys_close, uint32_t);
 DEFN_SYSCALL0(sys_fork);
 DEFN_SYSCALL0(sys_getpid);
 DEFN_SYSCALL1(sys_exit, uint32_t);
+DEFN_SYSCALL3(sys_exec, const char*, char**, char**);
 DEFN_SYSCALL1(sys_grow, int32_t);
 DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
 DEFN_SYSCALL1(sys_sleep, uint64_t);
@@ -189,6 +205,7 @@ DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
 DEFN_SYSCALL2(sys_kill, pid_t, int);
 DEFN_SYSCALL0(sys_yield);
+DEFN_SYSCALL1(sys_insmod, void*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -201,6 +218,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_FORK,  REF_SYSCALL(sys_fork));
 	k_int_syscall_setup_handler(SYS_GETPID,  REF_SYSCALL(sys_getpid));
 	k_int_syscall_setup_handler(SYS_EXIT, REF_SYSCALL(sys_exit));
+	k_int_syscall_setup_handler(SYS_EXEC, REF_SYSCALL(sys_exec));
 	k_int_syscall_setup_handler(SYS_GROW, REF_SYSCALL(sys_grow));
 	k_int_syscall_setup_handler(SYS_WAITPID, REF_SYSCALL(sys_waitpid));
 	k_int_syscall_setup_handler(SYS_SLEEP, REF_SYSCALL(sys_sleep));
@@ -211,6 +229,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_SIGNAL, REF_SYSCALL(sys_signal));
 	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
 	k_int_syscall_setup_handler(SYS_YIELD, REF_SYSCALL(sys_yield));
+	k_int_syscall_setup_handler(SYS_INSMOD, REF_SYSCALL(sys_insmod));
     
 	return K_STATUS_OK;
 }

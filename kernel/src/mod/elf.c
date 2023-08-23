@@ -1,4 +1,5 @@
 #include "mem/paging.h"
+#include "mem/heap.h"
 #include "mod/modules.h"
 #include "util/log.h"
 #include <mod/elf.h>
@@ -67,5 +68,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
         shdr = (Elf32_Shdr*)((uint32_t)shdr + hdr->e_shentsize);
     }
 
-    return 0;
+	module_info_t* mod = (module_info_t*) k_malloc(sizeof(module_info_t));
+
+    return mod;
 }

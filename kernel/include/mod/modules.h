@@ -1,7 +1,6 @@
 #ifndef __K_MOD_MODULES_H
 #define __K_MOD_MODULES_H
 
-#include "fs/vfs.h"
 #include "kernel.h"
 #include "multiboot.h"
 

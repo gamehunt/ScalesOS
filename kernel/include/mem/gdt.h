@@ -1,6 +1,7 @@
 #ifndef __K_MEM_GDT_H
 #define __K_MEM_GDT_H
 
+#include "types.h"
 #include <stdint.h>
 
 #define GDT_ACCESS_ACCESSED (1 << 0)
@@ -62,8 +63,8 @@ typedef struct __attribute__((packed)) tss_entry {
 
 void        k_mem_gdt_create_entry(struct gdt_entry* gdt_instance, uint8_t idx, uint32_t base, uint32_t limit,uint8_t access, uint8_t flags);
 void        k_mem_gdt_init();
-extern void k_mem_load_gdt(uint32_t addr);
-void        k_mem_gdt_set_stack(uint32_t stack);
-void        k_mem_gdt_set_directory(uint32_t stack);
+extern void k_mem_load_gdt(paddr_t addr);
+void        k_mem_gdt_set_stack(vaddr_t stack);
+void        k_mem_gdt_set_directory(vaddr_t stack);
 void        k_mem_gdt_init_core();
 #endif

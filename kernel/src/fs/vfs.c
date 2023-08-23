@@ -153,6 +153,10 @@ uint32_t    k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8
         return 0;
     }
 
+	if(!(node->mode & FS_READ)) {
+		return 0;
+	}
+
     return node->fs.read(node, offset, size, buffer);
 }
 uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
@@ -160,10 +164,14 @@ uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint
         return 0;
     }
 
+	if(!(node->mode & FS_WRITE)) {
+		return 0;
+	}
+
     return node->fs.write(node, offset, size, buffer);
 }
 
-fs_node_t*  k_fs_vfs_open(const char* path){
+fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
     if(!vfs_tree){
         return 0;
     }
@@ -177,8 +185,10 @@ fs_node_t*  k_fs_vfs_open(const char* path){
 	memcpy(node, root_node, sizeof(fs_node_t));
 
     if(node->fs.open){
-        node->fs.open(node);
+        node->fs.open(node, mode);
     }
+
+	node->mode = mode;
 
     return node;
 }

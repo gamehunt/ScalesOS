@@ -80,7 +80,10 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
         k_panic("Failed to mount root.", 0);
     }
 
-    k_proc_process_exec("/init.sc", 12345, 0);
+	char* argv[] = {0};
+	char* envp[] = {"KERNEL=SCALES", 0};
+
+    k_proc_process_exec("/init.sc", argv, envp);
 
     while(1){
         halt();

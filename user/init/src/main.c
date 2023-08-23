@@ -7,9 +7,9 @@
 #include <sys/syscall.h>
 
 void init_output() {
-	__sys_open("/dev/console", 0, 0);
-	__sys_open("/dev/console", 1, 0);
-	__sys_open("/dev/console", 1, 0);
+	__sys_open("/dev/console", 0, 3);
+	__sys_open("/dev/console", 1, 3);
+	__sys_open("/dev/console", 1, 3);
 }
 
 void test_handler(int a) {
@@ -20,7 +20,12 @@ void test_handler(int a) {
 int main(int argc, char** argv){
 	init_output();
 
-	printf("Hello, world! %ld\r\n", time(0));
+	char* kernel = getenv("KERNEL");
+	if(!kernel) {
+		kernel = "UNKNOWN";
+	}
+
+	printf("Hello, world! %ld %s\r\n", time(0), kernel);
 
 	pid_t child = fork();
 	if(!child) {

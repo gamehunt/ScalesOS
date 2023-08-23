@@ -10,12 +10,15 @@
 #define VFS_MOUNTPOINT (1 << 2)
 #define VFS_SYMLINK    (1 << 3)
 
+#define FS_READ        (1 << 0)
+#define FS_WRITE       (1 << 1)
+
 struct fs_node;
 typedef struct fs_node fs_node_t;
 
 typedef uint32_t       (*fs_write_t)    (fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
 typedef uint32_t       (*fs_read_t)     (fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
-typedef void           (*fs_open_t)     (fs_node_t* node);
+typedef void           (*fs_open_t)     (fs_node_t* node, uint8_t mode);
 typedef void           (*fs_close_t)    (fs_node_t* node);
 typedef fs_node_t*     (*fs_finddir_t)  (fs_node_t* node, const char* name);
 typedef uint32_t       (*fs_readlink_t) (fs_node_t* node, uint8_t* buf, uint32_t size);
@@ -34,6 +37,7 @@ typedef struct fs_ops{
 struct fs_node{
     char     name[256];
     void*    device;
+	uint8_t  mode;
     uint32_t flags;
     uint64_t inode;
     uint32_t size;
@@ -58,7 +62,7 @@ struct dirent*   k_fs_vfs_readdir      (fs_node_t* node, uint32_t index);
 uint32_t         k_fs_vfs_readlink     (fs_node_t* node, uint8_t* buf, uint32_t size);
 K_STATUS         k_fs_vfs_mount_node   (const char* path, fs_node_t* root);
 K_STATUS         k_fs_vfs_mount        (const char* path, const char* device, const char* type);
-fs_node_t*       k_fs_vfs_open         (const char* path);
+fs_node_t*       k_fs_vfs_open         (const char* path, uint8_t mode);
 void             k_fs_vfs_close        (fs_node_t* node);
 void             k_d_fs_vfs_print      ();
 void             k_fs_vfs_register_fs  (const char* alias, mount_callback m);

@@ -1,4 +1,3 @@
-#include "util/log.h"
 #include <int/idt.h>
 
 #include <util/asm_wrappers.h>

@@ -2,6 +2,7 @@
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "proc/process.h"
+#include "types.h"
 #include "util/panic.h"
 #include <mem/paging.h>
 #include <util/log.h>
@@ -61,7 +62,7 @@ void k_mem_paging_init() {
     pd[1023] = (phys) | 0x03;
 }
 
-uint32_t k_mem_paging_virt2phys(uint32_t vaddr) {
+paddr_t k_mem_paging_virt2phys(vaddr_t vaddr) {
     uint16_t pd_index = PDE(vaddr);
     uint32_t pde = page_directory[pd_index];
     if (!(pde & PD_PRESENT_FLAG)) {
@@ -80,17 +81,17 @@ uint32_t k_mem_paging_virt2phys(uint32_t vaddr) {
     }
 }
 
-extern uint32_t __k_mem_paging_get_pd_phys();
-extern uint32_t __k_mem_paging_set_pd(uint32_t phys);
+extern paddr_t __k_mem_paging_get_pd_phys();
+extern vaddr_t __k_mem_paging_set_pd(paddr_t phys);
 
-uint32_t k_mem_paging_get_pd(uint8_t p) {
+addr_t k_mem_paging_get_pd(uint8_t p) {
     if (p) {
         return __k_mem_paging_get_pd_phys();
     }
     return (uint32_t)page_directory;
 }
 
-void k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force) {
+void k_mem_paging_set_pd(addr_t addr, uint8_t phys, uint8_t force) {
     if (!addr) {
         phys = 1;
         addr = __k_mem_paging_initial_directory;
@@ -107,7 +108,7 @@ void k_mem_paging_set_pd(uint32_t addr, uint8_t phys, uint8_t force) {
     __k_mem_paging_set_pd(addr);
 }
 
-void k_mem_paging_unmap(uint32_t vaddr) {
+void k_mem_paging_unmap(vaddr_t vaddr) {
     uint32_t pd_index = PDE(vaddr);
     if (!(page_directory[pd_index] & PD_PRESENT_FLAG)) {
         return;
@@ -121,7 +122,7 @@ void k_mem_paging_unmap(uint32_t vaddr) {
     __k_mem_paging_invlpg(vaddr);
 }
 
-void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags) {
+void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
     uint32_t pd_index = PDE(vaddr);
     if (!(page_directory[pd_index] & PD_PRESENT_FLAG)) {
         pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
@@ -147,7 +148,7 @@ void k_mem_paging_map(uint32_t vaddr, uint32_t paddr, uint8_t flags) {
     __k_mem_paging_invlpg(vaddr);
 }
 
-void k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size,
+void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
                              uint8_t flags, uint8_t contigous) {
     if (contigous) {
         uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
@@ -163,7 +164,7 @@ void k_mem_paging_map_region(uint32_t vaddr, uint32_t paddr, uint32_t size,
     }
 }
 
-uint32_t k_mem_paging_clone_pd(uint32_t pd, uint32_t* phys) {
+addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
     if (!pd) {
         pd = k_mem_paging_get_pd(0);
     }
@@ -211,7 +212,7 @@ uint32_t k_mem_paging_clone_pd(uint32_t pd, uint32_t* phys) {
 
 static uint32_t mmio_base = MMIO_START;
 
-void* k_mem_paging_map_mmio(uint32_t pstart, uint32_t size){
+void* k_mem_paging_map_mmio(paddr_t pstart, uint32_t size){
     void* ptr = (void*) mmio_base;
     k_mem_paging_map_region((uint32_t) ptr, pstart, size, 0x3, 1);
     mmio_base += size * 0x1000;

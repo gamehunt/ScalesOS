@@ -4,9 +4,9 @@
 #include "fs/vfs.h"
 #include "int/isr.h"
 #include "proc/spinlock.h"
-#include "sys/types.h"
 #include "sys/signal.h"
 #include "signal.h"
+#include "types.h"
 #include "util/types/list.h"
 #include "util/types/tree.h"
 #include <stdint.h>
@@ -15,6 +15,9 @@
 #define PROCESS_STATE_RUNNING            0x1
 #define PROCESS_STATE_FINISHED           0x2
 #define PROCESS_STATE_SLEEPING           0x3
+
+#define PROCESS_WAITPID_WNOHANG          (1 << 0)
+#define PROCESS_WAITPID_WUNTRACED        (1 << 1)
 
 typedef struct context {
     uint32_t esp;             // +0
@@ -49,6 +52,9 @@ struct wait_node;
 typedef struct process {
     char      name[256];
     pid_t     pid;
+	uid_t     uid;
+	int       status;
+	group_t   group_id;
     context_t context;
     image_t   image;
     interrupt_context_t syscall_state;
@@ -83,7 +89,7 @@ void       k_proc_process_yield();
 void       k_proc_process_switch();
 void       k_proc_process_update_timings();
 void       k_proc_process_init();
-void       k_proc_process_exec(const char* path, int argc, char** argv);
+void       k_proc_process_exec(const char* path, char** argv, char** envp);
 uint32_t   k_proc_process_fork();
 void       k_proc_process_init_core();
 
