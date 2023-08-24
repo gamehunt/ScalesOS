@@ -18,7 +18,8 @@ DIR* opendir(const char* path) {
 
 struct dirent *readdir(DIR* dir) {
 	static struct dirent result;
-	uint32_t res = __sys_readdir(dir->fd, ++dir->index, (uint32_t) &result);
+	uint32_t res = __sys_readdir(dir->fd, dir->index, (uint32_t) &result);
+	dir->index++;
 
 	if(res < 0) {
 		//SET ERRNO

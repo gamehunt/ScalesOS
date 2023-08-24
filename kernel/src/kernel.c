@@ -80,6 +80,8 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
         k_panic("Failed to mount root.", 0);
     }
 
+	k_d_fs_vfs_print();
+
 	char* argv[] = {0};
 	char* envp[] = {"KERNEL=SCALES", 0};
 

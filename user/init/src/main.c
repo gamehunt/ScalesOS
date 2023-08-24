@@ -4,6 +4,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <dirent.h>
 #include <sys/syscall.h>
 
 void init_output() {
@@ -26,6 +27,14 @@ int main(int argc, char** argv){
 	}
 
 	printf("Hello, world! %ld %s\r\n", time(0), kernel);
+
+	DIR* dev = opendir("/dev");
+	if(dev) {
+		struct dirent* dir;
+		while((dir = readdir(dev))) {
+			printf("%s\r\n", dir->name);
+		}
+	}
 
 	pid_t child = fork();
 	if(!child) {

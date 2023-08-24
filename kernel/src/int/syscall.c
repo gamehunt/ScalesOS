@@ -209,8 +209,15 @@ static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {
 		return 0;
 	}
 	fd_t* fdt = fds->nodes[fd];
-	*out = *k_fs_vfs_readdir(fdt->node, index);
-	return 0;
+	struct dirent* result = k_fs_vfs_readdir(fdt->node, index);
+
+	if(!result) {
+		return 0;
+	}
+
+	*out = *result;
+
+	return 1;
 }
 
 static uint32_t sys_seek(uint32_t fd, uint32_t offset, uint8_t origin) {

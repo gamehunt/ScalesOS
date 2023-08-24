@@ -1,4 +1,5 @@
 #include <fs/vfs.h>
+#include "dirent.h"
 #include "kernel.h"
 #include "mem/heap.h"
 #include "util/path.h"
@@ -74,6 +75,47 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
     return ((vfs_entry_t*)cur_node->value)->node;
 }
 
+static struct dirent* __k_fs_virtual_readdir(fs_node_t* node, uint32_t index) {
+	tree_node_t* tnode = (tree_node_t*) node->device;
+	if(!tnode) {
+		return 0;
+	}
+
+	struct dirent* result = malloc(sizeof(struct dirent));
+
+	if(index == 0) {
+		strcpy(result->name, ".");
+		result->ino  = 0;
+		return result;
+	}
+
+	if(index == 1) {
+		strcpy(result->name, "..");
+		result->ino  = 1;
+		return result;
+	}
+
+	index -= 2;
+
+	if(tnode->child_count > index) {
+		vfs_entry_t* child = (vfs_entry_t*) tnode->childs[index]->value;
+		strcpy(result->name, child->name);
+		result->ino = 1;
+		return result;
+	}
+
+	k_free(result);
+	return 0;
+}
+
+static fs_node_t* __k_fs_vfs_create_virtual_node(vfs_entry_t* entry, tree_node_t* tnode) {
+	fs_node_t* node = k_fs_vfs_create_node(entry->name);
+	node->device = tnode;
+	node->fs.readdir = &__k_fs_virtual_readdir;
+	entry->node = node;
+	return node;
+}
+
 static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len = k_util_path_length(path);
@@ -98,6 +140,7 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
             }
             vfs_entry_t* new_entry = k_fs_vfs_create_entry(part);
             tree_node_t* node      = tree_create_node(new_entry);
+			__k_fs_vfs_create_virtual_node(new_entry, node);
             tree_insert_node(vfs_tree, node, cur_node);
             cur_node = node;
         }
@@ -131,10 +174,9 @@ K_STATUS k_fs_vfs_init(){
     tree_node_t* node = tree_create_node(root);
     tree_set_root(vfs_tree, node);
 
-    k_fs_vfs_create_entry("/dev");
-
     return K_STATUS_OK;
 }
+
 
 vfs_entry_t* k_fs_vfs_create_entry(const char* name){
     vfs_entry_t* e = k_calloc(1, sizeof(vfs_entry_t));

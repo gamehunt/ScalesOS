@@ -44,7 +44,7 @@ struct fs_node{
 typedef struct vfs_entry{
     char name[256];
     fs_node_t* node;
-}vfs_entry_t;
+} vfs_entry_t;
 
 typedef fs_node_t* (*mount_callback) (const char* mountpoint, const char* device);
 
