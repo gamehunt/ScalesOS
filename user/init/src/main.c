@@ -34,6 +34,7 @@ int main(int argc, char** argv){
 		while((dir = readdir(dev))) {
 			printf("%s\r\n", dir->name);
 		}
+		closedir(dev);
 	}
 
 	pid_t child = fork();
