@@ -153,7 +153,7 @@ uint32_t    k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8
         return 0;
     }
 
-	if(!(node->mode & FS_READ)) {
+	if(!(node->mode & O_RDONLY)) {
 		return 0;
 	}
 
@@ -164,7 +164,7 @@ uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint
         return 0;
     }
 
-	if(!(node->mode & FS_WRITE)) {
+	if(!(node->mode & O_WRONLY)) {
 		return 0;
 	}
 

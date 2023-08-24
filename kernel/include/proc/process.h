@@ -35,8 +35,13 @@ typedef struct image{
 	uint32_t   entry;
 } image_t;
 
+typedef struct fd {
+	fs_node_t* node;
+	uint32_t   offset;
+} fd_t;
+
 typedef struct fd_list {
-	fs_node_t** nodes;
+	fd_t**      nodes;
 	uint32_t    amount;
 	uint32_t    size;
 	spinlock_t  lock;

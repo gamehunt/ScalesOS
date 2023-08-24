@@ -1,6 +1,7 @@
 #include <int/syscall.h>
 #include "dev/acpi.h"
 #include "dev/timer.h"
+#include "dirent.h"
 #include "fs/vfs.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
@@ -18,6 +19,7 @@
 
 #include <proc/process.h>
 #include <string.h>
+#include <stdio.h>
 
 #define DEFN_SYSCALL0(fn) uint32_t __##fn(UNUSED uint32_t a,UNUSED uint32_t b,UNUSED uint32_t c,UNUSED uint32_t d,UNUSED uint32_t e) { return fn(); }
 #define DEFN_SYSCALL1(fn, type) uint32_t __##fn(uint32_t a, UNUSED uint32_t b, UNUSED  uint32_t c, UNUSED  uint32_t d, UNUSED  uint32_t e) { return fn((type) a); }
@@ -55,12 +57,19 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
     return ctx;
 }
 
-static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
+static uint32_t sys_read(uint32_t fd, uint8_t* buffer,  uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
 	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
 		return 0;
 	}
-	return k_fs_vfs_read(fds->nodes[fd], 0, count, buffer);
+
+	fd_t* fdt = fds->nodes[fd];
+
+	uint32_t read = k_fs_vfs_read(fdt->node, fdt->offset, count, buffer);
+
+	fdt->offset += read;
+
+	return read;
 }
 
 static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
@@ -68,11 +77,18 @@ static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
 		return 0;
 	}
-	return k_fs_vfs_write(fds->nodes[fd], 0, count, buffer);
+
+	fd_t* fdt = fds->nodes[fd];
+
+	uint32_t written = k_fs_vfs_write(fdt->node, fdt->offset, count, buffer);
+
+	fdt->offset += written;
+	
+	return written;
 }
 
 static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
-	fs_node_t* node = k_fs_vfs_open(path, mode);
+	fs_node_t* node = k_fs_vfs_open(path, flags);
 	if(!node) {
 		return 0;
 	}
@@ -187,6 +203,38 @@ static uint32_t sys_insmod(void* buffer) {
 	return mod->load();
 }
 
+static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {
+	fd_list_t* fds = &k_proc_process_current()->fds;
+	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
+		return 0;
+	}
+	fd_t* fdt = fds->nodes[fd];
+	*out = *k_fs_vfs_readdir(fdt->node, index);
+	return 0;
+}
+
+static uint32_t sys_seek(uint32_t fd, uint32_t offset, uint8_t origin) {
+	fd_list_t* fds = &k_proc_process_current()->fds;
+	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
+		return 0;
+	}
+	fd_t* fdt = fds->nodes[fd];
+
+	switch(origin) {
+		case SEEK_CUR:
+			fdt->offset += offset;
+			break;
+		case SEEK_SET:
+			fdt->offset = offset;
+			break;
+		case SEEK_END:
+			fdt->offset = fdt->node->size + offset;
+			break;
+	}
+
+	return fdt->offset;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -206,6 +254,8 @@ DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
 DEFN_SYSCALL2(sys_kill, pid_t, int);
 DEFN_SYSCALL0(sys_yield);
 DEFN_SYSCALL1(sys_insmod, void*);
+DEFN_SYSCALL3(sys_readdir, uint32_t, uint32_t, struct dirent*);
+DEFN_SYSCALL3(sys_seek, uint32_t, uint32_t, uint8_t);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -230,6 +280,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
 	k_int_syscall_setup_handler(SYS_YIELD, REF_SYSCALL(sys_yield));
 	k_int_syscall_setup_handler(SYS_INSMOD, REF_SYSCALL(sys_insmod));
+	k_int_syscall_setup_handler(SYS_READDIR, REF_SYSCALL(sys_readdir));
+	k_int_syscall_setup_handler(SYS_SEEK, REF_SYSCALL(sys_seek));
     
 	return K_STATUS_OK;
 }

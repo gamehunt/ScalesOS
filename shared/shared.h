@@ -21,11 +21,5 @@
 #define CONCAT(lower, upper) \
     ((lower) >> 16)
 
-#include <stdint.h>
-
-struct dirent{
-    char name[256];
-    uint32_t ino;
-};
 
 #endif

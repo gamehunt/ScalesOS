@@ -7,9 +7,9 @@
 #include <sys/syscall.h>
 
 void init_output() {
-	__sys_open("/dev/console", 0, 3);
-	__sys_open("/dev/console", 1, 3);
-	__sys_open("/dev/console", 1, 3);
+	__sys_open("/dev/console", O_RDONLY, 0); // stdin
+	__sys_open("/dev/console", O_WRONLY, 0); // stdout
+	__sys_open("/dev/console", O_WRONLY, 0); // stderr
 }
 
 void test_handler(int a) {

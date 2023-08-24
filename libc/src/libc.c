@@ -5,6 +5,7 @@
 #include <sys/__internals.h>
 
 extern void __mem_init_heap();
+extern void __init_stdio();
 extern int main(int argc, char** argv, char** envp);
 
 char** __envp = {"\0"};
@@ -38,6 +39,7 @@ static void __parse_env() {
 
 int libc_init(int argc, char** argv, int envc, char** envp) {
 	__mem_init_heap();
+	__init_stdio();
 
 	char** new_argv = {"\0"};
 	__envc = envc;

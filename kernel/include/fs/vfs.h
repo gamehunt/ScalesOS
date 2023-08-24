@@ -10,9 +10,6 @@
 #define VFS_MOUNTPOINT (1 << 2)
 #define VFS_SYMLINK    (1 << 3)
 
-#define FS_READ        (1 << 0)
-#define FS_WRITE       (1 << 1)
-
 struct fs_node;
 typedef struct fs_node fs_node_t;
 

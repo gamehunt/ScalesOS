@@ -22,6 +22,8 @@
 #define SYS_SIGNAL       16
 #define SYS_YIELD        17
 #define SYS_INSMOD       18
+#define SYS_READDIR      19
+#define SYS_SEEK         20
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -52,6 +54,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_signal(sig, handler)              __syscall(SYS_SIGNAL, sig, handler, UNUSED3)
 #define __sys_yield()                           __syscall(SYS_YIELD, UNUSED5)
 #define __sys_insmod(addr)                      __syscall(SYS_INSMOD, addr, UNUSED4)
+#define __sys_readdir(dir, index, out)          __syscall(SYS_READDIR, dir, index, out, UNUSED2)
+#define __sys_seek(fd, offset, origin)          __syscall(SYS_SEEK, fd, offset, origin, UNUSED2)
 
 #endif
 

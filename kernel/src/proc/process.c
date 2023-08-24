@@ -227,7 +227,7 @@ void k_proc_process_exec(const char* path, char** argv, char** envp) {
         return;
     }
 
-    fs_node_t* node = k_fs_vfs_open(path, FS_READ);
+    fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
     if (!node) {
         return;
     }
@@ -392,17 +392,22 @@ uint32_t k_proc_process_fork() {
 
 uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
 	LOCK(process->fds.lock);
+
+	fd_t* fdt = k_malloc(sizeof(fd_t));
+	fdt->node   = node;
+	fdt->offset = 0;
+	
 	if(process->fds.size == process->fds.amount) {
 		uint32_t fd = process->fds.size;
-		EXTEND(process->fds.nodes, process->fds.size, sizeof(fs_node_t));
-		process->fds.nodes[fd] = node;
+		EXTEND(process->fds.nodes, process->fds.size, sizeof(fd_t*));
+		process->fds.nodes[fd] = fdt;
 		process->fds.amount++;
 		UNLOCK(process->fds.lock);
 		return fd;
 	} else{
 		for(uint32_t i = 0; i < process->fds.size; i++) {
 			if(!process->fds.nodes[i]){
-				process->fds.nodes[i] = node;
+				process->fds.nodes[i] = fdt;
 				UNLOCK(process->fds.lock);
 				return i;
 			}
@@ -419,7 +424,10 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 		return;
 	}
 	process->fds.amount--;
-	k_fs_vfs_close(process->fds.nodes[fd]);
+	
+	k_fs_vfs_close(process->fds.nodes[fd]->node);
+	k_free(process->fds.nodes[fd]);
+
 	process->fds.nodes[fd] = 0;
 	UNLOCK(process->fds.lock);
 }
@@ -442,7 +450,8 @@ void k_proc_process_exit(process_t* process, int code) {
 	fd_list_t* list = &process->fds;
 	for(uint32_t i = 0; i < list->size; i++){
 		if(list->nodes[i]) {
-			k_fs_vfs_close(list->nodes[i]);
+			k_fs_vfs_close(list->nodes[i]->node);
+			k_free(list->nodes[i]);
 		}
 	}
 	k_free(list->nodes);

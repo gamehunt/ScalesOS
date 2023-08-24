@@ -4,6 +4,7 @@
 #include <mem/heap.h>
 #include <stdio.h>
 #include <string.h>
+#include <dirent.h>
 #include "util/path.h"
 
 struct tar_header
@@ -174,7 +175,7 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
 
 static fs_node_t* __k_fs_tar_mount(const char* path UNUSED,
                                    const char* device) {
-    fs_node_t* dev = k_fs_vfs_open(device, FS_READ);
+    fs_node_t* dev = k_fs_vfs_open(device, O_RDONLY);
     if (!dev) {
         return 0;
     }
