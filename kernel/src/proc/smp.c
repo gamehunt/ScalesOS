@@ -7,7 +7,6 @@
 #include "util/log.h"
 #include <proc/smp.h>
 #include "int/idt.h"
-#include "mem/memory.h"
 
 #include <cpuid.h>
 #include <string.h>

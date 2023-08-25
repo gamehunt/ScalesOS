@@ -13,37 +13,47 @@ void init_output() {
 	__sys_open("/dev/console", O_WRONLY, 0); // stderr
 }
 
-void test_handler(int a) {
-	printf("Signal received!\r\n");
-	sleep(1);
+static uint8_t load_modules() {
+	printf("Loading modules...\r\n");
+	DIR*  dev = opendir("/modules");
+	char  path[1024];
+	void* buffer;
+	if(dev) {
+		seekdir(dev, 2);
+		struct dirent* dir;
+		while((dir = readdir(dev))) {
+			sprintf(path, "/modules/%s", dir->name);
+			FILE* f = fopen(path, "r");
+			if(!f) {
+				printf("Failed to open module: %s\r\n", path);
+			} else{
+				printf("Loading: %s...\r\n", path);
+				uint32_t size = fseek(f, 0, SEEK_END);
+				fseek(f, 0, SEEK_SET);	
+				buffer = malloc(size);
+				fread(buffer, size, 1, f);
+				if(__sys_insmod((uint32_t) buffer, size)){
+					printf("--> Failed.\r\n");
+				} else {
+					printf("--> Ok.\r\n");
+				}
+				free(buffer);
+			}
+			fclose(f);
+		}
+		closedir(dev);
+		return 0;
+	} else {
+		printf("Failed to open /modules\r\n");
+		return 1;
+	}
 }
 
 int main(int argc, char** argv){
 	init_output();
-
-	char* kernel = getenv("KERNEL");
-	if(!kernel) {
-		kernel = "UNKNOWN";
-	}
-
-	printf("Hello, world! %ld %s\r\n", time(0), kernel);
-
-	DIR* dev = opendir("/modules");
-	if(dev) {
-		struct dirent* dir;
-		while((dir = readdir(dev))) {
-			printf("%s\r\n", dir->name);
-		}
-		closedir(dev);
-	}
-
-	pid_t child = fork();
-	if(!child) {
-		signal(0, test_handler);
-	} else {
-		sleep(2);
-		printf("Sending signal...\r\n");
-		kill(child, SIGKILL);
+	
+	if(load_modules()){
+		printf("Errors occured during modules loading...");
 	}
 
 	while(1);

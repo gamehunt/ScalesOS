@@ -53,7 +53,7 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_kill(pid,sig)                     __syscall(SYS_KILL, pid, sig, UNUSED3)
 #define __sys_signal(sig, handler)              __syscall(SYS_SIGNAL, sig, handler, UNUSED3)
 #define __sys_yield()                           __syscall(SYS_YIELD, UNUSED5)
-#define __sys_insmod(addr)                      __syscall(SYS_INSMOD, addr, UNUSED4)
+#define __sys_insmod(addr, size)                __syscall(SYS_INSMOD, addr, size, UNUSED3)
 #define __sys_readdir(dir, index, out)          __syscall(SYS_READDIR, dir, index, out, UNUSED2)
 #define __sys_seek(fd, offset, origin)          __syscall(SYS_SEEK, fd, offset, origin, UNUSED2)
 

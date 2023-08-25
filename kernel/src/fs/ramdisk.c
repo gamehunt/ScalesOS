@@ -7,7 +7,10 @@
 static uint32_t num = 0;
 
 static uint32_t  __k_fs_ramdisk_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
-    uint32_t r_size = (offset + size > node->size) ? node->size : size;
+	if(offset > node->size) {
+		return 0;
+	}
+    uint32_t r_size = (offset + size > node->size) ? (node->size - offset) : size;
     memcpy(buffer, (void*) (node->inode + offset), r_size);
     return r_size;
 }

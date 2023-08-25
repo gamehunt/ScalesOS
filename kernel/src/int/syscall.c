@@ -3,6 +3,7 @@
 #include "dev/timer.h"
 #include "dirent.h"
 #include "fs/vfs.h"
+#include "mem/heap.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
@@ -195,9 +196,14 @@ static uint32_t sys_yield() {
 	__builtin_unreachable();
 }
 
-static uint32_t sys_insmod(void* buffer) {
-	module_info_t* mod = k_mod_elf_load_module(buffer);
-	if(!mod) {
+static uint32_t sys_insmod(void* buffer, uint32_t size) {
+	k_info("Loading module from 0x%x...", buffer);
+
+	void* kernel_buffer = (void*) k_malloc(size);
+	memcpy(kernel_buffer, buffer, size);
+
+	module_info_t* mod = k_mod_elf_load_module(kernel_buffer);
+	if(!mod || !mod->load) {
 		return 1;
 	}
 	return mod->load();
@@ -260,7 +266,7 @@ DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
 DEFN_SYSCALL2(sys_kill, pid_t, int);
 DEFN_SYSCALL0(sys_yield);
-DEFN_SYSCALL1(sys_insmod, void*);
+DEFN_SYSCALL2(sys_insmod, void*, uint32_t);
 DEFN_SYSCALL3(sys_readdir, uint32_t, uint32_t, struct dirent*);
 DEFN_SYSCALL3(sys_seek, uint32_t, uint32_t, uint8_t);
 

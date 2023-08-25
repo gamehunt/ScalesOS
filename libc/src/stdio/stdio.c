@@ -126,18 +126,24 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
 	char* buf = (char*) ptr;
 	while(len > 0) {
 		if(!stream->available) {
+			if(stream->read_buffer_offset == stream->buffer_size) {
+				stream->read_buffer_offset = 0;
+			}
 			uint32_t r = __sys_read(stream->fd, stream->buffer_size - stream->read_buffer_offset, 
 					(uint32_t) &stream->read_buffer[stream->read_buffer_offset]);
 			if(r < 0){
 				break;
 			} else {
+				stream->read_ptr            = stream->read_buffer_offset;
 				stream->read_buffer_offset += r;
 				stream->available           = r;
 			}
 		}
 
 		if(stream->available) {
-			*buf = stream->read_buffer[stream->read_ptr++];
+			*buf = stream->read_buffer[stream->read_ptr];
+			buf++;
+			stream->read_ptr++;
 			stream->available--;
 		} else {
 			stream->eof = 1;

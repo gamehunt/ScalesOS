@@ -19,7 +19,6 @@
 
 #define FRAMEBUFFER_START  0xD0000000
 
-#define MODULES_START      0xE0000000
 // #define AP_BOOTSTRAP_MAP   0xEFFF0000
 #define PT_TMP_MAP         0xEFFFE000
 #define PG_TMP_MAP         0xEFFFF000

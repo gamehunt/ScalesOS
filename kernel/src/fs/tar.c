@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
-#include "util/log.h"
 #include "util/path.h"
 
 struct tar_header
@@ -70,12 +69,12 @@ static uint32_t __k_fs_tar_read(fs_node_t* node, uint32_t offset, uint32_t size,
     }
 
     if (fsize < offset + size) {
-        size = fsize;
+        size = fsize - offset;
     }
 
     k_free(header);
 
-    return k_fs_vfs_read(dev, node->inode + offset + 512, size, buffer);
+    return k_fs_vfs_read(dev, node->inode + 512 + offset, size, buffer);
 }
 
 static struct dirent* __k_fs_tar_readdir(fs_node_t* node, uint32_t index) {
@@ -162,7 +161,6 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
             k_free(header);
             return 0;
         }
-
 
         char* simplified = k_util_path_canonize(header->filename);
         if (!strcmp(simplified, fullpath)) {
