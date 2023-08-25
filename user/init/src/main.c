@@ -28,7 +28,7 @@ int main(int argc, char** argv){
 
 	printf("Hello, world! %ld %s\r\n", time(0), kernel);
 
-	DIR* dev = opendir("/dev");
+	DIR* dev = opendir("/modules");
 	if(dev) {
 		struct dirent* dir;
 		while((dir = readdir(dev))) {

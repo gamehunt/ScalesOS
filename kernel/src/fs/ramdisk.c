@@ -21,7 +21,7 @@ fs_node_t* k_fs_ramdisk_mount(uint32_t addr, uint32_t size){
 
     num++;
 
-    k_info("Mounted ramdisk at 0x%.8x as %s", addr, path);
+    k_info("Mounted ramdisk at 0x%.8x as %s (size: %d bytes)", addr, path, size);
 
     fs_node_t* dev = k_fs_vfs_create_node(name);
     dev->inode     = addr;

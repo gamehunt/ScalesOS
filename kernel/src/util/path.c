@@ -58,6 +58,10 @@ char* k_util_path_segment (const char* path, uint32_t seg){
 }
 
 char* k_util_path_filename(const char* path){
+	if(!strcmp(path, "/")) {
+		return strdup(path);
+	}
+
     uint32_t length = k_util_path_length(path);
     if(!length){
         return 0;
