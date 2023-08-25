@@ -206,6 +206,7 @@ static uint32_t sys_insmod(void* buffer, uint32_t size) {
 	if(!mod || !mod->load) {
 		return 1;
 	}
+	k_info("Loading module %s...", mod->name);
 	return mod->load();
 }
 

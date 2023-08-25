@@ -10,4 +10,4 @@ K_STATUS unload(){
     return K_STATUS_OK;
 }
 
-MODULE("test", &load, &unload)
+MODULE("gptpart", &load, &unload)
