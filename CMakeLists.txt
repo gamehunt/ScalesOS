@@ -58,5 +58,5 @@ add_custom_target(
 
 install(FILES     ${SYSROOT_FOLDER}/bin/kernel.bin    DESTINATION /mnt/boot)
 install(FILES     ${SYSROOT_FOLDER}/bin/scales.initrd DESTINATION /mnt/boot)
-install(DIRECTORY ${SYSROOT_FOLDER}/include           DESTINATION /mnt/boot)
-install(DIRECTORY ${SYSROOT_FOLDER}/lib               DESTINATION /mnt/boot)
+install(DIRECTORY ${SYSROOT_FOLDER}/include           DESTINATION /mnt)
+install(DIRECTORY ${SYSROOT_FOLDER}/lib               DESTINATION /mnt)

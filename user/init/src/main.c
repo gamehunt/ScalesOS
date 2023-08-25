@@ -57,16 +57,6 @@ int main(int argc, char** argv){
 		printf("Errors occured during modules loading...");
 	}
 
-	FILE* drive = fopen("/dev/hda", "r");
-
-	if(drive) {
-		uint8_t buffer[512];
-		memset(buffer, 0, 512);
-		fread(buffer, 512, 1, drive);
-		printf("0x%x 0x%x 0x%x\r\n", buffer[0], buffer[1], buffer[2]);
-		fclose(drive);
-	}
-
 	while(1);
 
 	__sys_reboot();
