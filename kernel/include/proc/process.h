@@ -109,7 +109,9 @@ void       k_proc_process_close_fd(process_t* process, uint32_t fd);
 void       k_proc_process_grow_heap(process_t* process, int32_t size);
 
 uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
+void       k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
+void       k_proc_process_wakeup_queue(list_t* queue);
 
 void       k_proc_process_exit(process_t* process, int code);
 void       k_proc_process_destroy(process_t* process);

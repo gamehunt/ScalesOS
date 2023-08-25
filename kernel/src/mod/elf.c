@@ -178,7 +178,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 				void *mem = malloc(shdr->sh_size);
 				memset(mem, 0, shdr->sh_size);
 				shdr->sh_offset = (int)mem - (int)hdr;
-				k_debug("Allocated memory for a section (%ld).\n", shdr->sh_size);
+				k_debug("Allocated memory for a section (%ld).", shdr->sh_size);
 			}
 		}
 		if(shdr->sh_type == SHT_REL) {
@@ -186,7 +186,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 				Elf32_Rel *reltab = &((Elf32_Rel *)((int)hdr + shdr->sh_offset))[idx];
 				int result = __k_mod_elf_relocate(hdr, reltab, shdr);
 				if(!result) {
-					k_err("Failed to relocate symbol.\n");
+					k_err("Failed to relocate symbol.");
 					return 0;
 				} 
 			}

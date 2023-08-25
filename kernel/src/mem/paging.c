@@ -70,12 +70,12 @@ paddr_t k_mem_paging_virt2phys(vaddr_t vaddr) {
     }
     if (pde & PD_SIZE_FLAG) {
         return (((pde & 0xffc00000) << 8) | (pde & 0x1fe000)) +
-               ((vaddr % 0x400000) & 0xfffff000);
+               ((vaddr % 0x400000) & 0xfffff000) + (vaddr % 0x1000);
     } else {
         uint32_t* pt = PT_PTR(pd_index);
         uint32_t pte = pt[PTE(vaddr)];
         if (pte & PT_PRESENT_FLAG) {
-            return GET_ADDR(pte);
+            return GET_ADDR(pte) + (vaddr % 0x1000);
         }
         return 0;
     }

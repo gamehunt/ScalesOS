@@ -432,7 +432,13 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	UNLOCK(process->fds.lock);
 }
 
-static void __k_proc_process_wakeup_queue(list_t* queue) {
+void k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
+	process->state = PROCESS_STATE_SLEEPING;
+	list_push_back(queue, process);
+	k_proc_process_yield();
+}
+
+void k_proc_process_wakeup_queue(list_t* queue) {
 	while(queue->size > 0) {
 		process_t* process = list_pop_back(queue);
 		if(process->state != PROCESS_STATE_FINISHED) {
@@ -460,7 +466,7 @@ void k_proc_process_exit(process_t* process, int code) {
 	
 	process_t* parent = process->node->parent->value;
 	if(parent) {
-		__k_proc_process_wakeup_queue(parent->wait_queue);
+		k_proc_process_wakeup_queue(parent->wait_queue);
 	}
 
 	k_proc_process_switch();
@@ -519,9 +525,7 @@ pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int optio
 			k_proc_process_destroy(child);
 			return child->pid;
 		} else if(!(options & PROCESS_WAITPID_WNOHANG)) {
-			process->state = PROCESS_STATE_SLEEPING;
-			list_push_back(process->wait_queue, process);
-			k_proc_process_yield();
+			k_proc_process_sleep_on_queue(process, process->wait_queue);
 		} else{
 			return -EINTR;
 		}
@@ -667,7 +671,7 @@ static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt
 			process_t* parent = process->node->parent->value;
 
 			if(parent) {
-				__k_proc_process_wakeup_queue(parent->wait_queue);
+				k_proc_process_wakeup_queue(parent->wait_queue);
 			}
 
 			return 1;
