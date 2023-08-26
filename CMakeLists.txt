@@ -50,6 +50,9 @@ add_custom_target(
 
 add_custom_target(
     ramdisk
+	COMMAND mkdir -p ramdisk/dev
+	COMMAND mkdir -p etc
+	COMMAND cp -R etc ramdisk/etc
     COMMAND tar -cvf scales.initrd -C ramdisk .
     COMMAND mv scales.initrd bin/scales.initrd
     WORKING_DIRECTORY ${SYSROOT_FOLDER}

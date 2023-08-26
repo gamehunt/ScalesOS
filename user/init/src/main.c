@@ -50,12 +50,33 @@ static uint8_t load_modules() {
 	}
 }
 
+void dump(const char* path) {
+	printf("Gonna open %s\r\n", path);
+	DIR* root = opendir(path);
+	if(root) {
+		printf("Dir opened, reading...\r\n");
+		struct dirent* dir;
+		while((dir = readdir(root))) {
+			printf("%d %s\r\n", dir->ino, dir->name);
+		}
+		closedir(root);
+	} else {
+		printf("No such dir.\r\n");
+	}
+	printf("End\r\n");
+}
+
 int main(int argc, char** argv){
 	init_output();
 	
 	if(load_modules()){
-		printf("Errors occured during modules loading...");
+		printf("Errors occured during modules loading...\r\n");
+	} else{
+		printf("Loaded initrd modules.\r\n");
 	}
+
+	dump("/etc");
+	dump("/etc/include");
 
 	while(1);
 

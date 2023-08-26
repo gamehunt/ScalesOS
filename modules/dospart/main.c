@@ -30,6 +30,9 @@ static uint32_t __dospart_read(fs_node_t* node, uint32_t offset, uint32_t size, 
 	uint32_t patr_offset = patrition_info->lba_start * 512;
 	uint32_t patr_size   = patrition_info->size * 512;
 
+	// k_info("DOS read: +%ld, size=%ld", offset, size);
+	// k_info("Patrition: +%ld, size=%ld", patr_offset, patr_size);
+
 	if(offset >= patr_offset + patr_size) {
 		return 0;
 	}
@@ -41,7 +44,9 @@ static uint32_t __dospart_read(fs_node_t* node, uint32_t offset, uint32_t size, 
 		}
 	}
 
-	return k_fs_vfs_read(drive, patrition_info->lba_start * 512 + offset, size, buffer);
+	// k_info("Proceeding to actual read at +%ld, size=%ld", patr_offset + offset, size);
+
+	return k_fs_vfs_read(drive, patr_offset + offset, size, buffer);
 }
 
 static fs_node_t* __dospart_create_device(fs_node_t* device, mbr_patrition_t* patr, int i) {
@@ -70,10 +75,15 @@ static void __dospart_try_mbr(fs_node_t* device) {
 		return;
 	}
 
+	uint8_t found = 0;
+
 	for(int i = 0; i < 4; i++) {
 		if(!mbr.patritions[i].lba_start) {
 			continue;
 		}
+
+		found = 1;
+
 		k_info("MBR Patrition: %ld - %ld (%d)", mbr.patritions[i].lba_start, 
 				mbr.patritions[i].lba_start + mbr.patritions[i].size, 
 				mbr.patritions[i].type);
@@ -87,6 +97,10 @@ static void __dospart_try_mbr(fs_node_t* device) {
 
 		k_info("Mounted as %s", path);
 	}
+
+	if(!found) {
+		k_fs_vfs_close(device);
+	}
 }
 
 K_STATUS load(){
@@ -96,7 +110,6 @@ K_STATUS load(){
 		fs_node_t* node = k_fs_vfs_open(path, O_RDONLY); 
 		if(node) {
 			__dospart_try_mbr(node);
-			k_fs_vfs_close(node);
 		} 
 	}
 

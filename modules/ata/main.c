@@ -243,6 +243,8 @@ static void ata_initialize(drive_t* device) {
 }
 
 static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	// k_info("ATA read: +%ld, size=%ld", offset, size);
+
 	drive_t* device = (drive_t*) node->inode;
 
 	ata_write_busmaster_command(device->bus, 0x0);

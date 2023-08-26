@@ -3,6 +3,7 @@
 #include "kernel.h"
 #include "mem/heap.h"
 #include "util/path.h"
+#include "util/types/list.h"
 #include "util/types/tree.h"
 #include <stdio.h>
 #include <string.h>
@@ -13,9 +14,8 @@ typedef struct{
     mount_callback mnt;
 }fs_descriptor_t;
 
-static tree_t*           vfs_tree    = 0;
-static fs_descriptor_t*  filesystems = 0;
-uint32_t                 fs_count    = 0;
+static tree_t*  vfs_tree    = 0;
+static list_t*  filesystems = 0;
 
 static vfs_entry_t* __k_fs_vfs_root_entry(){
     return ((vfs_entry_t*)vfs_tree->root->value);
@@ -54,9 +54,7 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
 				if(fsnode->flags & VFS_SYMLINK) {
 					char buff[4096];
 					k_fs_vfs_readlink(fsnode, buff, 4096);
-					k_free(part);
-					k_free(filename);
-					return __k_fs_vfs_find_node(buff);
+					fsnode = __k_fs_vfs_find_node(buff);
 				}
                 fsnode = k_fs_vfs_finddir(fsnode, part);
                 i++;
@@ -150,15 +148,17 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
 }
 
 void  k_fs_vfs_register_fs(const char* alias, mount_callback fs){
-    EXTEND(filesystems, fs_count, sizeof(fs_descriptor_t));
-    strcpy(filesystems[fs_count - 1].alias, alias);
-    filesystems[fs_count - 1].mnt = fs;
+	fs_descriptor_t* desc = k_malloc(sizeof(fs_descriptor_t));
+	strcpy(desc->alias, alias);
+	desc->mnt = fs;
+	list_push_back(filesystems, desc);
 }
 
 static mount_callback __k_fs_vfs_get_mount_callback(const char* alias){
-    for(uint32_t i = 0; i < fs_count; i++){
-        if(!strcmp(filesystems[i].alias, alias)){
-            return filesystems[i].mnt;
+    for(uint32_t i = 0; i < filesystems->size; i++){
+		fs_descriptor_t* desc = filesystems->data[i];
+        if(!strcmp(desc->alias, alias)){
+            return desc->mnt;
         }
     }
     return 0;
@@ -169,7 +169,9 @@ vfs_entry_t* k_fs_vfs_map_path(const char* path){
 }
 
 K_STATUS k_fs_vfs_init(){
-    vfs_tree = tree_create();
+    vfs_tree    = tree_create();
+	filesystems = list_create();
+
     vfs_entry_t* root = k_fs_vfs_create_entry("[root]");
     tree_node_t* node = tree_create_node(root);
     tree_set_root(vfs_tree, node);

@@ -7,8 +7,9 @@
 
 #define VFS_FILE       (1 << 0)
 #define VFS_DIR        (1 << 1)
-#define VFS_MOUNTPOINT (1 << 2)
-#define VFS_SYMLINK    (1 << 3)
+#define VFS_SYMLINK    (1 << 2)
+#define VFS_CHARDEV    (1 << 3)
+#define VFS_FIFO       (1 << 4)
 
 struct fs_node;
 typedef struct fs_node fs_node_t;
