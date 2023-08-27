@@ -114,7 +114,11 @@ static void __mem_merge(){
     }
 }
 
+static uint32_t __allocated = 0;
+static uint32_t __freed     = 0;
+
 void* malloc(size_t size){
+
     __mem_merge();
 
     mem_block_t* block            = heap;
@@ -128,6 +132,7 @@ void* malloc(size_t size){
 
     if(!__mem_heap_is_valid_block(block)){
 #ifdef __LIBK
+		k_err("Allocation size: %d (used: %d/%d KB)", size, (__allocated - __freed) / 1024, HEAP_SIZE / 1024);
 		k_panic("Out of memory.", 0);
 #else 
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
@@ -152,6 +157,7 @@ void* malloc(size_t size){
             __builtin_unreachable();
         }
         block->flags &= ~M_BLOCK_FREE;
+		__allocated += size;
         return (void*) (M_MEMORY(block));
     }
 }
@@ -185,6 +191,7 @@ void free(void* ptr){
         return;
     }
     header->flags |= M_BLOCK_FREE;
+	__freed += header->size;
 }
 
 void vfree(void* mem){

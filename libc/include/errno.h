@@ -2,15 +2,18 @@
 #define __ERRNO_H
 
 #if !defined(__LIBK) && !defined(__KERNEL)
-extern long errno;
+long __get_errno();
+void __set_errno(long value);
 
 #define __return_errno(...) \
-	long res = __VA_ARGS__;       \
-	if(res < 0) {         \
-		errno = -res;     \
-		res = -1;         \
-	}	                \
-	return res;           \
+	long res = __VA_ARGS__; \
+	if(res < 0) {           \
+		__set_errno(-res);  \
+		res = -1;           \
+	}	                    \
+	return res;            
+
+#define errno __get_errno()
 
 #endif
 

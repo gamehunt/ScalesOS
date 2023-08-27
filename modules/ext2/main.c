@@ -368,13 +368,16 @@ static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
 static fs_node_t* __ext2_finddir(fs_node_t* node, const char* path);
 
 static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t inode) {
+	ext2_inode_t* ino = __ext2_read_inode(fs, inode);
 	fs_node_t* file = k_fs_vfs_create_node(name);
 	strcpy(file->name, name);
 	file->inode = inode;
 	file->device = fs;
+	file->size = ino->size_low; 
 	file->fs.read    = &__ext2_read;
 	file->fs.readdir = &__ext2_readdir;
 	file->fs.finddir = &__ext2_finddir;
+	k_free(ino);
 	return file;
 }
 

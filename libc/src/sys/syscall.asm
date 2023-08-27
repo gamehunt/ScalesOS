@@ -13,6 +13,7 @@ __syscall:
 
     int 0x80
 
+	mov esp, ebp
     pop ebp
 
     ret

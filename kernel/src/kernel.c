@@ -28,9 +28,11 @@
 #include "kernel.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "mod/elf.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
+#include "util/exec.h"
 #include "util/panic.h"
 
 extern void _libk_set_print_callback(void*);
@@ -82,12 +84,26 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
         k_panic("Failed to mount root.", 0);
     }
 
-	k_d_fs_vfs_print();
+	executable_t elf_exec = {
+		.exec_func = &k_proc_process_exec,
+		.length    = 4,
+		.signature = {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3}
+	};
+
+	k_util_add_exec_format(elf_exec);
+
+	executable_t shebang_exec = {
+		.exec_func = &k_util_exec_shebang,
+		.length    = 2,
+		.signature = {'#', '!', 0, 0}
+	};
+
+	k_util_add_exec_format(shebang_exec);
 
 	char* argv[] = {0};
 	char* envp[] = {0};
 
-    k_proc_process_exec("/init.sc", argv, envp);
+    k_proc_process_exec("/bin/init", argv, envp);
 
     while(1){
         halt();

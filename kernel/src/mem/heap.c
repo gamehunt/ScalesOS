@@ -1,19 +1,13 @@
 #include "kernel.h"
 #include "mem/paging.h"
-#include "proc/spinlock.h"
 #include "util/log.h"
-#include "util/panic.h"
 #include "string.h"
 #include "mem/memory.h"
 #include <mem/heap.h>
 
-
-
-
 extern uint8_t __mem_heap_is_valid_block(mem_block_t* block);
 extern void __mem_heap_init_block(mem_block_t* block, uint32_t size);
 extern mem_block_t* heap;
-
 
 void __k_d_mem_heap_print_block(mem_block_t* src){
     k_debug("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);

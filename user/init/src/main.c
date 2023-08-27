@@ -56,6 +56,7 @@ void dump(const char* path) {
 	DIR* root = opendir(path);
 	if(root) {
 		printf("Dir opened, reading...\r\n");
+		seekdir(root, 2);
 		struct dirent* dir;
 		while((dir = readdir(root))) {
 			printf("%d %s\r\n", dir->ino, dir->name);
@@ -67,20 +68,57 @@ void dump(const char* path) {
 	printf("End\r\n");
 }
 
+pid_t execute(const char* path, char** argv, char** envp) {
+	printf("Executing: %s\r\n", path);
+
+	pid_t pid = fork();
+
+	if(!pid) {
+		execve(path, argv, envp);
+		exit(1);
+	}
+
+	waitpid(pid, 0, 0);
+
+	return pid;
+}
+
+extern int __get_argc();
+
 int main(int argc, char** argv){
 	init_output();
-	
+
+	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
+	sleep(1);
+	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
+	usleep(500000);
+	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
+
+	while(1);
+
 	if(load_modules()){
 		printf("Errors occured during modules loading...\r\n");
 	} else{
 		printf("Loaded initrd modules.\r\n");
 	}
 
-	umount("/");
-	mount("/ramdisk", "/dev/ram0", "tar");
-	mount("/", "/dev/hda0", "ext2");
 
-	while(1);
+	DIR* initd = opendir("/etc/init.d");
+	if(initd) {
+		struct dirent* dir;
+		while((dir = readdir(initd))) {	
+			if(!strcmp(dir->name, ".") || !strcmp(dir->name, "..")) {
+				continue;
+			}
+			char path[256];
+			sprintf(path, "/etc/init.d/%s", dir->name);
+			execute(path, NULL, NULL);
+		}
+		closedir(initd);
+	} else {
+		printf("No init scripts found, falling back to getty.");
+		execute("/bin/getty", NULL, NULL);
+	}
 
 	__sys_reboot();
 	__builtin_unreachable();

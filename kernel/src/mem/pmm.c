@@ -16,7 +16,7 @@ extern void *_kernel_end;
 static uint32_t *bitmap = 0;
 static uint32_t bitmap_size = 0;
 static uint32_t first_free_index = 0xFFFFFFFF;
-static uint8_t init = 0;
+static uint8_t  init = 0;
 
 void k_mem_pmm_init(multiboot_info_t *mb) {
     bitmap = (uint32_t *)ALIGN((uint32_t)&_kernel_end, 0x1000) + 0x10000;
@@ -31,7 +31,7 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
                    mmap->addr + mmap->len, mmap->type);
             for (uint32_t i = 0; i < mmap->len; i += 0x1000) {
                 pmm_frame_t frame = mmap->addr + i;
-                if (frame > 4 * 1024 * 1024) {
+                if (frame > (uint32_t)bitmap + bitmap_size * 4 - VIRTUAL_BASE) {
                     k_mem_pmm_mark_frame(frame);
                 }
             }

@@ -42,6 +42,7 @@ struct fs_node{
     uint64_t inode;
     uint32_t size;
     fs_ops_t fs;
+	uint32_t links;
 };
 
 typedef struct vfs_entry{

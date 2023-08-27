@@ -18,12 +18,16 @@ add_subdirectory(src)
 
 install(TARGETS k ARCHIVE  DESTINATION lib/)
 install(TARGETS c ARCHIVE  DESTINATION lib/)
-install(FILES crt0.o DESTINATION lib/)
+install(FILES crt0.o crti.o crtn.o DESTINATION lib/)
 install(DIRECTORY include/ DESTINATION include/)
 
 add_custom_command(
     TARGET c POST_BUILD
     COMMAND nasm -felf32 ${CMAKE_CURRENT_SOURCE_DIR}/src/crt0.asm -o crt0.o
+    COMMAND nasm -felf32 ${CMAKE_CURRENT_SOURCE_DIR}/src/crti.asm -o crti.o
+    COMMAND nasm -felf32 ${CMAKE_CURRENT_SOURCE_DIR}/src/crtn.asm -o crtn.o
     COMMAND cp crt0.o ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND cp crti.o ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND cp crtn.o ${CMAKE_CURRENT_SOURCE_DIR}
     VERBATIM
 )

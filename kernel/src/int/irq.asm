@@ -40,7 +40,6 @@ irq_stub:
     mov edi, esp
     push edi
     call __k_int_irq_dispatcher
-    pop edi
     mov esp, eax
     popad
     add esp, 8

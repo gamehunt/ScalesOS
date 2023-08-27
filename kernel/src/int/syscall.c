@@ -12,6 +12,7 @@
 #include "int/idt.h"
 #include "int/isr.h"
 #include "kernel.h"
+#include "util/exec.h"
 #include "util/log.h"
 #include "shared.h"
 #include "sys/times.h"
@@ -47,6 +48,7 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 
     process_t* cur = k_proc_process_current();
     memcpy((void*) &cur->syscall_state, ctx, sizeof(interrupt_context_t));
+
 	if(syscalls[ctx->eax]) {
 		ctx->eax = syscalls[ctx->eax](ctx->ebx, ctx->ecx, ctx->edx, ctx->edi, ctx->esi);
 	} else {
@@ -122,8 +124,7 @@ static uint32_t sys_grow(int32_t size) {
 }
 
 static uint32_t sys_exec(const char* path, char** argv, char** envp) {
-	k_proc_process_exec(path, argv, envp);
-	return 1; 
+	return k_util_exec(path, argv, envp); 
 }
 
 static uint32_t sys_waitpid(pid_t pid, int* status, int options) {

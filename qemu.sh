@@ -10,6 +10,7 @@ cd ..
 
 cmake -Bbuild -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
 cmake --build build
+cmake --build build --target configs
 cmake --build build --target ramdisk
 cmake --build build --target compiler_hints
 sudo -u root cmake --build build --target install

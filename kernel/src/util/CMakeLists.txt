@@ -4,6 +4,7 @@ set(SOURCES
     panic.c
     log.c
     path.c
+	exec.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

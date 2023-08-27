@@ -1,0 +1,2 @@
+/ramdisk /dev/ram0 tar
+/ /dev/hda0 ext2

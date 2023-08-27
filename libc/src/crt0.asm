@@ -1,12 +1,8 @@
 extern libc_init
-extern libc_exit
 
 section .text
 global _start
 
 _start:
+	and  esp, 0xFFFFFFFF0
 	call libc_init
-
-    push eax
-
-    call libc_exit

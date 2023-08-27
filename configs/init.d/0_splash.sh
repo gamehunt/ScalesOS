@@ -1,0 +1,3 @@
+#!/bin/scsh
+
+/bin/splash

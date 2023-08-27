@@ -68,10 +68,15 @@ void k_proc_process_mark_ready(process_t* process) {
     UNLOCK(ready_queue->lock)
 }
 
+static pid_t __k_proc_process_allocate_pid() {
+	static pid_t pid = 1;
+	return pid++;
+}
+
 static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
     LOCK(process_list->lock)
 
-    proc->pid  = process_list->size + 1;
+    proc->pid  = __k_proc_process_allocate_pid();
     list_push_back(process_list, proc);
 
 	proc->node = tree_create_node(proc);
@@ -222,23 +227,25 @@ void k_proc_process_yield() {
     k_proc_process_switch(); 
 }
 
-void k_proc_process_exec(const char* path, char** argv, char** envp) {
+int k_proc_process_exec(const char* path, char** argv, char** envp) {
     if (!process_list || !process_list->size) {
-        return;
+        return -1;
     }
 
     fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
     if (!node) {
-        return;
+        return -2;
     }
 
     uint8_t* buffer = k_malloc(node->size);
     k_fs_vfs_read(node, 0, node->size, buffer);
+    k_fs_vfs_close(node);
 
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
+	k_mem_paging_clone_pd(0, &proc->image.page_directory);
+	//TODO release old directory
 
-    k_fs_vfs_close(node);
 
     k_info("Executing: %s", proc->name);
 
@@ -246,14 +253,12 @@ void k_proc_process_exec(const char* path, char** argv, char** envp) {
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
 	proc->image.user_stack = USER_STACK_START + USER_STACK_SIZE;
 
-
     uint32_t entry;
     if ((entry = k_mod_elf_load_exec(buffer))) {
         k_free(buffer);
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START, 0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
-
 		
 		if(envp) {
 			int envc = 0;
@@ -318,6 +323,7 @@ void k_proc_process_exec(const char* path, char** argv, char** envp) {
 
 				char** _argv = (char**) proc->image.user_stack;
 				PUSH(proc->image.user_stack, char**, _argv);
+
 			} else{
 				PUSH(proc->image.user_stack, uintptr_t, 0);
 			}
@@ -327,11 +333,10 @@ void k_proc_process_exec(const char* path, char** argv, char** envp) {
 			PUSH(proc->image.user_stack, int, 0);
 		}
 
-
-		// uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
-		// for(uint32_t i = 0; (uint32_t) i < USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack; i += 4) {
-		// 	k_debug("[%d/%d] 0x%x [+%d]", i, occupied_stack_size, *((uint32_t*) (proc->image.user_stack + i)), i);
-		// }
+		uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
+		for(uint32_t i = 0; i < occupied_stack_size; i += 4) {
+			k_debug("[0x%.8x] 0x%.8x", proc->image.user_stack + i, *((uint32_t*) (proc->image.user_stack + i)));
+		}
 		
 		proc->image.entry = entry;
 
@@ -341,6 +346,8 @@ void k_proc_process_exec(const char* path, char** argv, char** envp) {
     } else {
         k_free(buffer);
     }
+
+	return -3;
 }
 
 process_t* k_proc_process_current() {
@@ -383,6 +390,18 @@ uint32_t k_proc_process_fork() {
 	new->context.esp = new->image.kernel_stack;
 	new->context.ebp = new->image.kernel_stack;
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
+
+	new->fds.nodes = k_malloc(sizeof(fd_t*) * src->fds.size);
+	for(uint32_t i = 0; i < src->fds.size; i++) {
+		fd_t* original_node = src->fds.nodes[i];
+		if(!original_node) {
+			new->fds.nodes[i] = 0;
+		} else {
+			new->fds.nodes[i] = k_malloc(sizeof(fd_t));
+			memcpy(new->fds.nodes[i], original_node, sizeof(fd_t));
+			new->fds.nodes[i]->node->links++;
+		}
+	}
 
     __k_proc_process_spawn(new, src);
     k_proc_process_mark_ready(new);

@@ -49,14 +49,24 @@ add_custom_target(
 )
 
 add_custom_target(
+	configs
+	COMMAND cp -r configs/. ${SYSROOT_FOLDER}/etc/
+	WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+	VERBATIM
+)
+
+add_custom_target(
     ramdisk
 	COMMAND mkdir -p ramdisk/dev
 	COMMAND mkdir -p ramdisk/etc
+	COMMAND cp -r etc/init.d ramdisk/etc/
+	COMMAND cp -r etc/filesystems ramdisk/etc/
     COMMAND tar -cvf scales.initrd -C ramdisk .
     COMMAND mv scales.initrd bin/scales.initrd
     WORKING_DIRECTORY ${SYSROOT_FOLDER}
     VERBATIM
 )
+
 
 install(FILES     ${SYSROOT_FOLDER}/bin/kernel.bin    DESTINATION /mnt/boot)
 install(FILES     ${SYSROOT_FOLDER}/bin/scales.initrd DESTINATION /mnt/boot)

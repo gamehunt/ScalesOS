@@ -236,19 +236,24 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
         node->fs.open(node, mode);
     }
 
-	node->mode = mode;
+	node->mode  = mode;
+	node->links = 1;
 
     return node;
 }
 
 void k_fs_vfs_close(fs_node_t* node){
     if(node){
-        if(node->fs.close){
-            node->fs.close(node);
-        }
-        k_free(node);
-    }
+		node->links--;
+		if(!node->links) {
+        	if(node->fs.close){
+        	    node->fs.close(node);
+        	}
+        	k_free(node);
+    	}
+	}
 }
+
 
 struct dirent*   k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
     if(!node->fs.readdir){

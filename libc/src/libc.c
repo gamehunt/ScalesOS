@@ -6,10 +6,15 @@
 
 extern void __mem_init_heap();
 extern void __init_stdio();
-extern int main(int argc, char** argv, char** envp);
+extern int  main(int argc, char** argv);
+extern void _init();
+extern void _fini();
 
-char** __envp = {"\0"};
+char** __envp;
 int    __envc = 0;
+
+char** __argv;
+int    __argc = 0;
 
 struct env_var** __env;
 
@@ -36,36 +41,42 @@ static void __parse_env() {
 	}
 }
 
+void __init_arguments(int argc, char** argv, int envc, char** envp) {
+	__argc = argc;
+	__argv = malloc(__argc * sizeof(char*));;
 
-int libc_init(int argc, char** argv, int envc, char** envp) {
-	__mem_init_heap();
-	__init_stdio();
-
-	char** new_argv = {"\0"};
 	__envc = envc;
+	__envp = malloc((__envc + 1) * sizeof(char*));
 
-	if(argc) {
-		new_argv = malloc(argc * sizeof(char*));
-		for(int i = 0; i < argc; i++) {
-			new_argv[i] = malloc(strlen(argv[i]) + 1);
-			strcpy(new_argv[i], argv[i]);
+	if(__argc) {
+		for(int i = 0; i < __argc; i++) {
+			__argv[i] = malloc(strlen(argv[i]) + 1);
+			strcpy(__argv[i], argv[i]);
 		}
 	}
+	__argv[__argc] = "\0";
 
 	if(__envc) {
-		__envp = malloc((__envc + 1) * sizeof(char*));
 		for(int i = 0; i < __envc; i++) {
 			__envp[i] = malloc(strlen(envp[i]) + 1);
 			strcpy(__envp[i], envp[i]);
 		}
-		__envp[__envc] = "\0";
 	}
-
-	__parse_env();
-
-	return main(argc, new_argv, __envp);
+	__envp[__envc] = "\0";
 }
 
 void libc_exit(int code) {
+	_fini();
 	exit(code);
 }
+
+void libc_init(int argc, char** argv, int envc, char** envp) {
+	__mem_init_heap();
+	__init_stdio();
+	__init_arguments(argc, argv, envc, envp);
+	__parse_env();
+	_init();
+	libc_exit(main(__argc, __argv));
+}
+
+
