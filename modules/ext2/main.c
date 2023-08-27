@@ -141,7 +141,7 @@ typedef struct {
 	uint16_t free_blocks;
 	uint16_t free_inodes;
 	uint16_t directories;
-	uint8_t  pad[8];
+	uint8_t  pad[14];
 } __attribute__((packed)) ext2_block_group_descriptor_t;
 
 typedef struct {
@@ -187,6 +187,9 @@ static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t block, uint8_t* buffer
 }
 
 static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t pointer, uint32_t block_offset) {
+	if(!pointer) {
+		return 0;
+	}
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
 	uint32_t target_block = ((uint32_t*) block_buffer) [block_offset - (DIRECT_BLOCK_CAPACITY + 1)]; 
@@ -195,6 +198,9 @@ static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t poi
 }
 
 static uint32_t __ext2_resolve_double_indirect_block(ext2_fs_t* fs, uint32_t pointer, uint32_t block_offset) {
+	if(!pointer) {
+		return 0;
+	}
 	uint32_t extra_offset = block_offset - (SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) + 1);
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
@@ -204,6 +210,9 @@ static uint32_t __ext2_resolve_double_indirect_block(ext2_fs_t* fs, uint32_t poi
 }
 
 static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t pointer, uint32_t block_offset) {
+	if(!pointer) {
+		return 0;
+	}
 	uint32_t extra_offset = block_offset - (DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) + 1);
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
@@ -257,17 +266,27 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 
 
 static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
-	uint32_t group = GROUP_FROM_INODE(fs->superblock, inode);
+	if(!inode) {
+		return 0;
+	}
 
-	void* buffer = k_malloc(BLOCK_SIZE(fs->superblock));
+	uint32_t block_size = BLOCK_SIZE(fs->superblock);
+
+	void* buffer = k_malloc(block_size);
+
+	uint32_t group = GROUP_FROM_INODE(fs->superblock, inode);
+	uint32_t table_block_offset = group * sizeof(ext2_block_group_descriptor_t) / block_size;
+	uint32_t table_block = (BLOCK_SIZE(fs->superblock) == 1024 ? 2 : 1) + table_block_offset; 
+	uint32_t shifted_group = group - table_block_offset * block_size / sizeof(ext2_block_group_descriptor_t);
+
+	__ext2_read_block(fs, table_block, buffer);
 
 	ext2_block_group_descriptor_t* block_group_table = buffer;
-	__ext2_read_block(fs, BLOCK_SIZE(fs->superblock) == 1024 ? 2 : 1, buffer);
+	uint32_t inode_table  = block_group_table[shifted_group].inode_table;
 
-	uint32_t inode_table  = block_group_table[group].inode_table;
 	uint32_t inode_index  = INDEX_FROM_INODE(fs->superblock, inode);
 	uint32_t block_offset = BLOCK_FROM_INDEX(fs->superblock, inode_index);
-	uint32_t inner_offset = inode_index - block_offset * (BLOCK_SIZE(fs->superblock) / fs->superblock->inode_size);
+	uint32_t inner_offset = inode_index - block_offset * (block_size / fs->superblock->inode_size);
 	uint32_t target_block = inode_table + block_offset;
 
 	__ext2_read_block(fs, target_block, buffer);
@@ -302,7 +321,12 @@ static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
 	}
 
 	ext2_inode_t* inode = __ext2_read_inode(fs, dir->inode);
-	if(!inode || !(inode->perms & EXT2_DIR)) {
+	if(!inode){
+		k_info("%s (%d): invalid inode.", dir->name, dir->inode);
+		return 0;
+	}
+
+	if(!(inode->perms & EXT2_DIR)) {
 		k_info("%s (%d): not a directory (0x%x)", dir->name, dir->inode, inode->perms);
 		return 0;
 	}

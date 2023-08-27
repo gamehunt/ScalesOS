@@ -75,9 +75,6 @@ int main(int argc, char** argv){
 		printf("Loaded initrd modules.\r\n");
 	}
 
-	dump("/etc");
-	dump("/etc/include");
-
 	while(1);
 
 	__sys_reboot();
