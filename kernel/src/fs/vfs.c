@@ -106,9 +106,10 @@ static struct dirent* __k_fs_virtual_readdir(fs_node_t* node, uint32_t index) {
 	return 0;
 }
 
-static fs_node_t* __k_fs_vfs_create_virtual_node(vfs_entry_t* entry, tree_node_t* tnode) {
+static fs_node_t* __k_fs_vfs_create_virtual_node(vfs_entry_t* entry) {
 	fs_node_t* node = k_fs_vfs_create_node(entry->name);
-	node->device = tnode;
+	node->flags = VFS_DIR | VFS_MAPPER;
+	node->device = entry;
 	node->fs.readdir = &__k_fs_virtual_readdir;
 	entry->node = node;
 	return node;
@@ -136,11 +137,8 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
                 k_free(part);
                 return 0;
             }
-            vfs_entry_t* new_entry = k_fs_vfs_create_entry(part);
-            tree_node_t* node      = tree_create_node(new_entry);
-			__k_fs_vfs_create_virtual_node(new_entry, node);
-            tree_insert_node(vfs_tree, node, cur_node);
-            cur_node = node;
+            vfs_entry_t* new_entry = k_fs_vfs_create_entry(part, cur_node);
+            cur_node = new_entry->tree_node;
         }
         k_free(part);
     }
@@ -172,7 +170,7 @@ K_STATUS k_fs_vfs_init(){
     vfs_tree    = tree_create();
 	filesystems = list_create();
 
-    vfs_entry_t* root = k_fs_vfs_create_entry("[root]");
+    vfs_entry_t* root = k_fs_vfs_create_entry("[root]", 0);
     tree_node_t* node = tree_create_node(root);
     tree_set_root(vfs_tree, node);
 
@@ -180,9 +178,15 @@ K_STATUS k_fs_vfs_init(){
 }
 
 
-vfs_entry_t* k_fs_vfs_create_entry(const char* name){
+vfs_entry_t* k_fs_vfs_create_entry(const char* name, tree_node_t* parent){
     vfs_entry_t* e = k_calloc(1, sizeof(vfs_entry_t));
     strcpy(e->name, name);
+	if(parent) {
+		tree_node_t* tree_node = tree_create_node(e);
+		e->tree_node = tree_node;
+		tree_insert_node(vfs_tree, tree_node, parent);
+	}
+	__k_fs_vfs_create_virtual_node(e);
     return e;
 }
 
@@ -277,6 +281,9 @@ K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
 
     vfs_entry_t* mountpoint = __k_fs_vfs_get_entry(path, 1);
     if(mountpoint){
+		if(mountpoint->node && mountpoint->node->flags & VFS_MAPPER) {
+			k_fs_vfs_close(mountpoint->node);
+		}
         mountpoint->node = fsroot;
         return K_STATUS_OK;
     }
@@ -293,6 +300,15 @@ K_STATUS  k_fs_vfs_mount(const char* path, const char* device, const char* type)
         }
     }
     return K_STATUS_ERR_GENERIC;
+}
+
+K_STATUS k_fs_vfs_umount(const char* path) {
+	vfs_entry_t* entry = __k_fs_vfs_get_entry(path, 0);
+	if(entry) {
+		entry->node = __k_fs_vfs_create_virtual_node(entry);
+		return K_STATUS_OK;
+	}
+	return K_STATUS_ERR_GENERIC;
 }
 
 void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){
@@ -318,3 +334,5 @@ void __k_d_fs_vfs_print_node(tree_node_t* node, uint8_t depth){
 void  k_d_fs_vfs_print(){
     __k_d_fs_vfs_print_node(vfs_tree->root, 0);
 }
+
+

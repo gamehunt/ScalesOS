@@ -419,9 +419,9 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 		return 0;
 	}
 
-	k_info("Version: %d.%d", superblock->version_major, superblock->version_minor);
-	k_info("Block size: %d", 1024 << superblock->block_size);
-	k_info("Inode size: %d", superblock->inode_size);
+	// k_info("Version: %d.%d", superblock->version_major, superblock->version_minor);
+	// k_info("Block size: %d", 1024 << superblock->block_size);
+	// k_info("Inode size: %d", superblock->inode_size);
 
 	ext2_fs_t* fs = k_malloc(sizeof(ext2_fs_t));
 
@@ -440,7 +440,6 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 
 K_STATUS load(){
 	k_fs_vfs_register_fs("ext2", __ext2_mount);
-	k_fs_vfs_mount("/etc", "/dev/hda0", "ext2");
     return K_STATUS_OK;
 }
 

@@ -24,6 +24,8 @@
 #define SYS_INSMOD       18
 #define SYS_READDIR      19
 #define SYS_SEEK         20
+#define SYS_MOUNT        21
+#define SYS_UMOUNT       22
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -56,6 +58,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_insmod(addr, size)                __syscall(SYS_INSMOD, addr, size, UNUSED3)
 #define __sys_readdir(dir, index, out)          __syscall(SYS_READDIR, dir, index, out, UNUSED2)
 #define __sys_seek(fd, offset, origin)          __syscall(SYS_SEEK, fd, offset, origin, UNUSED2)
+#define __sys_mount(path, device, type)         __syscall(SYS_MOUNT, path, device, type, UNUSED2)
+#define __sys_umount(path)                      __syscall(SYS_UMOUNT, path, UNUSED4)
 
 #endif
 

@@ -5,6 +5,7 @@ set(SOURCES
 	waitpid.c
 	times.c
 	time.c
+	mount.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

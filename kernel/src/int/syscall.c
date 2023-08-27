@@ -249,6 +249,16 @@ static uint32_t sys_seek(uint32_t fd, uint32_t offset, uint8_t origin) {
 	return fdt->offset;
 }
 
+uint32_t sys_mount(const char* path, const char* device, const char* type) {
+	k_debug("Mounting: %s to %s as %s", device, path, type);
+	return k_fs_vfs_mount(path, device, type);
+}
+
+uint32_t sys_umount(const char* path) {
+	k_debug("Umounting: %s", path);
+	return k_fs_vfs_umount(path);
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -270,6 +280,8 @@ DEFN_SYSCALL0(sys_yield);
 DEFN_SYSCALL2(sys_insmod, void*, uint32_t);
 DEFN_SYSCALL3(sys_readdir, uint32_t, uint32_t, struct dirent*);
 DEFN_SYSCALL3(sys_seek, uint32_t, uint32_t, uint8_t);
+DEFN_SYSCALL3(sys_mount, const char*, const char*, const char*);
+DEFN_SYSCALL1(sys_umount, const char*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -296,6 +308,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_INSMOD, REF_SYSCALL(sys_insmod));
 	k_int_syscall_setup_handler(SYS_READDIR, REF_SYSCALL(sys_readdir));
 	k_int_syscall_setup_handler(SYS_SEEK, REF_SYSCALL(sys_seek));
+	k_int_syscall_setup_handler(SYS_MOUNT, REF_SYSCALL(sys_mount));
+	k_int_syscall_setup_handler(SYS_UMOUNT, REF_SYSCALL(sys_umount));
     
 	return K_STATUS_OK;
 }

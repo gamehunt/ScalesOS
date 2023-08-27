@@ -51,8 +51,7 @@ add_custom_target(
 add_custom_target(
     ramdisk
 	COMMAND mkdir -p ramdisk/dev
-	COMMAND mkdir -p etc
-	COMMAND cp -R etc ramdisk/etc
+	COMMAND mkdir -p ramdisk/etc
     COMMAND tar -cvf scales.initrd -C ramdisk .
     COMMAND mv scales.initrd bin/scales.initrd
     WORKING_DIRECTORY ${SYSROOT_FOLDER}
@@ -63,3 +62,6 @@ install(FILES     ${SYSROOT_FOLDER}/bin/kernel.bin    DESTINATION /mnt/boot)
 install(FILES     ${SYSROOT_FOLDER}/bin/scales.initrd DESTINATION /mnt/boot)
 install(DIRECTORY ${SYSROOT_FOLDER}/include           DESTINATION /mnt)
 install(DIRECTORY ${SYSROOT_FOLDER}/lib               DESTINATION /mnt)
+install(DIRECTORY ${SYSROOT_FOLDER}/etc               DESTINATION /mnt)
+install(DIRECTORY ${SYSROOT_FOLDER}/bin               DESTINATION /mnt)
+install(DIRECTORY ${SYSROOT_FOLDER}/dev               DESTINATION /mnt)
