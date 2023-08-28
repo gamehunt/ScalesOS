@@ -27,6 +27,8 @@
 #define SYS_MOUNT        21
 #define SYS_UMOUNT       22
 
+#define SYS_DEBUG        255
+
 #if !defined(__LIBK) && !defined(__KERNEL)
 
 extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, uint32_t f);
@@ -60,6 +62,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_seek(fd, offset, origin)          __syscall(SYS_SEEK, fd, offset, origin, UNUSED2)
 #define __sys_mount(path, device, type)         __syscall(SYS_MOUNT, path, device, type, UNUSED2)
 #define __sys_umount(path)                      __syscall(SYS_UMOUNT, path, UNUSED4)
+
+#define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 
 #endif
 

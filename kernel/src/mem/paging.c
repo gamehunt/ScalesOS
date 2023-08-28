@@ -5,6 +5,7 @@
 #include "types.h"
 #include "util/panic.h"
 #include <mem/paging.h>
+#include <signal.h>
 #include <util/log.h>
 
 #include <stdint.h>
@@ -44,8 +45,8 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 			return ctx;
 		} else {
 			k_err("Process %s (%d) caused page fault at 0x%x (0x%x).", proc->name, proc->pid, fault_address, ctx->err_code);
-			k_proc_process_exit(proc, 3);
-			__builtin_unreachable();
+			k_proc_process_send_signal(proc, SIGSEGV);
+			return ctx;
 		}
 	}
     char buffer[128];

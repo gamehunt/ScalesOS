@@ -1,9 +1,12 @@
+#include "util/types/list.h"
 #include <mem/heap.h>
 #include <string.h>
 #include <util/types/tree.h>
 
 tree_t* tree_create() {
-    return k_calloc(1, sizeof(tree_t));
+    tree_t* tree = k_calloc(1, sizeof(tree_t));
+	tree->nodes = list_create();
+	return tree;
 }
 
 void tree_set_root(tree_t* tree, tree_node_t* node) {
@@ -14,21 +17,20 @@ void tree_set_root(tree_t* tree, tree_node_t* node) {
 tree_node_t* tree_create_node(void* value) {
     tree_node_t* tree_node = k_calloc(1, sizeof(tree_node_t));
     tree_node->value = value;
+	tree_node->children = list_create();
     return tree_node;
 }
 
 void tree_free_node(tree_node_t* node) {
-	if(node->childs) {
-    	k_free(node->childs);
-	}
+	list_free(node->children);
     k_free(node);
 }
 
 void tree_free(tree_t* tree) {
-    for (uint32_t i = 0; i < tree->node_count; i++) {
-        tree_free_node(tree->nodes[i]);
+    for (uint32_t i = 0; i < tree->nodes->size; i++) {
+        tree_free_node((tree_node_t*) tree->nodes[i].data);
     }
-    k_free(tree->nodes);
+    list_free(tree->nodes);
     k_free(tree);
 }
 
@@ -36,36 +38,23 @@ void tree_insert_node(tree_t* tree, tree_node_t* node, tree_node_t* parent) {
     if (tree_contains_node(tree, node)) {
         return;
     }
-    EXTEND(tree->nodes, tree->node_count, sizeof(tree_node_t*))
-    tree->nodes[tree->node_count - 1] = node;
+	list_push_back(tree->nodes, node);
     node->tree = tree;
     if (parent) {
         node->parent = parent;
-        EXTEND(parent->childs, parent->child_count, sizeof(tree_node_t*))
-        parent->childs[parent->child_count - 1] = node;
+		list_push_back(parent->children, node);
     }
 }
 
 void tree_remove_node(tree_t* tree, tree_node_t* node) {
-    uint32_t idx = 0;
-    uint8_t found = 0;
-    for (uint32_t i = 0; i < tree->node_count; i++) {
-        if (tree->nodes[i] == node) {
-            tree->nodes[i] = 0;
-            idx = i;
-            found = 1;
-            break;
-        }
-    }
-    if (found) {
-        tree->node_count--;
-        if (tree->node_count > 0) {
-            memmove(tree->nodes, tree->nodes + idx, tree->node_count + 1 - idx);
-            tree->nodes = k_realloc(tree->nodes, tree->node_count);
-        } else {
-            k_free(tree->nodes);
-        }
-    }
+	if(!tree_contains_node(tree, node)) {
+		return;
+	}
+	tree_node_t* parent = node->parent;
+	if(parent) {
+		list_delete_element(parent->children, node);
+	}
+	list_delete_element(tree->nodes, node);
 }
 
 uint8_t tree_contains_node(tree_t* tree, tree_node_t* node) {

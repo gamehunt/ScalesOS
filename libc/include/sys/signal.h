@@ -6,6 +6,7 @@
 #define MAX_SIGNAL 64
 
 #define SIGKILL 9
+#define SIGSEGV 11
 
 typedef void (*_signal_handler_ptr)(int);
 

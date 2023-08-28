@@ -16,6 +16,7 @@
 #include "util/types/tree.h"
 #include <proc/process.h>
 #include <proc/smp.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,8 @@
 
 static uint8_t sig_defaults[] = {
 	SIG_IGNORE,
-	[SIGKILL] = SIG_TERMINATE
+	[SIGKILL] = SIG_TERMINATE,
+	[SIGSEGV] = SIG_TERMINATE
 };
 
 static tree_t* process_tree    = 0;
@@ -69,14 +71,13 @@ void k_proc_process_mark_ready(process_t* process) {
 }
 
 static pid_t __k_proc_process_allocate_pid() {
-	static pid_t pid = 1;
+	static pid_t pid = 2;
 	return pid++;
 }
 
 static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
     LOCK(process_list->lock)
 
-    proc->pid  = __k_proc_process_allocate_pid();
     list_push_back(process_list, proc);
 
 	proc->node = tree_create_node(proc);
@@ -96,7 +97,9 @@ static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
 static process_t* __k_proc_process_create_init() {
     process_t* proc = k_calloc(1, sizeof(process_t));
 
-    strcpy(proc->name, "[kernel]");
+    strcpy(proc->name, "[init]");
+
+	proc->pid = 1;
 
     __k_proc_process_create_kernel_stack(proc);
 
@@ -116,6 +119,8 @@ static process_t* __k_proc_process_create_idle() {
     process_t* proc = k_calloc(1, sizeof(process_t));
 
     strcpy(proc->name, "[idle]");
+
+	proc->pid = -1;
 
     __k_proc_process_create_kernel_stack(proc);
 
@@ -243,7 +248,11 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
+
+	uint32_t* prev = (uint32_t*) k_mem_paging_get_pd(0);
+	k_mem_paging_set_pd(0, 0, 0);
 	k_mem_paging_clone_pd(0, &proc->image.page_directory);
+	k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
 	//TODO release old directory
 
 
@@ -258,10 +267,12 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
         k_free(buffer);
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
-		k_mem_paging_map_region(USER_HEAP_START, 0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
+		k_mem_paging_map_region(USER_HEAP_START,  0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
 		
+		int       envc       = 0;
+		uintptr_t envp_stack = 0; 
+
 		if(envp) {
-			int envc = 0;
 			while(envp[envc]) {
 				envc++;
 			}
@@ -277,6 +288,10 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 					ptrs[j] = (char*) proc->image.user_stack;
 					j++;
 				}
+
+				while(proc->image.user_stack % 16) {
+					PUSH(proc->image.user_stack, char, '\0');
+				} 
             	
 				for(int i = 0; i < envc; i++) {
 					PUSH(proc->image.user_stack, char*, ptrs[i]);
@@ -285,20 +300,13 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 				k_free(ptrs);
 
 				char** _envp = (char**) proc->image.user_stack;
-				PUSH(proc->image.user_stack, char**, _envp);
-			} else {
-				PUSH(proc->image.user_stack, uintptr_t, 0);
-			}
-
-			PUSH(proc->image.user_stack, int, envc);
-		} else {
-			PUSH(proc->image.user_stack, uintptr_t, 0);
-			PUSH(proc->image.user_stack, int, 0);
+				envp_stack = (uintptr_t) _envp;
+			} 
 		}		
 
+		int       argc       = 0;
+		uintptr_t argv_stack = 0;
 		if(argv) {				
-			int argc = 0;
-
 			while(argv[argc]) {
 				argc++;
 			}
@@ -313,8 +321,11 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 					}
 					ptrs[i] = (char*) proc->image.user_stack;
 				}
+
+				while(proc->image.user_stack % 16) {
+					PUSH(proc->image.user_stack, char, '\0');
+				} 
             	
-				PUSH(proc->image.user_stack, uintptr_t, 0)
 				for(int i = 0; i < argc; i++) {
 					PUSH(proc->image.user_stack, char*, ptrs[i])
 				}
@@ -322,21 +333,20 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 				k_free(ptrs);
 
 				char** _argv = (char**) proc->image.user_stack;
-				PUSH(proc->image.user_stack, char**, _argv);
+				argv_stack = (uintptr_t) _argv;
+			} 		
+		} 
 
-			} else{
-				PUSH(proc->image.user_stack, uintptr_t, 0);
-			}
-			PUSH(proc->image.user_stack, int, argc)
-		} else {
-			PUSH(proc->image.user_stack, uintptr_t, 0);
-			PUSH(proc->image.user_stack, int, 0);
-		}
+		PUSH(proc->image.user_stack, uintptr_t, envp_stack);
+		PUSH(proc->image.user_stack, int,       envc);
+		PUSH(proc->image.user_stack, uintptr_t, argv_stack);
+		PUSH(proc->image.user_stack, int,       argc);
+		
 
-		uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
-		for(uint32_t i = 0; i < occupied_stack_size; i += 4) {
-			k_debug("[0x%.8x] 0x%.8x", proc->image.user_stack + i, *((uint32_t*) (proc->image.user_stack + i)));
-		}
+		// uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
+		// for(uint32_t i = 0; i < occupied_stack_size; i += 4) {
+		// 	k_debug("[0x%.8x] 0x%.8x", proc->image.user_stack + i, *((uint32_t*) (proc->image.user_stack + i)));
+		// }
 		
 		proc->image.entry = entry;
 
@@ -372,9 +382,12 @@ uint32_t k_proc_process_fork() {
     process_t* src = current_core->current_process;
     process_t* new = k_malloc(sizeof(process_t));
 
+    memcpy(new, src, sizeof(process_t));
+
+	new->pid      = __k_proc_process_allocate_pid();
     new->state    = PROCESS_STATE_STARTING;
 
-    memcpy(new, src, sizeof(process_t));
+	new->wait_queue = list_create();
 
     uint32_t prev = k_mem_paging_get_pd(1);
     k_mem_paging_set_pd(new->image.page_directory, 1, 0);
@@ -482,10 +495,12 @@ void k_proc_process_exit(process_t* process, int code) {
 	k_free(list->nodes);
 
 	process->state = PROCESS_STATE_FINISHED;
-	
-	process_t* parent = process->node->parent->value;
-	if(parent) {
-		k_proc_process_wakeup_queue(parent->wait_queue);
+
+	if(process->node->parent) {
+		process_t* parent = process->node->parent->value;
+		if(parent) {
+			k_proc_process_wakeup_queue(parent->wait_queue);
+		}
 	}
 
 	k_proc_process_switch();
@@ -522,8 +537,8 @@ pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int optio
 	do {
 		process_t* child = 0;
 		uint8_t was = 0;
-		for(uint32_t i = 0; i < process->node->child_count; i++) {
-			process_t* candidate = process->node->childs[i]->value;
+		for(uint32_t i = 0; i < process->node->children->size; i++) {
+			process_t* candidate = ((tree_node_t*)process->node->children->data[i])->value;
 			if(__k_proc_process_waitpid_can_pick(candidate, process, pid)) {
 				was = 1;
 				if(candidate->state == PROCESS_STATE_FINISHED) {

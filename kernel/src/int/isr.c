@@ -5,6 +5,7 @@
 #include <int/isr.h>
 #include <int/idt.h>
 
+#include <signal.h>
 #include <stdio.h>
 
 #include <util/asm_wrappers.h>
@@ -83,14 +84,24 @@ static const char *panic_messages[] = {
 	"Reserved"};
 
 interrupt_context_t* __k_int_isr_dispatcher(interrupt_context_t* ctx){
+	PRE_INTERRUPT
+
 	if(!isr_handlers[ctx->int_no]){
-        char buffer[1024];
-        sprintf(buffer, "Unhandled exception: %s (%d). Error code: %d", panic_messages[ctx->int_no], ctx->int_no, ctx->err_code);
-        k_panic(buffer, ctx);
-        __builtin_unreachable();
+		process_t* proc = k_proc_process_current();
+		if(proc && from_userspace) {
+			k_info("Process %s (%d) segfaulted. Reason: %s", proc->name, proc->pid, panic_messages[ctx->int_no]);
+			k_proc_process_send_signal(proc, SIGSEGV);
+		} else {
+        	char buffer[1024];
+        	sprintf(buffer, "Unhandled exception: %s (%d). Error code: %d", panic_messages[ctx->int_no], ctx->int_no, ctx->err_code);
+        	k_panic(buffer, ctx);
+        	__builtin_unreachable();
+		}
     }else{
         ctx = isr_handlers[ctx->int_no](ctx);
     }
+
+	POST_INTERRUPT
 
 	return ctx;
 }

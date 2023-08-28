@@ -83,18 +83,8 @@ pid_t execute(const char* path, char** argv, char** envp) {
 	return pid;
 }
 
-extern int __get_argc();
-
 int main(int argc, char** argv){
 	init_output();
-
-	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
-	sleep(1);
-	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
-	usleep(500000);
-	printf("0x%.8x 0x%.8x\r\n", &argc, &argv);
-
-	while(1);
 
 	if(load_modules()){
 		printf("Errors occured during modules loading...\r\n");
@@ -102,14 +92,11 @@ int main(int argc, char** argv){
 		printf("Loaded initrd modules.\r\n");
 	}
 
-
 	DIR* initd = opendir("/etc/init.d");
 	if(initd) {
+		seekdir(initd, 2);
 		struct dirent* dir;
 		while((dir = readdir(initd))) {	
-			if(!strcmp(dir->name, ".") || !strcmp(dir->name, "..")) {
-				continue;
-			}
 			char path[256];
 			sprintf(path, "/etc/init.d/%s", dir->name);
 			execute(path, NULL, NULL);
@@ -119,6 +106,8 @@ int main(int argc, char** argv){
 		printf("No init scripts found, falling back to getty.");
 		execute("/bin/getty", NULL, NULL);
 	}
+
+	while(1);
 
 	__sys_reboot();
 	__builtin_unreachable();

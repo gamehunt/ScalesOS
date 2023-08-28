@@ -3,6 +3,10 @@ __syscall:
     push ebp
     mov  ebp, esp
 
+	push ebx
+	push esi
+	push edi
+
     mov eax, [ebp + 8]
     
     mov ebx, [ebp + 12]
@@ -12,6 +16,10 @@ __syscall:
     mov esi, [ebp + 28]
 
     int 0x80
+
+	pop edi
+	pop esi
+	pop ebx
 
 	mov esp, ebp
     pop ebp

@@ -18,6 +18,7 @@
 #include "sys/times.h"
 #include "sys/time.h"
 #include "sys/signal.h"
+#include "util/panic.h"
 
 #include <proc/process.h>
 #include <string.h>
@@ -44,10 +45,16 @@ extern void _syscall_stub();
 static syscall_handler_t syscalls[MAX_SYSCALL + 1];
 
 interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
+	
 	PRE_INTERRUPT
 
     process_t* cur = k_proc_process_current();
     memcpy((void*) &cur->syscall_state, ctx, sizeof(interrupt_context_t));
+
+	if(ctx->eax == 255) {
+		k_panic("Debug syscall.", ctx);
+		__builtin_unreachable();
+	}
 
 	if(syscalls[ctx->eax]) {
 		ctx->eax = syscalls[ctx->eax](ctx->ebx, ctx->ecx, ctx->edx, ctx->edi, ctx->esi);

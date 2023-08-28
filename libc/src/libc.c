@@ -43,7 +43,7 @@ static void __parse_env() {
 
 void __init_arguments(int argc, char** argv, int envc, char** envp) {
 	__argc = argc;
-	__argv = malloc(__argc * sizeof(char*));;
+	__argv = malloc((__argc + 1) * sizeof(char*));
 
 	__envc = envc;
 	__envp = malloc((__envc + 1) * sizeof(char*));

@@ -186,7 +186,10 @@ void free(void* ptr){
     mem_block_t* header = M_HEADER(ptr);
     if(!__mem_heap_is_valid_block(header) || header->flags & M_BLOCK_FREE){
 #ifdef __LIBK
-        k_warn("Tried to free invalid pointer: 0x%.8x", ptr);
+        k_warn("Tried to free invalid pointer: 0x%.8x.", ptr);
+		k_warn("0x%.8x", __builtin_return_address(0));
+		k_warn("0x%.8x", __builtin_return_address(1));
+		k_warn("0x%.8x", __builtin_return_address(2));
 #endif
         return;
     }

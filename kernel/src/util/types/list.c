@@ -33,7 +33,7 @@ void* list_pop_back(list_t* list){
     }
     void* data = list->data[list->size - 1];
 	list->size--;
-	if(list->size > 0) {
+	if(list->size) {
 		list->data = k_realloc(list->data, list->size * sizeof(void*));
 	} else {
 		k_free(list->data);
@@ -61,8 +61,10 @@ void list_delete_element(list_t* list, void* data){
         if(list->data[i] == data){
             list->data[i] = 0;
             list->size--;
-            if(!list->size){
-                memmove(list->data + i, list->data + i + 1, list->size * sizeof(void*));
+            if(list->size){
+				if(i != list->size) {
+                	memmove(list->data + i, list->data + i + 1, list->size * sizeof(void*));
+				}
                 list->data = k_realloc(list->data, list->size * sizeof(void*));
             }else{
                 k_free(list->data);

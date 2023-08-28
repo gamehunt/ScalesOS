@@ -1,6 +1,7 @@
 #ifndef __K_UTIL_TYPES_TREE_H
 #define __K_UTIL_TYPES_TREE_H
 
+#include "util/types/list.h"
 #include <stdint.h>
 
 struct tree;
@@ -8,15 +9,13 @@ struct tree;
 typedef struct tree_node{
     struct tree* tree;
     struct tree_node*  parent;
-    struct tree_node** childs;
-    uint32_t      child_count;
+	list_t*            children;
     void*         value;
 }tree_node_t;
 
 typedef struct tree{
     tree_node_t*  root;
-    tree_node_t** nodes;
-    uint32_t node_count;
+	list_t*       nodes;
 }tree_t;
 
 tree_t*      tree_create();

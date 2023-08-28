@@ -35,10 +35,10 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
             continue;
         }
         uint8_t f = 0;
-        for(uint32_t j = 0; j < cur_node->child_count; j++){
-            vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[j]->value;
+        for(uint32_t j = 0; j < cur_node->children->size; j++){
+            vfs_entry_t* entry = (vfs_entry_t*) ((tree_node_t*)cur_node->children->data[j])->value;
             if(!strcmp(entry->name, part)){
-                cur_node = cur_node->childs[j];
+                cur_node = cur_node->children->data[j];
                 f = 1;
                 break;
             }
@@ -95,8 +95,8 @@ static struct dirent* __k_fs_virtual_readdir(fs_node_t* node, uint32_t index) {
 
 	index -= 2;
 
-	if(tnode->child_count > index) {
-		vfs_entry_t* child = (vfs_entry_t*) tnode->childs[index]->value;
+	if(tnode->children->size > index) {
+		vfs_entry_t* child = (vfs_entry_t*) ((tree_node_t*)tnode->children->data[index])->value;
 		strcpy(result->name, child->name);
 		result->ino = 1;
 		return result;
@@ -124,10 +124,10 @@ static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
             continue;
         }
         uint8_t f = 0;
-        for(uint32_t i = 0; i < cur_node->child_count; i++){
-            vfs_entry_t* entry = (vfs_entry_t*)cur_node->childs[i]->value;
+        for(uint32_t i = 0; i < cur_node->children->size; i++){
+            vfs_entry_t* entry = (vfs_entry_t*) ((tree_node_t*)cur_node->children->data[i])->value;
             if(!strcmp(entry->name, part)){
-                cur_node = cur_node->childs[i];
+                cur_node = cur_node->children->data[i];
                 f = 1;
                 break;
             }
@@ -331,8 +331,8 @@ void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){
 
 void __k_d_fs_vfs_print_node(tree_node_t* node, uint8_t depth){
     __k_d_fs_vfs_print_entry(node->value, depth);
-    for(uint32_t i = 0; i < node->child_count; i++){
-        __k_d_fs_vfs_print_node(node->childs[i], depth + 1);
+    for(uint32_t i = 0; i < node->children->size; i++){
+        __k_d_fs_vfs_print_node((tree_node_t*) node->children->data[i], depth + 1);
     }
 }
 
