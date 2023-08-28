@@ -45,6 +45,34 @@ int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 	for(uint32_t i = 0; i < exec_list->size; i++){
 		executable_t* fmt = exec_list->data[i];
 		if(__k_util_match_signature(buffer, fmt->length, fmt->signature)) {
+			if(argv) {
+				int argc = 1;
+
+				char** ptr = argv;
+				while(*ptr) {
+					ptr++;
+					argc++;
+				}
+
+				char** copied_argv = k_malloc(argc * sizeof(char*));
+
+				ptr = argv;
+				char** ptr1 = copied_argv;
+				while(*ptr) {
+					*ptr1 = k_malloc(strlen(*ptr) + 1);
+					strcpy(*ptr1, *ptr);
+					ptr++;
+					ptr1++;
+				}
+
+				argv = copied_argv;
+				argv[argc - 1] = 0;
+				// ptr = argv;
+				// while(*ptr) {
+				// 	k_debug("%s", *ptr);
+				// 	ptr++;
+				// }
+			} 
 			return fmt->exec_func(path, argv, envp);
 		}
 	}
@@ -78,7 +106,7 @@ int k_util_exec_shebang(const char* path, const char* argv[], const char* envp[]
 	k_info("Interpeter: %s", interp);
 
 	if(!argv) {
-		argv = malloc(sizeof(char*));
+		argv = k_malloc(sizeof(char*));
 		argv[0] = 0;
 	}
 
@@ -89,14 +117,10 @@ int k_util_exec_shebang(const char* path, const char* argv[], const char* envp[]
 		_argc++;
 	}
 
+	argv = realloc(argv, (_argc + 2) * sizeof(char*));
+	argv[_argc] = malloc(strlen(path) + 1);
+	strcpy(argv[_argc], path);
+	argv[_argc + 1] = 0;
 
-	char** new_argv = malloc(sizeof(char*) * (_argc + 2));
-	if(_argc) {
-		memcpy(new_argv, argv, _argc * sizeof(char*));
-	}
-	new_argv[_argc] = malloc(strlen(path) + 1);
-	strcpy(new_argv[_argc], path);
-	new_argv[_argc + 1] = 0;
-
-	return k_proc_process_exec(interp, new_argv, envp);
+	return k_proc_process_exec(interp, argv, envp);
 }

@@ -13,6 +13,7 @@ extern "C" {
 #if !defined(__LIBK) && !defined(__KERNEL)
 
 #define BUFSIZE 512
+#define EOF     -1
 
 typedef struct {
     uint32_t fd;
@@ -47,6 +48,8 @@ int    fflush(FILE *stream);
 long   ftell(FILE * stream);
 int    vfprintf(FILE * device, const char *format, va_list ap);
 int    puts(const char *str);
+char   fgetc(FILE* s);
+char*  fgets(char *s, int size, FILE *stream);
 
 #endif
 

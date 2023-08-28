@@ -304,45 +304,53 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 			} 
 		}		
 
-		int       argc       = 0;
+		int       argc       = 1;
 		uintptr_t argv_stack = 0;
-		if(argv) {				
-			while(argv[argc]) {
+
+		if(!argv) {
+			argv    = malloc(sizeof(char*) * 2);
+			argv[0] = 0;
+		} else {
+			while(argv[argc - 1]) {
 				argc++;
 			}
+			argv = realloc(argv, sizeof(char*) * (argc + 1));
+			memmove(argv + 1, argv, sizeof(char*) * argc);
+		}
 
-			if(argc) {
-				char** ptrs = k_calloc(argc, sizeof(char*)); 
-				
-				for(int i = argc - 1; i >= 0; i--) {
-					PUSH(proc->image.user_stack, char, '\0');
-					for(int j = strlen(argv[i]) - 1; j >= 0; j--) {
-						PUSH(proc->image.user_stack, char, argv[i][j])		
-					}
-					ptrs[i] = (char*) proc->image.user_stack;
-				}
+		argv[0] = malloc(strlen(proc->name) + 1);
+		strcpy(argv[0], proc->name);
 
-				while(proc->image.user_stack % 16) {
-					PUSH(proc->image.user_stack, char, '\0');
-				} 
-            	
-				for(int i = 0; i < argc; i++) {
-					PUSH(proc->image.user_stack, char*, ptrs[i])
-				}
-            	
-				k_free(ptrs);
+		char** ptrs = k_calloc(argc, sizeof(char*)); 
+		
+		for(int i = argc - 1; i >= 0; i--) {
+			PUSH(proc->image.user_stack, char, '\0');
+			for(int j = strlen(argv[i]) - 1; j >= 0; j--) {
+				PUSH(proc->image.user_stack, char, argv[i][j])		
+			}
+			ptrs[i] = (char*) proc->image.user_stack;
+		}
 
-				char** _argv = (char**) proc->image.user_stack;
-				argv_stack = (uintptr_t) _argv;
-			} 		
+		k_free(argv);
+
+		while(proc->image.user_stack % 16) {
+			PUSH(proc->image.user_stack, char, '\0');
 		} 
+        
+		for(int i = argc - 1; i >= 0; i--) {
+			PUSH(proc->image.user_stack, char*, ptrs[i])
+		}
+        
+		k_free(ptrs);
+
+		char** _argv = (char**) proc->image.user_stack;
+		argv_stack = (uintptr_t) _argv;
 
 		PUSH(proc->image.user_stack, uintptr_t, envp_stack);
 		PUSH(proc->image.user_stack, int,       envc);
 		PUSH(proc->image.user_stack, uintptr_t, argv_stack);
 		PUSH(proc->image.user_stack, int,       argc);
 		
-
 		// uint32_t occupied_stack_size = USER_STACK_START + USER_STACK_SIZE - proc->image.user_stack;
 		// for(uint32_t i = 0; i < occupied_stack_size; i += 4) {
 		// 	k_debug("[0x%.8x] 0x%.8x", proc->image.user_stack + i, *((uint32_t*) (proc->image.user_stack + i)));

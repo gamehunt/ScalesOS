@@ -225,21 +225,32 @@ static const char* drivestr(uint8_t bus, uint8_t drive) {
 }
 
 static void ata_initialize(drive_t* device) {
-	paddr_t frames = k_mem_pmm_alloc_frames(2);
-	void*   map    = k_mem_paging_map_mmio(frames, 2);
+	device->blocked_processes = list_create();
+	list_push_back(ata_device_list, device);
+}
 
+static void __ata_create_buffer(drive_t* device, uint32_t size) {
+	uint32_t frame_count = size / 0x1000 + 2;
+
+	paddr_t frames = k_mem_pmm_alloc_frames(frame_count);
+	void*   map    = k_mem_paging_map_mmio(frames, frame_count);
+	
 	device->prdt   = map; 
 	device->buffer = map + 0x1000;
-	memset(device->buffer, 0x00, 0x1000);
+	memset(device->buffer, 0x00, size);
 
-	device->prdt[0].address  = frames + 0x1000;
-	device->prdt[0].last     = 0x8000;
-	device->prdt[0].size     = 0;
 	device->prdt_phys        = frames;
+	device->prdt[0].address  = frames + 0x1000;
+	device->prdt[0].size     = size;
+	device->prdt[0].last     = 0x8000;
+}
 
-	device->blocked_processes = list_create();
-
-	list_push_back(ata_device_list, device);
+static void __ata_free_buffer(drive_t* device) {
+	uint32_t frame_count = device->prdt[0].size / 0x1000 + 2;
+	for(uint32_t i = 0; i < frame_count; i++) {
+		k_mem_paging_unmap((uint32_t) device->prdt + 0x1000 * i);
+	}
+	k_mem_pmm_free(device->prdt_phys, frame_count);
 }
 
 static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
@@ -247,9 +258,9 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	drive_t* device = (drive_t*) node->inode;
 
+	__ata_create_buffer(device, size);
+
 	ata_write_busmaster_command(device->bus, 0x0);
-	
-	device->prdt[0].size = size;
 
 	ata_write_busmaster_prdt_address(device->bus, device->prdt_phys);
 	
@@ -291,6 +302,8 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 	if(last_sector) {
 		memcpy(&buffer[full_sectors * 512], &device->buffer[part_offset + full_sectors * 512], last_sector);
 	}
+
+	__ata_free_buffer(device);
 
 	return size;
 }

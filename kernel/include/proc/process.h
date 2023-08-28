@@ -70,7 +70,7 @@ typedef struct process {
 	tree_node_t* node;
 
 	struct wait_node* wait_node;
-	list_t*    wait_queue;
+	list_t*           wait_queue;
 
 	uint64_t   time_total;
 	uint64_t   time_system;
@@ -80,6 +80,8 @@ typedef struct process {
 
 	signal_t   signals[MAX_SIGNAL];
 	uint64_t   signal_queue;
+
+	char       wd[256];
 } process_t;
 
 typedef struct wait_node {

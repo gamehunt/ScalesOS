@@ -26,9 +26,9 @@ static void __k_panic_stacktrace(uint32_t stack){
 }
 
 static void __k_panic_pseudo_stacktrace() {
-	printf("1: 0x%.8x", __builtin_return_address(2));
-	printf("2: 0x%.8x", __builtin_return_address(3));
-	printf("3: 0x%.8x", __builtin_return_address(4));
+	printf("1: 0x%.8x\r\n", __builtin_return_address(2));
+	printf("2: 0x%.8x\r\n", __builtin_return_address(3));
+	printf("3: 0x%.8x\r\n", __builtin_return_address(4));
 }
 
 void k_panic(const char* reason, interrupt_context_t* ctx) {

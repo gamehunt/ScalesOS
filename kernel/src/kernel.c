@@ -100,10 +100,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
 	k_util_add_exec_format(shebang_exec);
 
-	char* argv[] = {0};
-	char* envp[] = {0};
-
-    k_proc_process_exec("/bin/init", argv, envp);
+    k_proc_process_exec("/bin/init", 0, 0);
 
     while(1){
         halt();

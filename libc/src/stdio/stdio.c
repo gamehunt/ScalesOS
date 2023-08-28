@@ -170,3 +170,39 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE* stream){
 	}
 	return written;
 }
+
+char fgetc(FILE* s) {
+	char r;
+	size_t read = fread(&r, 1, 1, s);
+
+	if(read <= 0) {
+		s->eof = 1;
+		return EOF;
+	}
+
+	return r;
+}
+
+char*  fgets(char* s, int size, FILE* stream) {
+	char* ptr = s;
+	char  c;
+	while((c = fgetc(stream)) != EOF) {
+		*s = c;
+		s++;
+		size--;
+		if(!size || c == '\n') {
+			*s = '\0';
+			return ptr;
+		}
+	}
+
+	if(c == EOF) {
+		if(ptr == s) {
+			return NULL;
+		} else {
+			return ptr;
+		}
+	}
+
+	return NULL;
+}

@@ -422,10 +422,6 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 		return 0;
 	}
 
-	// k_info("Version: %d.%d", superblock->version_major, superblock->version_minor);
-	// k_info("Block size: %d", 1024 << superblock->block_size);
-	// k_info("Inode size: %d", superblock->inode_size);
-
 	ext2_fs_t* fs = k_malloc(sizeof(ext2_fs_t));
 
 	fs->superblock = superblock;

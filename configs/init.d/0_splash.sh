@@ -1,3 +1,3 @@
 #!/bin/scsh
 
-/bin/splash
+splash
