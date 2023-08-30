@@ -34,8 +34,7 @@ uint32_t k_mod_elf_load_exec(void* file) {
     Elf32_Phdr* phdr = (Elf32_Phdr*)((uint32_t)hdr + hdr->e_phoff);
     for (uint32_t i = 0; i < hdr->e_phnum; i++) {
         if (phdr->p_type == PT_LOAD) {
-            k_debug("Creating ELF section: 0x%.8x - 0x%.8x", phdr->p_vaddr,
-                    phdr->p_vaddr + phdr->p_memsz);
+            // k_debug("Creating ELF section: 0x%.8x - 0x%.8x", phdr->p_vaddr,phdr->p_vaddr + phdr->p_memsz);
             k_mem_paging_map_region(phdr->p_vaddr & 0xFFFFF000, 0,
                                     phdr->p_memsz / 0x1000 + 1, 0x7, 0x0);
             memset((void*)phdr->p_vaddr, 0, phdr->p_memsz);
@@ -178,7 +177,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 				void *mem = malloc(shdr->sh_size);
 				memset(mem, 0, shdr->sh_size);
 				shdr->sh_offset = (int)mem - (int)hdr;
-				k_debug("Allocated memory for a section (%ld).", shdr->sh_size);
+				// k_debug("Allocated memory for a section (%ld).", shdr->sh_size);
 			}
 		}
 		if(shdr->sh_type == SHT_REL) {

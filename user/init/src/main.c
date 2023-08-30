@@ -69,7 +69,6 @@ void dump(const char* path) {
 }
 
 pid_t execute(const char* path, char** argv, char** envp) {
-	printf("Executing: %s\r\n", path);
 
 	pid_t pid = fork();
 
@@ -81,6 +80,32 @@ pid_t execute(const char* path, char** argv, char** envp) {
 	waitpid(pid, 0, 0);
 
 	return pid;
+}
+
+void sort(char** arr, int n) {
+    int i, j;
+	char swapped;
+    for (i = 0; i < n - 1; i++) {
+        swapped = 0;
+        for (j = 0; j < n - i - 1; j++) {
+			int c = 0;
+			size_t s1 = strlen(arr[j]);
+			size_t s2 = strlen(arr[j + 1]);
+			int max = s1 > s2 ? s2 : s1;
+			while(c < max && arr[j][c] == arr[j + 1][c]) {
+				c++;
+			}
+            if (arr[j][c] > arr[j + 1][c]) {
+				char* tmp = arr[j];
+				arr[j] = arr[j + 1];
+				arr[j + 1] = tmp;
+                swapped = 1;
+            }
+        }
+  
+        if (!swapped)
+            break;
+    }
 }
 
 int main(int argc, char** argv){
@@ -96,12 +121,22 @@ int main(int argc, char** argv){
 	if(initd) {
 		seekdir(initd, 2);
 		struct dirent* dir;
+		char** scripts = malloc(sizeof(char*));
+		int sc = 0;
 		while((dir = readdir(initd))) {	
 			char path[256];
 			sprintf(path, "/etc/init.d/%s", dir->name);
-			execute(path, NULL, NULL);
+			scripts[sc] = malloc(256);
+			strcpy(scripts[sc], path);
+			sc++;
+			scripts = realloc(scripts, sizeof(char*) * (sc + 1));
 		}
 		closedir(initd);
+		sort(scripts, sc);
+		for(int i = 0; i < sc; i++) {
+			printf("[%d/%d] Executing: %s\r\n", i, sc - 1, scripts[i]);
+			execute(scripts[i], 0, 0);
+		}
 	} else {
 		printf("No init scripts found, falling back to getty.");
 		execute("/bin/getty", NULL, NULL);

@@ -24,7 +24,7 @@ int execute(char* path, int argc, char** argv) {
 
 		char* start = command;
 		
-		if(*start && isspace(*start)) {
+		while(*start && isspace(*start)) {
 			start++;
 		}
 
@@ -81,11 +81,16 @@ int execute(char* path, int argc, char** argv) {
 		int status;
 		waitpid(child, &status, 0);
 
-		if(!status) {
+		if(status) {
 			return status;
 		}
 
 		free(op);
+		for(int i = 0; i < _op_argc; i++){
+			if(_op_argv[i]) {
+				free(_op_argv[i]);
+			}
+		}
 		free(_op_argv);
 	}
 

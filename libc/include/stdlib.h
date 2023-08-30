@@ -15,6 +15,7 @@ int   abs(int num);
 int   atoi(const char* str);
 
 #if !defined(__LIBK) && !defined(__KERNEL)
+	int   system(const char *str);
     char* getenv(const char* env_var);
     int   atexit(void(*func)(void));
     void  exit(int code);

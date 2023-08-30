@@ -232,6 +232,8 @@ static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {
 
 	*out = *result;
 
+	k_free(result);
+
 	return 1;
 }
 

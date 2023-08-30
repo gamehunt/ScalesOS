@@ -116,6 +116,9 @@ static fs_node_t* __k_fs_vfs_create_virtual_node(vfs_entry_t* entry) {
 }
 
 static vfs_entry_t* __k_fs_vfs_get_entry(const char* path, uint8_t create){
+	if(!strcmp(path, "/")) {
+		return __k_fs_vfs_root_entry();
+	}
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len = k_util_path_length(path);
     for(uint32_t i = 0; i < len; i++){
@@ -310,7 +313,7 @@ K_STATUS  k_fs_vfs_mount(const char* path, const char* device, const char* type)
 K_STATUS k_fs_vfs_umount(const char* path) {
 	vfs_entry_t* entry = __k_fs_vfs_get_entry(path, 0);
 	if(entry) {
-		entry->node = __k_fs_vfs_create_virtual_node(entry);
+		__k_fs_vfs_create_virtual_node(entry);
 		return K_STATUS_OK;
 	}
 	return K_STATUS_ERR_GENERIC;

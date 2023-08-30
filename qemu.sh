@@ -8,6 +8,11 @@ cd scripts
 /bin/bash mount_hda.sh
 cd ..
 
+
+
+rm -rf sysroot/etc || 1
+rm -rf sysroot/ramdisk/etc || 1
+
 cmake -Bbuild -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON
 cmake --build build
 cmake --build build --target configs

@@ -66,6 +66,8 @@ void __init_arguments(int argc, char** argv, int envc, char** envp) {
 }
 
 void libc_exit(int code) {
+	fflush(stderr);
+	fflush(stdout);
 	_fini();
 	exit(code);
 }

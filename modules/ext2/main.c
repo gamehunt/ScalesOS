@@ -311,7 +311,11 @@ static uint32_t __ext2_read(fs_node_t* node, uint32_t offset, uint32_t size, uin
 		return 0;
 	}
 
-	return __ext2_read_inode_contents(fs, inode, offset, size, buffer);
+	uint32_t read = __ext2_read_inode_contents(fs, inode, offset, size, buffer);
+
+	k_free(inode);
+
+	return read;
 }
 
 static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
@@ -396,9 +400,11 @@ static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
 			if(!strcmp(d->name, folder)) {
 				root = __ext2_from_inode(root->device, d->name, d->ino);
 				k_free(d);
+				k_free(folder);
 				found = 1;
 				break;
 			}
+			k_free(folder);
 			k_free(d);
 			index++;
 		} while(d);
@@ -408,6 +414,8 @@ static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
 	}
 	return root;
 }
+
+extern uint32_t __heap_usage();
 
 static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs_node_t* dev = k_fs_vfs_open(device, O_RDWR);

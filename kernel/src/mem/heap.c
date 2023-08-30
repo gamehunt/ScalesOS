@@ -19,6 +19,7 @@ void k_d_mem_heap_print(){
         __k_d_mem_heap_print_block(src);
         src = src->next;
     }
+	k_info("Last next: 0x%.8x", (uint32_t) src);
 }
 
 K_STATUS k_mem_heap_init(){

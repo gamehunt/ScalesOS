@@ -21,6 +21,10 @@ static void mount_all() {
 				line[size - 1] = '\0';
 			}
 
+			if(line[0] == '#') {
+				continue;
+			}
+
 			char* word;
     		word = strtok(line, " ");
 			char* args[3];
@@ -50,7 +54,7 @@ static void mount_all() {
 			}
 
 			mount(args[0], args[1], args[2]);
-
+			
 			if(reopen) {
 				fstab = fopen(file, "r");
 				if(!fstab) {
@@ -81,7 +85,6 @@ int main(int argc, char** argv) {
 		}
 		mount_all();
 	}
-
 
 	return 0;
 }

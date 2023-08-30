@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stddef.h>
 
+#include "kernel/mem/paging.h"
 #include "mem/memory.h"
 #include "mem/heap.h"
 
@@ -33,7 +34,7 @@ uint32_t __mem_grow_heap(int32_t size) {
 }
 
 void    __mem_init_heap() {
-	__mem_heap_init_block(heap, heap_size);
+	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
 }
 #endif
 
@@ -117,8 +118,11 @@ static void __mem_merge(){
 static uint32_t __allocated = 0;
 static uint32_t __freed     = 0;
 
-void* malloc(size_t size){
+uint32_t __heap_usage() {
+	return __allocated - __freed;
+}
 
+void* malloc(size_t size){
     __mem_merge();
 
     mem_block_t* block            = heap;
@@ -132,7 +136,12 @@ void* malloc(size_t size){
 
     if(!__mem_heap_is_valid_block(block)){
 #ifdef __LIBK
-		k_err("Allocation size: %d (used: %d/%d KB)", size, (__allocated - __freed) / 1024, HEAP_SIZE / 1024);
+		k_d_mem_heap_print();
+		k_err("Last block: 0x%.8x", block);
+		if(IS_VALID_PTR((uint32_t) block)) {
+			k_info("%d 0x%.8x", block->size, block->next);
+		}
+		k_err("Allocation size: %d (used: %d/%d KB)", size, __heap_usage() / 1024, HEAP_SIZE / 1024);
 		k_panic("Out of memory.", 0);
 #else 
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;

@@ -9,6 +9,7 @@ set(C_SOURCES
     getenv.c
     atexit.c
     exit.c
+	system.c
 )
 
 target_sources(k PRIVATE ${SHARED_SOURCES})
