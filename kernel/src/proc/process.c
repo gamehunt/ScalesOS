@@ -289,10 +289,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 					j++;
 				}
 
-				while(proc->image.user_stack % 16) {
-					PUSH(proc->image.user_stack, char, '\0');
-				} 
-            	
 				for(int i = 0; i < envc; i++) {
 					PUSH(proc->image.user_stack, char*, ptrs[i]);
 				}
@@ -322,7 +318,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		strcpy(argv[0], proc->name);
 
 		char** ptrs = k_calloc(argc, sizeof(char*)); 
-		
 		for(int i = argc - 1; i >= 0; i--) {
 			PUSH(proc->image.user_stack, char, '\0');
 			for(int j = strlen(argv[i]) - 1; j >= 0; j--) {
@@ -332,10 +327,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		}
 
 		k_free(argv);
-
-		while(proc->image.user_stack % 16) {
-			PUSH(proc->image.user_stack, char, '\0');
-		} 
         
 		for(int i = argc - 1; i >= 0; i--) {
 			PUSH(proc->image.user_stack, char*, ptrs[i])
@@ -345,6 +336,10 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 
 		char** _argv = (char**) proc->image.user_stack;
 		argv_stack = (uintptr_t) _argv;
+
+		while(proc->image.user_stack % 16) {
+			PUSH(proc->image.user_stack, char, '\0');
+		} 
 
 		PUSH(proc->image.user_stack, uintptr_t, envp_stack);
 		PUSH(proc->image.user_stack, int,       envc);

@@ -1,5 +1,6 @@
 #include <fs/vfs.h>
 #include "dirent.h"
+#include "errno.h"
 #include "kernel.h"
 #include "mem/heap.h"
 #include "util/path.h"
@@ -199,24 +200,24 @@ fs_node_t* k_fs_vfs_create_node(const char* name){
     return node;
 }
 
-uint32_t    k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
+int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.read){
         return 0;
     }
 
 	if(!(node->mode & O_RDONLY)) {
-		return 0;
+		return -EPERM;
 	}
 
     return node->fs.read(node, offset, size, buffer);
 }
-uint32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
+int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.write){
         return 0;
     }
 
 	if(!(node->mode & O_WRONLY)) {
-		return 0;
+		return -EPERM;
 	}
 
     return node->fs.write(node, offset, size, buffer);

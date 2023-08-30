@@ -222,6 +222,10 @@ static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t poi
 }
 
 static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(offset > inode->size_low) {
+		return 0;
+	}
+
 	uint32_t block_size = BLOCK_SIZE(fs->superblock);
 	uint32_t block_offset = offset / block_size;
 	uint32_t part_offset  = offset % block_size;
@@ -261,7 +265,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 
 	k_free(block_buffer);
 
-	return size;
+	return buffer_offset;
 }
 
 
@@ -303,12 +307,12 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 static uint32_t __ext2_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
 	ext2_fs_t* fs = node->device;
 	if(!fs) {
-		return 0;
+		return -1;
 	}
 
 	ext2_inode_t* inode = __ext2_read_inode(fs, node->inode);
 	if(!inode) {
-		return 0;
+		return -1;
 	}
 
 	uint32_t read = __ext2_read_inode_contents(fs, inode, offset, size, buffer);
@@ -386,7 +390,7 @@ static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t in
 }
 
 static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
-	uint32_t segments = k_util_path_length(path);	
+	uint32_t segments = k_util_path_length(path);
 	for(uint32_t i = 0; i < segments; i++) {
 		char* folder = k_util_path_segment(path, i);
 		struct dirent* d = 0;
@@ -400,27 +404,30 @@ static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
 			if(!strcmp(d->name, folder)) {
 				root = __ext2_from_inode(root->device, d->name, d->ino);
 				k_free(d);
-				k_free(folder);
 				found = 1;
 				break;
 			}
-			k_free(folder);
 			k_free(d);
 			index++;
 		} while(d);
+		k_free(folder);
 		if(!found) {
 			return 0;
 		}
 	}
+	char* final = k_util_path_filename(path);
+	if(strcmp(root->name, final)) {
+		k_free(final);
+		return 0;
+	}
+	k_free(final);
 	return root;
 }
-
-extern uint32_t __heap_usage();
 
 static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs_node_t* dev = k_fs_vfs_open(device, O_RDWR);
 
-	ext2_superblock_t* superblock = k_malloc(sizeof(ext2_superblock_t));
+	ext2_superblock_t* superblock = k_malloc(1024);
 
 	k_fs_vfs_read(dev, 1024, 1024, (uint8_t*) superblock);
 
@@ -435,12 +442,16 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs->superblock = superblock;
 	fs->device     = dev;
 
-	fs_node_t* root = k_fs_vfs_create_node(k_util_path_filename(path));
+	char* filename = k_util_path_filename(path);
+
+	fs_node_t* root = k_fs_vfs_create_node(filename);
 	root->inode  = 2;
 	root->device = fs;
 	root->fs.read    = &__ext2_read;
 	root->fs.readdir = &__ext2_readdir;
 	root->fs.finddir = &__ext2_finddir;
+
+	k_free(filename);
 
 	return root;
 }

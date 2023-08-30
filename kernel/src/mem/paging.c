@@ -44,7 +44,8 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 			k_proc_process_return_from_signal(ctx);
 			return ctx;
 		} else {
-			k_err("Process %s (%d) caused page fault at 0x%x (0x%x).", proc->name, proc->pid, fault_address, ctx->err_code);
+			k_err("Process %s (%d) caused page fault at 0x%x (0x%x). EIP = 0x%.8x ESP = 0x%.8x EBP = 0x%.8x", proc->name, proc->pid, fault_address, ctx->err_code, 
+					ctx->eip, ctx->esp, ctx->ebp);
 			k_proc_process_send_signal(proc, SIGSEGV);
 			return ctx;
 		}

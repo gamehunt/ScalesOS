@@ -102,6 +102,8 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_proc_process_exec("/bin/init", 0, 0);
 
+	k_err("Failed to launch init, halting...");
+
     while(1){
         halt();
     }

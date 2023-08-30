@@ -14,7 +14,7 @@ static void mount_all() {
 	char    line[255];
 
 	if(fstab) {
-		while(fgets(line, 255, fstab)) {
+		while(fgets(line, 255, fstab) > 0) {
 			size_t size = strlen(line);
 
 			if(line[size - 1] == '\n') {

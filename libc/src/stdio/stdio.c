@@ -80,8 +80,12 @@ static uint32_t __mode_to_options(const char* mode) {
 }
 
 FILE* fopen(const char *path, const char *mode){
+  uint32_t fd = __sys_open((uint32_t) path, __mode_to_options(mode), 0);
+  if(!fd) {
+	  return NULL;
+  }
   FILE* file = calloc(1, sizeof(FILE));
-  file->fd = __sys_open((uint32_t) path, __mode_to_options(mode), 0);
+  file->fd = fd;
   file->write_buffer = malloc(BUFSIZE);
   file->read_buffer  = malloc(BUFSIZE);
   file->buffer_size  = BUFSIZE;
@@ -129,7 +133,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
 			if(stream->read_buffer_offset == stream->buffer_size) {
 				stream->read_buffer_offset = 0;
 			}
-			uint32_t r = __sys_read(stream->fd, stream->buffer_size - stream->read_buffer_offset, 
+			int32_t r = __sys_read(stream->fd, stream->buffer_size - stream->read_buffer_offset, 
 					(uint32_t) &stream->read_buffer[stream->read_buffer_offset]);
 			if(r < 0){
 				break;
@@ -175,7 +179,7 @@ char fgetc(FILE* s) {
 	char r;
 	size_t read = fread(&r, 1, 1, s);
 
-	if(read <= 0) {
+	if(read == 0) {
 		s->eof = 1;
 		return EOF;
 	}

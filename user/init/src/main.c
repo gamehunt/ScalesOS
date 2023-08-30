@@ -68,7 +68,7 @@ void dump(const char* path) {
 	printf("End\r\n");
 }
 
-pid_t execute(const char* path, char** argv, char** envp) {
+int execute(const char* path, char** argv, char** envp) {
 
 	pid_t pid = fork();
 
@@ -77,9 +77,10 @@ pid_t execute(const char* path, char** argv, char** envp) {
 		exit(1);
 	}
 
-	waitpid(pid, 0, 0);
+	int status;
+	waitpid(pid, &status, 0);
 
-	return pid;
+	return status;
 }
 
 void sort(char** arr, int n) {
@@ -135,7 +136,10 @@ int main(int argc, char** argv){
 		sort(scripts, sc);
 		for(int i = 0; i < sc; i++) {
 			printf("[%d/%d] Executing: %s\r\n", i, sc - 1, scripts[i]);
-			execute(scripts[i], 0, 0);
+			int status = execute(scripts[i], 0, 0);
+			if(status) {
+				printf("--> Fail!\r\n");
+			}
 		}
 	} else {
 		printf("No init scripts found, falling back to getty.");

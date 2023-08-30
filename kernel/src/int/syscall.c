@@ -75,9 +75,11 @@ static uint32_t sys_read(uint32_t fd, uint8_t* buffer,  uint32_t count) {
 
 	fd_t* fdt = fds->nodes[fd];
 
-	uint32_t read = k_fs_vfs_read(fdt->node, fdt->offset, count, buffer);
+	int32_t read = k_fs_vfs_read(fdt->node, fdt->offset, count, buffer);
 
-	fdt->offset += read;
+	if(read > 0) {
+		fdt->offset += read;
+	}
 
 	return read;
 }
@@ -90,9 +92,11 @@ static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 
 	fd_t* fdt = fds->nodes[fd];
 
-	uint32_t written = k_fs_vfs_write(fdt->node, fdt->offset, count, buffer);
+	int32_t written = k_fs_vfs_write(fdt->node, fdt->offset, count, buffer);
 
-	fdt->offset += written;
+	if(written > 0) {
+		fdt->offset += written;
+	}
 	
 	return written;
 }

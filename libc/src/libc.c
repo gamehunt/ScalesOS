@@ -81,4 +81,8 @@ void libc_init(int argc, char** argv, int envc, char** envp) {
 	libc_exit(main(__argc, __argv));
 }
 
+void align_fail() {
+	exit(0xEE);	
+}
+
 

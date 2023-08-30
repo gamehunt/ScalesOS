@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <dirent.h>
+#include "util/log.h"
 #include "util/path.h"
 
 struct tar_header
@@ -145,7 +146,7 @@ static struct dirent* __k_fs_tar_readdir(fs_node_t* node, uint32_t index) {
 }
 
 static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
-    fs_node_t* dev = (fs_node_t*) node->device;
+	fs_node_t* dev = (fs_node_t*) node->device;
     tar_header_t* parent_header = __k_fs_tar_read_header(node->device, node->inode);
 
     char* fullpath = k_util_path_join(parent_header->filename, path); 
@@ -181,8 +182,9 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
     }
 
     k_free(fullpath);
+	k_info("--> Not found");
 
-    return 0;
+	return 0;
 }
 
 static fs_node_t* __k_fs_tar_mount(const char* path,

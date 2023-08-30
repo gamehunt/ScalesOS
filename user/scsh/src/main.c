@@ -7,6 +7,18 @@
 
 #define MAX_LINE_LENGTH 4096
 
+int try_builtin_command(const char* op, int argc, char** argv) {
+	if(!strcmp(op, "echo")) {
+		for(int i = 0; i < argc; i++) {
+			printf("%s ", argv[i]);
+		}
+		printf("\r\n");
+		return 0;
+	}
+
+	return 1;
+}
+
 int execute(char* path, int argc, char** argv) {
 	FILE* script = fopen(path, "r");
 	if(!script) {
@@ -74,8 +86,17 @@ int execute(char* path, int argc, char** argv) {
 
 		if(!child) {
 			fclose(script);
-			execve(path, _op_argv, 0);
-			exit(1);
+			FILE* test = fopen(path, "r");
+			if(test) {
+				fclose(test);
+				execve(path, _op_argv, 0);
+				exit(1);
+			} else {
+				if(try_builtin_command(op, _op_argc, _op_argv)){
+					fprintf(stderr, "No such command: %s\r\n", op);
+					exit(1);
+				}
+			}
 		}
 
 		int status;

@@ -100,6 +100,7 @@ typedef struct {
 	prdt_t*  prdt;
 	uint8_t* buffer;
 	uint32_t prdt_phys;
+	uint32_t buffer_pd;
 
 	list_t*  blocked_processes;
 } drive_t;

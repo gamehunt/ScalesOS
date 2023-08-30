@@ -1,1 +1,3 @@
 #!/bin/scsh
+
+echo ABOBA

@@ -136,7 +136,8 @@ void* malloc(size_t size){
 
     if(!__mem_heap_is_valid_block(block)){
 #ifdef __LIBK
-		k_d_mem_heap_print();
+		// k_d_mem_heap_print();
+		k_err("Pre-Last block: %d", last_valid_block->size);
 		k_err("Last block: 0x%.8x", block);
 		if(IS_VALID_PTR((uint32_t) block)) {
 			k_info("%d 0x%.8x", block->size, block->next);
