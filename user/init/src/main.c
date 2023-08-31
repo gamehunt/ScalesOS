@@ -69,7 +69,6 @@ void dump(const char* path) {
 }
 
 int execute(const char* path, char** argv, char** envp) {
-
 	pid_t pid = fork();
 
 	if(!pid) {
@@ -79,7 +78,7 @@ int execute(const char* path, char** argv, char** envp) {
 
 	int status;
 	waitpid(pid, &status, 0);
-
+	
 	return status;
 }
 

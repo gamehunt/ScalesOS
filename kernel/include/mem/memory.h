@@ -15,9 +15,11 @@
 #define HEAP_START         0xC1000000
 #define HEAP_END           HEAP_START + HEAP_SIZE
 
+#define MMIO_SIZE          MB(32)
 #define MMIO_START         HEAP_END
+#define MMIO_END           MMIO_START + MMIO_SIZE
 
-#define FRAMEBUFFER_START  0xD0000000
+#define FRAMEBUFFER_START  MMIO_END
 
 // #define AP_BOOTSTRAP_MAP   0xEFFF0000
 #define PT_TMP_MAP         0xEFFFE000

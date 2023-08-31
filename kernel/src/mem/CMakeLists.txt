@@ -5,6 +5,7 @@ set(SOURCES
     paging.c
     pmm.c
     heap.c
+	mmio.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

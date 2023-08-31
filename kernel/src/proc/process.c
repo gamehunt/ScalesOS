@@ -255,7 +255,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 	k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
 	//TODO release old directory
 
-
     k_info("Executing: %s", proc->name);
 
 	proc->image.heap       = USER_HEAP_START;

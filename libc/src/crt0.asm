@@ -13,3 +13,13 @@ _start:
 	call libc_init
 no_alignment:
 	call align_fail
+
+global _debug
+_debug:
+	push ebp
+	mov  ebp, esp
+	mov edi, [ebp + 8]
+	mov eax, 0xFF
+	int 0x80
+	leave
+	ret

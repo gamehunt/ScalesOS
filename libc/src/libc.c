@@ -1,3 +1,4 @@
+#include "unistd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -71,6 +72,8 @@ void libc_exit(int code) {
 	_fini();
 	exit(code);
 }
+
+extern void _debug(int mode);
 
 void libc_init(int argc, char** argv, int envc, char** envp) {
 	__mem_init_heap();

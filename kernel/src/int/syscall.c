@@ -52,8 +52,13 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
     memcpy((void*) &cur->syscall_state, ctx, sizeof(interrupt_context_t));
 
 	if(ctx->eax == 255) {
-		k_panic("Debug syscall.", ctx);
-		__builtin_unreachable();
+		if(ctx->edi == 0) {
+			k_panic("Debug syscall.", ctx);
+			__builtin_unreachable();
+		} else {
+			k_debug("Debug syscall.");
+			return ctx;
+		}
 	}
 
 	if(syscalls[ctx->eax]) {
@@ -67,13 +72,15 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
     return ctx;
 }
 
-static uint32_t sys_read(uint32_t fd, uint8_t* buffer,  uint32_t count) {
+static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
 	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
 		return 0;
 	}
 
 	fd_t* fdt = fds->nodes[fd];
+
+	// k_info("sys_read(): %d bytes at +%d in %s", count, fdt->offset, fdt->node->name);
 
 	int32_t read = k_fs_vfs_read(fdt->node, fdt->offset, count, buffer);
 

@@ -209,6 +209,8 @@ int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* 
 		return -EPERM;
 	}
 
+	// k_debug("VFS read: %d bytes at +%d in %s", size, offset, node->name);
+
     return node->fs.read(node, offset, size, buffer);
 }
 int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){

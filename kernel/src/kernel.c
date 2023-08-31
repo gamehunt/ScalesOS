@@ -27,6 +27,7 @@
 #include "int/syscall.h"
 #include "kernel.h"
 #include "mem/heap.h"
+#include "mem/mmio.h"
 #include "mem/pmm.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
@@ -52,6 +53,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_mem_pmm_init(mb);
     k_mem_paging_init();
+	k_mem_mmio_init();
     k_mem_heap_init();
 
     k_fs_vfs_init();

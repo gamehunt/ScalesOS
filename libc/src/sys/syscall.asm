@@ -21,7 +21,5 @@ __syscall:
 	pop esi
 	pop ebx
 
-	mov esp, ebp
-    pop ebp
-
+	leave
     ret

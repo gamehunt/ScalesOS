@@ -2,6 +2,7 @@
 #include <kernel/proc/process.h>
 #include <kernel/kernel.h>
 #include <kernel/mem/heap.h>
+#include <kernel/mem/mmio.h>
 #include <kernel/mem/pmm.h>
 #include <kernel/mem/paging.h>
 #include <kernel/util/log.h>
@@ -100,7 +101,6 @@ typedef struct {
 	prdt_t*  prdt;
 	uint8_t* buffer;
 	uint32_t prdt_phys;
-	uint32_t buffer_pd;
 
 	list_t*  blocked_processes;
 } drive_t;
@@ -226,40 +226,21 @@ static const char* drivestr(uint8_t bus, uint8_t drive) {
 }
 
 static void ata_initialize(drive_t* device) {
+	device->prdt   = k_mem_mmio_alloc(MMIO_64KB, &device->prdt_phys);
+	device->buffer = k_mem_mmio_alloc(MMIO_64KB, &device->prdt[0].address);
+	memset(device->buffer, 0x0, KB(64));
+	device->prdt[0].size = 0;
+	device->prdt[0].last = 0x8000;
 	device->blocked_processes = list_create();
 	list_push_back(ata_device_list, device);
 }
 
-static void __ata_create_buffer(drive_t* device, uint32_t size) {
-	uint32_t frame_count = size / 0x1000 + 2;
-
-	paddr_t frames = k_mem_pmm_alloc_frames(frame_count);
-	void*   map    = k_mem_paging_map_mmio(frames, frame_count);
-	
-	device->prdt   = map; 
-	device->buffer = map + 0x1000;
-	memset(device->buffer, 0x00, size);
-
-	device->prdt_phys        = frames;
-	device->prdt[0].address  = frames + 0x1000;
-	device->prdt[0].size     = size;
-	device->prdt[0].last     = 0x8000;
-}
-
-static void __ata_free_buffer(drive_t* device) {
-	uint32_t frame_count = device->prdt[0].size / 0x1000 + 2;
-	for(uint32_t i = 0; i < frame_count; i++) {
-		k_mem_paging_unmap((uint32_t) device->prdt + 0x1000 * i);
-	}
-	k_mem_pmm_free(device->prdt_phys, frame_count);
-}
 
 static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
 	// k_info("ATA read: +%ld, size=%ld", offset, size);
 
 	drive_t* device = (drive_t*) node->inode;
-
-	__ata_create_buffer(device, size);
+	device->prdt[0].size = size;
 
 	ata_write_busmaster_command(device->bus, 0x0);
 
@@ -303,8 +284,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 	if(last_sector) {
 		memcpy(&buffer[full_sectors * 512], &device->buffer[part_offset + full_sectors * 512], last_sector);
 	}
-
-	__ata_free_buffer(device);
 
 	return size;
 }
@@ -417,7 +396,7 @@ K_STATUS load(){
 			busmaster_register = bar4 & 0xFFFFFFFC;
 		} else {
 			busmaster_is_mmio  = 1;
-			busmaster_register = (uint32_t) k_mem_paging_map_mmio(bar4 & 0xFFFFFFF0, 1);
+			busmaster_register = k_mem_mmio_map_register(bar4 & 0xFFFFFFF0, 1);
 		}
 	}
 

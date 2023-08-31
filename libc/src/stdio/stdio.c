@@ -94,11 +94,18 @@ FILE* fopen(const char *path, const char *mode){
 
 int fclose(FILE * stream){
   __sys_close(stream->fd);
+  free(stream->read_buffer);
+  free(stream->write_buffer);
   free(stream);
   return 0;
 }
 
-int fseek(FILE * stream, long offset, int whence){
+int fseek(FILE* stream, long offset, int whence){
+	if(stream->read_ptr && whence == SEEK_CUR) {
+		offset += stream->real_offset + stream->read_ptr;
+		whence = SEEK_SET;	
+	}
+
 	if(stream->write_ptr){
 		fflush(stream);
 	}
@@ -133,8 +140,11 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
 			if(stream->read_buffer_offset == stream->buffer_size) {
 				stream->read_buffer_offset = 0;
 			}
+
+			stream->real_offset = fseek(stream, 0, SEEK_CUR);
 			int32_t r = __sys_read(stream->fd, stream->buffer_size - stream->read_buffer_offset, 
 					(uint32_t) &stream->read_buffer[stream->read_buffer_offset]);
+
 			if(r < 0){
 				break;
 			} else {
@@ -178,18 +188,23 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE* stream){
 char fgetc(FILE* s) {
 	char r;
 	size_t read = fread(&r, 1, 1, s);
-
 	if(read == 0) {
 		s->eof = 1;
 		return EOF;
 	}
-
 	return r;
 }
 
 char*  fgets(char* s, int size, FILE* stream) {
+	if(size <= 1) {
+		return NULL;
+	}
+
 	char* ptr = s;
 	char  c;
+
+	size -= 1;
+
 	while((c = fgetc(stream)) != EOF) {
 		*s = c;
 		s++;

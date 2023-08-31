@@ -222,8 +222,12 @@ static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t poi
 }
 
 static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, uint32_t offset, uint32_t size, uint8_t* buffer) {
-	if(offset > inode->size_low) {
+	if(offset >= inode->size_low) {
 		return 0;
+	}
+
+	if(offset + size >= inode->size_low) {
+		size = inode->size_low - offset;
 	}
 
 	uint32_t block_size = BLOCK_SIZE(fs->superblock);
@@ -254,6 +258,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 		
 		if(size <= block_size) {
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], size);
+			buffer_offset += size;
 			break;
 		} else{
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], block_size - part_offset);
@@ -305,6 +310,10 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 }
 
 static uint32_t __ext2_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!size) {
+		return 0;
+	}
+
 	ext2_fs_t* fs = node->device;
 	if(!fs) {
 		return -1;

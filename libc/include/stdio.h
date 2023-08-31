@@ -24,6 +24,7 @@ typedef struct {
 	uint32_t read_buffer_offset;
 	uint32_t write_ptr;
 	uint32_t available;
+	uint32_t real_offset;
 	uint8_t  eof;
 	char     ungetc;
 } FILE;

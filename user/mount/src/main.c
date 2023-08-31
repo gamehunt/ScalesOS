@@ -14,7 +14,7 @@ static void mount_all() {
 	char    line[255];
 
 	if(fstab) {
-		while(fgets(line, 255, fstab) > 0) {
+		while(fgets(line, 255, fstab)) {
 			size_t size = strlen(line);
 
 			if(line[size - 1] == '\n') {
@@ -22,6 +22,10 @@ static void mount_all() {
 			}
 
 			if(line[0] == '#') {
+				continue;
+			}
+
+			if(strlen(line) == 0) {
 				continue;
 			}
 
@@ -48,7 +52,7 @@ static void mount_all() {
 			size_t offset = 0;
 			if(!strcmp(args[0], "/")) {
 				reopen = 1;
-				offset = ftell(fstab);
+				offset = fseek(fstab, 0, SEEK_CUR);
 				fclose(fstab);
 				umount("/");
 			}
@@ -85,6 +89,6 @@ int main(int argc, char** argv) {
 		}
 		mount_all();
 	}
-
+	
 	return 0;
 }

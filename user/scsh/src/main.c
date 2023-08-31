@@ -22,7 +22,7 @@ int try_builtin_command(const char* op, int argc, char** argv) {
 int execute(char* path, int argc, char** argv) {
 	FILE* script = fopen(path, "r");
 	if(!script) {
-		fprintf(stderr, "%s: no such file", path);
+		fprintf(stderr, "%s: no such file\r\n", path);
 		return 1;
 	}
 	
@@ -90,12 +90,14 @@ int execute(char* path, int argc, char** argv) {
 			if(test) {
 				fclose(test);
 				execve(path, _op_argv, 0);
+				fprintf(stderr, "Failed to execute: %s\r\n", path);
 				exit(1);
 			} else {
 				if(try_builtin_command(op, _op_argc, _op_argv)){
 					fprintf(stderr, "No such command: %s\r\n", op);
 					exit(1);
 				}
+				exit(0);
 			}
 		}
 
@@ -119,7 +121,7 @@ int execute(char* path, int argc, char** argv) {
 }
 
 int interactive() {
-	fprintf(stderr, "interactive(): UNIMPL.");
+	fprintf(stderr, "interactive(): UNIMPL.\r\n");
 	return 0;
 }
 

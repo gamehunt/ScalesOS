@@ -1,6 +1,7 @@
 #include "dev/pci.h"
 #include "dev/rtc.h"
 #include "kernel.h"
+#include "mem/mmio.h"
 #include "mem/paging.h"
 #include "proc/smp.h"
 #include "util/asm_wrappers.h"
@@ -341,8 +342,7 @@ void k_dev_acpi_reboot() {
 	} 
 	switch(fadt->reset_reg.address_space) {
 		case 0: /*Memory mapped*/
-			k_mem_paging_map(fadt->reset_reg.address, fadt->reset_reg.address, 0);
-			*((uint8_t*)fadt->reset_reg.address) = fadt->reset_value;
+			*((uint8_t*)k_mem_mmio_map_register(fadt->reset_reg.address, 1)) = fadt->reset_value;
 		case 1: /*System IO*/
 			outb(fadt->reset_reg.address, fadt->reset_value);
 		case 2: /*PCI*/

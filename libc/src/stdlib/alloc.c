@@ -33,7 +33,7 @@ uint32_t __mem_grow_heap(int32_t size) {
 	return __sys_grow(size);
 }
 
-void    __mem_init_heap() {
+void __mem_init_heap() {
 	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
 }
 #endif
