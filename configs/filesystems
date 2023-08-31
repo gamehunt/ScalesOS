@@ -1,2 +1,3 @@
 / /dev/hda0 ext2
 /ramdisk /dev/ram0 tar
+/tmp none tmpfs

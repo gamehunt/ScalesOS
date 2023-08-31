@@ -243,8 +243,12 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 		return 0;
 	}
 
-	if(size + offset <= node->size) {
+	if(offset > node->size) {
 		return 0;
+	}
+
+	if(size + offset >= node->size) {
+		size = node->size - offset;
 	}
 
 	// k_info("ATA read: +%ld, size=%ld", offset, size);

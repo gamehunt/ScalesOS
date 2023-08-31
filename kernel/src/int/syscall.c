@@ -2,6 +2,8 @@
 #include "dev/acpi.h"
 #include "dev/timer.h"
 #include "dirent.h"
+#include "errno.h"
+#include "fs/pipe.h"
 #include "fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
@@ -281,6 +283,45 @@ uint32_t sys_umount(const char* path) {
 	return k_fs_vfs_umount(path);
 }
 
+uint32_t sys_mkfifo(const char* path, int mode UNUSED) {
+	k_debug("Creating pipe at %s", path);
+	fs_node_t* node = k_fs_pipe_create(4096);
+	node->mode = O_RDWR;
+	k_fs_vfs_mount_node(path, node);
+	return k_proc_process_open_node(k_proc_process_current(), node);
+}
+
+uint32_t sys_dup2(int fd1, int fd2) {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* fds = &proc->fds;
+
+	if(fd1 < 0) {
+		return -EINVAL;
+	}
+
+	if((uint32_t) fd1 >= fds->size || !fds->nodes[fd1]) {
+		return -EINVAL;
+	}
+
+	if(fd2 < 0) {
+		fd2 = 0;
+		while((uint32_t) fd2 < fds->size && fds->nodes[fd2]) {
+			fd2++;
+		}	
+	}
+
+	if((uint32_t) fd2 >= fds->size) {
+		uint32_t difference = fds->size - fd2 + 1;
+		fds->size += difference;
+		fds->nodes = realloc(fds->nodes, fds->size * sizeof(fd_t*));
+	}
+
+	fds->nodes[fd2] = fds->nodes[fd1];
+
+	return fd2;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -304,6 +345,8 @@ DEFN_SYSCALL3(sys_readdir, uint32_t, uint32_t, struct dirent*);
 DEFN_SYSCALL3(sys_seek, uint32_t, uint32_t, uint8_t);
 DEFN_SYSCALL3(sys_mount, const char*, const char*, const char*);
 DEFN_SYSCALL1(sys_umount, const char*);
+DEFN_SYSCALL2(sys_mkfifo, const char*, int);
+DEFN_SYSCALL2(sys_dup2, int, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -332,6 +375,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_SEEK, REF_SYSCALL(sys_seek));
 	k_int_syscall_setup_handler(SYS_MOUNT, REF_SYSCALL(sys_mount));
 	k_int_syscall_setup_handler(SYS_UMOUNT, REF_SYSCALL(sys_umount));
+	k_int_syscall_setup_handler(SYS_MKFIFO, REF_SYSCALL(sys_mkfifo));
+	k_int_syscall_setup_handler(SYS_DUP2, REF_SYSCALL(sys_dup2));
     
 	return K_STATUS_OK;
 }

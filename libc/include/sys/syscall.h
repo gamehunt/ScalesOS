@@ -26,6 +26,8 @@
 #define SYS_SEEK         20
 #define SYS_MOUNT        21
 #define SYS_UMOUNT       22
+#define SYS_MKFIFO       23
+#define SYS_DUP2         24
 
 #define SYS_DEBUG        255
 
@@ -62,6 +64,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_seek(fd, offset, origin)          __syscall(SYS_SEEK, fd, offset, origin, UNUSED2)
 #define __sys_mount(path, device, type)         __syscall(SYS_MOUNT, path, device, type, UNUSED2)
 #define __sys_umount(path)                      __syscall(SYS_UMOUNT, path, UNUSED4)
+#define __sys_mkfifo(path, mode)                __syscall(SYS_MKFIFO, path, mode, UNUSED3)
+#define __sys_dup2(fd1, fd2)                    __syscall(SYS_DUP2, fd1, fd2, UNUSED3)
 
 #define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 

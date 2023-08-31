@@ -411,7 +411,7 @@ uint32_t k_proc_process_fork() {
 	new->context.ebp = new->image.kernel_stack;
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
 
-	new->fds.nodes = k_malloc(sizeof(fd_t*) * src->fds.size);
+	new->fds.nodes = k_calloc(src->fds.size, sizeof(fd_t*));
 	for(uint32_t i = 0; i < src->fds.size; i++) {
 		fd_t* original_node = src->fds.nodes[i];
 		if(!original_node) {
@@ -432,7 +432,7 @@ uint32_t k_proc_process_fork() {
 uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
 	LOCK(process->fds.lock);
 
-	fd_t* fdt = k_malloc(sizeof(fd_t));
+	fd_t* fdt   = k_malloc(sizeof(fd_t));
 	fdt->node   = node;
 	fdt->offset = 0;
 	
@@ -447,6 +447,7 @@ uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
 		for(uint32_t i = 0; i < process->fds.size; i++) {
 			if(!process->fds.nodes[i]){
 				process->fds.nodes[i] = fdt;
+				process->fds.amount++;
 				UNLOCK(process->fds.lock);
 				return i;
 			}
@@ -502,6 +503,14 @@ void k_proc_process_exit(process_t* process, int code) {
 	k_free(list->nodes);
 
 	process->state = PROCESS_STATE_FINISHED;
+
+	LOCK(process_tree->root->children->lock);
+	for(uint32_t i = 0; i < process->node->children->size; i++) {
+		tree_node_t* node = (tree_node_t*) process->node->children->data[i];
+		node->parent = process_tree->root;
+		list_push_back(process_tree->root->children, node);
+	}
+	UNLOCK(process_tree->root->children->lock);
 
 	if(process->node->parent) {
 		process_t* parent = process->node->parent->value;

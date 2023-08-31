@@ -1,3 +1,3 @@
 #!/bin/scsh
 
-echo ABEBA
+echo ABEBA > /etc/splash

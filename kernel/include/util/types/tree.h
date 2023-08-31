@@ -7,10 +7,10 @@
 struct tree;
 
 typedef struct tree_node{
-    struct tree* tree;
+    struct tree*       tree;
     struct tree_node*  parent;
 	list_t*            children;
-    void*         value;
+    void*              value;
 }tree_node_t;
 
 typedef struct tree{

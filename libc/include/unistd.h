@@ -17,6 +17,9 @@ int execve(const char *filename, char *const argv [], char *const envp[]);
 unsigned int sleep(unsigned int seconds);
 unsigned int usleep(unsigned long usec);
 
+int dup(int oldfd);
+int dup2(int oldfd, int newfd);
+
 #endif
 
 #endif

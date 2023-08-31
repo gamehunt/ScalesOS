@@ -8,6 +8,7 @@ typedef struct pipe{
     uint32_t size;
     uint32_t write_ptr;
     uint32_t read_ptr;
+	list_t*  wait_queue;
 } pipe_t;
 
 fs_node_t* k_fs_pipe_create(uint32_t size);

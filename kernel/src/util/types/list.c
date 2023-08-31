@@ -18,11 +18,13 @@ void list_free(list_t* list){
 
 void list_push_front(list_t* list, void* data){
 	EXTEND(list->data, list->size, sizeof(void*));
-	memmove(list->data + 1, list->data, (list->size - 1) * sizeof(void*));
+	if(list->size > 1) {
+		memmove(list->data + 1, list->data, (list->size - 1) * sizeof(void*));
+	}
 	list->data[0] = data;
 }
 
-void list_push_back(list_t* list, void* data){
+void list_push_back(list_t* list, void* data) {
 	EXTEND(list->data, list->size, sizeof(void*));
 	list->data[list->size - 1] = data;
 }
@@ -37,6 +39,7 @@ void* list_pop_back(list_t* list){
 		list->data = k_realloc(list->data, list->size * sizeof(void*));
 	} else {
 		k_free(list->data);
+		list->data = 0;
 	}
 	return data;
 }
@@ -49,6 +52,7 @@ void* list_pop_front(list_t* list){
 	list->size--;
     if(!list->size){
         k_free(list->data);
+		list->data = 0;
     }else{
 	    memmove(list->data, list->data + 1, list->size * sizeof(void*));
 	    list->data = k_realloc(list->data, list->size * sizeof(void*));
@@ -68,6 +72,7 @@ void list_delete_element(list_t* list, void* data){
                 list->data = k_realloc(list->data, list->size * sizeof(void*));
             }else{
                 k_free(list->data);
+				list->data = 0;
             }
             break;
         }

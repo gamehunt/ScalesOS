@@ -79,17 +79,21 @@ static uint32_t __mode_to_options(const char* mode) {
 	return 0;
 }
 
+FILE* fdopen(int fildes, const char *mode) {
+  FILE* file = calloc(1, sizeof(FILE));
+  file->fd = fildes;
+  file->write_buffer = malloc(BUFSIZE);
+  file->read_buffer  = malloc(BUFSIZE);
+  file->buffer_size  = BUFSIZE;
+  return file;
+}
+
 FILE* fopen(const char *path, const char *mode){
   uint32_t fd = __sys_open((uint32_t) path, __mode_to_options(mode), 0);
   if(!fd) {
 	  return NULL;
   }
-  FILE* file = calloc(1, sizeof(FILE));
-  file->fd = fd;
-  file->write_buffer = malloc(BUFSIZE);
-  file->read_buffer  = malloc(BUFSIZE);
-  file->buffer_size  = BUFSIZE;
-  return file;
+  return fdopen(fd, mode);
 }
 
 int fclose(FILE * stream){
@@ -99,6 +103,7 @@ int fclose(FILE * stream){
   free(stream);
   return 0;
 }
+
 
 int fseek(FILE* stream, long offset, int whence){
 	if(stream->read_ptr && whence == SEEK_CUR) {
@@ -225,3 +230,20 @@ char*  fgets(char* s, int size, FILE* stream) {
 
 	return NULL;
 }
+
+void clearerr(FILE *stream) {
+	stream->eof = 0;
+}
+
+int feof(FILE *stream) {
+	return stream->eof;
+}
+
+int ferror(FILE *stream) {
+	return 0;
+}
+
+int fileno(FILE *stream) {
+	return stream->fd;
+} 
+

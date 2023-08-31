@@ -1,3 +1,3 @@
 #!/bin/scsh
 
-echo ABOBA
+echo ABOBA > /tmp/splash

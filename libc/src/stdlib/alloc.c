@@ -122,12 +122,14 @@ static void __mem_merge(){
 
 static uint32_t __allocated = 0;
 static uint32_t __freed     = 0;
+static uint32_t __last_alloc_address = 0;
 
 uint32_t __heap_usage() {
 	return __allocated - __freed;
 }
 
 void* malloc(size_t size){
+
     __mem_merge();
 
     mem_block_t* block            = heap;
@@ -142,10 +144,11 @@ void* malloc(size_t size){
     if(!__mem_heap_is_valid_block(block)){
 #ifdef __LIBK
 		// k_d_mem_heap_print();
-		k_err("Pre-Last block: %d", last_valid_block->size);
+		k_err("Last allocation was from 0x%.8x", __last_alloc_address);
+		k_err("Pre-Last block: 0x%.8x %d", last_valid_block, last_valid_block->size);
 		k_err("Last block: 0x%.8x", block);
 		if(IS_VALID_PTR((uint32_t) block)) {
-			k_info("%d 0x%.8x", block->size, block->next);
+			k_err("%d 0x%.8x", block->size, block->next);
 		}
 		k_err("Allocation size: %d (used: %d/%d KB)", size, __heap_usage() / 1024, HEAP_SIZE / 1024);
 		k_panic("Out of memory.", 0);
@@ -157,6 +160,8 @@ void* malloc(size_t size){
 		heap_size += grow;
 #endif
     }
+
+	__last_alloc_address = (uint32_t) __builtin_return_address(0);
 
     if(block->size == size){
         block->flags &= ~M_BLOCK_FREE;
@@ -177,7 +182,7 @@ void* malloc(size_t size){
     }
 }
 
-void *calloc(size_t num, size_t size){
+void* calloc(size_t num, size_t size){
     void* mem = malloc(num * size);
     memset(mem, 0, num * size);
     return mem;
@@ -185,11 +190,14 @@ void *calloc(size_t num, size_t size){
 
 void* realloc(void* old, size_t size){
     mem_block_t* hdr = M_HEADER(old);
+	if(hdr->size == size) {
+		return old;
+	}
     void* new_ptr    = malloc(size);
     size_t copy_size = 0;
     if(size > hdr->size){
         copy_size = hdr->size;
-    }else{
+    } else {
         copy_size = size;
     }
     memmove(new_ptr, old, copy_size);

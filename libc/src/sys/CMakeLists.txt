@@ -6,6 +6,7 @@ set(SOURCES
 	times.c
 	time.c
 	mount.c
+	stat.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

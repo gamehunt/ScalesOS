@@ -1,5 +1,7 @@
 #include "fs/vfs.h"
 #include "mem/heap.h"
+#include "proc/process.h"
+#include "util/types/list.h"
 #include <fs/pipe.h>
 #include <string.h>
 
@@ -45,10 +47,14 @@ static uint32_t  __k_fs_pipe_write(fs_node_t* node, uint32_t offset UNUSED, uint
     pipe_t* dev = node->device;
 
     for(uint32_t i = 0; i < size; i++){
-        while(!__k_fs_pipe_write_available(dev));
+		while(!__k_fs_pipe_write_available(dev)){
+			k_proc_process_sleep_on_queue(k_proc_process_current(), dev->wait_queue);
+		}
         dev->buffer[i] = buffer[i];
         __k_fs_pipe_bump_write_ptr(dev);
     }
+
+	k_proc_process_wakeup_queue(dev->wait_queue);
 
     return size;
 }
@@ -57,10 +63,14 @@ static uint32_t  __k_fs_pipe_read(fs_node_t* node, uint32_t offset UNUSED, uint3
     pipe_t* dev = node->device;
 
     for(uint32_t i = 0; i < size; i++){
-        while(!__k_fs_pipe_read_available(dev));
+		while(!__k_fs_pipe_read_available(dev)) {
+			k_proc_process_sleep_on_queue(k_proc_process_current(), dev->wait_queue);
+		}
         buffer[i] = dev->buffer[i];
         __k_fs_pipe_bump_read_ptr(dev);
     }
+
+	k_proc_process_wakeup_queue(dev->wait_queue);
 
     return size;
 }
@@ -74,12 +84,15 @@ fs_node_t* k_fs_pipe_create(uint32_t size){
     pipe->write_ptr  = 0;
     pipe->read_ptr   = 0;
     pipe->buffer     = k_calloc(1, size);
+	pipe->wait_queue = list_create();
 
     node->size       = size;
     node->device     = pipe;
 
     node->fs.write   = __k_fs_pipe_write;
     node->fs.read    = __k_fs_pipe_read;
+
+	node->links      = 1;
 
     return node;
 }
