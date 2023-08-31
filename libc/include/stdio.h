@@ -38,7 +38,6 @@ extern FILE* stdin ;
 extern FILE* stdout;
 extern FILE* stderr;
 
-
 FILE*  fopen(const char *path, const char *mode);
 FILE*  fdopen(int fildes, const char *mode);
 int    fclose(FILE * stream);
@@ -52,10 +51,12 @@ int    vfprintf(FILE * device, const char *format, va_list ap);
 int    puts(const char *str);
 char   fgetc(FILE* s);
 char*  fgets(char *s, int size, FILE *stream);
+int    fputc(int ch, FILE *stream);
 void   clearerr(FILE *stream);
 int    feof(FILE *stream);
 int    ferror(FILE *stream);
 int    fileno(FILE *stream);  
+void   setbuf(FILE *stream, char *buf);
 
 #endif
 

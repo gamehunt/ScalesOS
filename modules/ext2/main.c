@@ -183,7 +183,15 @@ typedef struct {
 
 
 static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t block, uint8_t* buffer) {
-	return k_fs_vfs_read(fs->device, block * BLOCK_SIZE(fs->superblock), BLOCK_SIZE(fs->superblock), buffer);	
+	if(block > fs->superblock->total_blocks) {
+		k_warn("ext2_read_block(): tried to read invalid block %d", block);
+		return 0;
+	}
+	uint32_t read = k_fs_vfs_read(fs->device, block * BLOCK_SIZE(fs->superblock), BLOCK_SIZE(fs->superblock), buffer);	
+	if(read != (uint32_t) BLOCK_SIZE(fs->superblock)) {
+		k_warn("ext2_read_block(): partial read. Read only %d/%d bytes of block %d", read, BLOCK_SIZE(fs->superblock), block);
+	}
+	return read;
 }
 
 static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t pointer, uint32_t block_offset) {
@@ -288,7 +296,6 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	uint32_t table_block_offset = group * sizeof(ext2_block_group_descriptor_t) / block_size;
 	uint32_t table_block = (BLOCK_SIZE(fs->superblock) == 1024 ? 2 : 1) + table_block_offset; 
 	uint32_t shifted_group = group - table_block_offset * block_size / sizeof(ext2_block_group_descriptor_t);
-
 	__ext2_read_block(fs, table_block, buffer);
 
 	ext2_block_group_descriptor_t* block_group_table = buffer;

@@ -136,10 +136,13 @@ int vfprintf(FILE* device, const char *format, va_list argptr){
 	return result;
 }
 
-size_t fread(void *ptr, size_t size, size_t nmemb, FILE * stream){
+size_t fread(void *ptr, size_t size, size_t nmemb, FILE* stream){
 	uint32_t len = size * nmemb;
 	uint32_t read = 0;
 	char* buf = (char*) ptr;
+	if(!stream->read_buffer) {
+		return __sys_read(stream->fd, len, (uint32_t) buf);
+	}
 	while(len > 0) {
 		if(!stream->available) {
 			if(stream->read_buffer_offset == stream->buffer_size) {
@@ -179,13 +182,18 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE* stream){
 	uint32_t len = size * nmemb;
 	uint32_t written = len;
 	char* buf = (char*) ptr;
+	if(!stream->write_buffer) {
+		return __sys_write(stream->fd, len, (uint32_t) buf);
+	}
 	while(len > 0) {
-		stream->write_buffer[stream->write_ptr++] = *buf;
-		if(stream->write_ptr == stream->buffer_size || (*buf == '\n')) {
-			fflush(stream);
-		}
-		buf++;
-		len--;
+		if(stream->write_buffer) {
+			stream->write_buffer[stream->write_ptr++] = *buf;
+			if(stream->write_ptr == stream->buffer_size || (*buf == '\n')) {
+				fflush(stream);
+			}
+			buf++;
+			len--;
+		} 	
 	}
 	return written;
 }
@@ -198,6 +206,15 @@ char fgetc(FILE* s) {
 		return EOF;
 	}
 	return r;
+}
+
+int fputc(int ch, FILE *stream) {
+	size_t written = fwrite(&ch, 1, 1, stream);
+	if(written == 0) {
+		stream->eof = 1;
+		return EOF;
+	}
+	return ch;
 }
 
 char*  fgets(char* s, int size, FILE* stream) {
@@ -247,3 +264,24 @@ int fileno(FILE *stream) {
 	return stream->fd;
 } 
 
+void  setbuf(FILE* stream, char* buf) {
+	stream->read_ptr = 0;
+	stream->write_ptr = 0;
+	stream->read_buffer_offset = 0;
+	stream->available = 0;
+	if(!buf) {
+		if(stream->read_buffer) {
+			free(stream->read_buffer);
+			stream->read_buffer = 0;
+		}
+		if(stream->write_buffer) {
+			free(stream->write_buffer);
+			stream->write_buffer = 0;
+		}
+		stream->buffer_size = 0;
+	} else {
+		stream->write_buffer = buf;
+		stream->read_buffer  = buf;
+		stream->buffer_size  = BUFSIZE;
+	}
+}

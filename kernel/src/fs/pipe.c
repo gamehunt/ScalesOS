@@ -1,6 +1,7 @@
 #include "fs/vfs.h"
 #include "mem/heap.h"
 #include "proc/process.h"
+#include "util/log.h"
 #include "util/types/list.h"
 #include <fs/pipe.h>
 #include <string.h>
@@ -50,7 +51,7 @@ static uint32_t  __k_fs_pipe_write(fs_node_t* node, uint32_t offset UNUSED, uint
 		while(!__k_fs_pipe_write_available(dev)){
 			k_proc_process_sleep_on_queue(k_proc_process_current(), dev->wait_queue);
 		}
-        dev->buffer[i] = buffer[i];
+        dev->buffer[dev->write_ptr] = buffer[i];
         __k_fs_pipe_bump_write_ptr(dev);
     }
 
@@ -66,7 +67,7 @@ static uint32_t  __k_fs_pipe_read(fs_node_t* node, uint32_t offset UNUSED, uint3
 		while(!__k_fs_pipe_read_available(dev)) {
 			k_proc_process_sleep_on_queue(k_proc_process_current(), dev->wait_queue);
 		}
-        buffer[i] = dev->buffer[i];
+        buffer[i] = dev->buffer[dev->read_ptr];
         __k_fs_pipe_bump_read_ptr(dev);
     }
 

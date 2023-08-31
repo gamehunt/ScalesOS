@@ -10,9 +10,9 @@
 #include <sys/mount.h>
 
 void init_output() {
-	__sys_open((uint32_t) "/dev/null", O_RDONLY, 0); // stdin
-	__sys_open((uint32_t) "/dev/null", O_WRONLY, 0); // stdout
-	__sys_open((uint32_t) "/dev/null", O_WRONLY, 0); // stderr
+	__sys_open((uint32_t) "/dev/console", O_RDONLY, 0); // stdin
+	__sys_open((uint32_t) "/dev/console", O_WRONLY, 0); // stdout
+	__sys_open((uint32_t) "/dev/console", O_WRONLY, 0); // stderr
 }
 
 static uint8_t load_modules() {
@@ -145,6 +145,7 @@ int main(int argc, char** argv){
 		execute("/bin/getty", NULL, NULL);
 	}
 
+	dump("/");
 	while(1);
 
 	__sys_reboot();

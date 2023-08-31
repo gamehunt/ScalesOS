@@ -72,14 +72,14 @@ int execute(char* path, int argc, char** argv) {
 				continue;
 			}
 
-			if(!strcmp(word, ">")) {
+			if(!strcmp(word, "<")) {
 				parse_pipe = 2;
 				word = strtok(NULL, " ");
 				continue;
 			}
 
 			if(parse_pipe == 1) {
-				out_pipe = fopen(word, "r");
+				out_pipe = fopen(word, "w");
 				parse_pipe = 0;
 				word = strtok(NULL, " ");
 				continue;

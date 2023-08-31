@@ -35,6 +35,7 @@
 #include "proc/process.h"
 #include "util/exec.h"
 #include "util/panic.h"
+#include "util/types/list.h"
 
 extern void _libk_set_print_callback(void*);
 
@@ -55,6 +56,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_paging_init();
 	k_mem_mmio_init();
     k_mem_heap_init();
+
 
     k_fs_vfs_init();
     k_dev_console_init();

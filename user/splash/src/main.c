@@ -11,6 +11,8 @@ int main(int argc, char** argv) {
 	if(!(pipe = fdopen(pipefd, "r"))) {
 		return 1;
 	}
+
+	setbuf(pipe, 0);
 	
 	if(!(console = fopen("/dev/console", "w"))) {
 		return 2;
@@ -20,10 +22,7 @@ int main(int argc, char** argv) {
 		fprintf(console, "Loading ScalesOS...\r\n");
 
 		while(1) {
-			char line[256];
-			while(fgets(line, 256, pipe)) {
-				fprintf(console, "%s\r\n", line);	
-			}
+			fprintf(console, "%c", fgetc(pipe));	
 		}
 	}
 

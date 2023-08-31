@@ -2,6 +2,7 @@
 
 #include "mem/heap.h"
 #include "string.h"
+#include "util/log.h"
 #include <string.h>
 
 list_t* list_create(){
@@ -67,7 +68,7 @@ void list_delete_element(list_t* list, void* data){
             list->size--;
             if(list->size){
 				if(i != list->size) {
-                	memmove(list->data + i, list->data + i + 1, list->size * sizeof(void*));
+                	memmove(list->data + i, list->data + i + 1, (list->size - i) * sizeof(void*));
 				}
                 list->data = k_realloc(list->data, list->size * sizeof(void*));
             }else{

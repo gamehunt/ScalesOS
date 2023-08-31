@@ -269,12 +269,14 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 		memcpy(buffer, &device->buffer[part_offset], size);
 		return size;
 	} else if(device->last_read_sector < lba_offset && device->last_read_sector + device->last_read_size > lba_offset) {
-		target_offset = (lba_offset - device->last_read_sector) * 512;
-		uint32_t read_size = (device->last_read_sector + device->last_read_size - lba_offset) * 512;
+		target_offset = (lba_offset - device->last_read_sector) * 512 + part_offset;
+		uint32_t read_size = (device->last_read_sector + device->last_read_size - lba_offset) * 512 - part_offset;
 		if(read_size > size) {
 			read_size = size;
 		}
+		part_offset = 0;
 		memcpy(buffer, &device->buffer[target_offset], read_size);
+		target_offset = read_size;
 		dma_size  -= target_offset / 512;
 		lba_offset = device->last_read_sector + device->last_read_size;
 		if(read_size == size) {
@@ -314,7 +316,7 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
 
-	memcpy(&buffer[target_offset * 512], &device->buffer[part_offset], size);
+	memcpy(&buffer[target_offset], &device->buffer[part_offset], size);
 
 	return size;
 }
