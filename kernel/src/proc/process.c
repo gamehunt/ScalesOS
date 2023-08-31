@@ -243,8 +243,12 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
     }
 
     uint8_t* buffer = k_malloc(node->size);
-    k_fs_vfs_read(node, 0, node->size, buffer);
+    uint32_t read = k_fs_vfs_read(node, 0, node->size, buffer);
     k_fs_vfs_close(node);
+	if(read != node->size) {
+		k_err("Failed to read whole file.");
+		return -4;
+	}
 
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
