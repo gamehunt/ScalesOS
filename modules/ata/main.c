@@ -102,6 +102,9 @@ typedef struct {
 	uint8_t* buffer;
 	uint32_t prdt_phys;
 
+	uint32_t last_read_sector;
+	uint32_t last_read_size;
+
 	list_t*  blocked_processes;
 } drive_t;
 
@@ -235,11 +238,49 @@ static void ata_initialize(drive_t* device) {
 	list_push_back(ata_device_list, device);
 }
 
-
 static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!size) {
+		return 0;
+	}
+
+	if(size + offset <= node->size) {
+		return 0;
+	}
+
 	// k_info("ATA read: +%ld, size=%ld", offset, size);
 
 	drive_t* device = (drive_t*) node->inode;
+
+	uint32_t lba_offset  = offset / 512;
+	uint32_t part_offset = offset % 512;
+
+	uint32_t full_sectors = size / 512;
+	uint32_t last_sector  = size % 512 - part_offset;
+
+	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
+
+	uint32_t target_offset = 0;
+
+	if(device->last_read_sector == lba_offset && device->last_read_size >= dma_size) {
+		memcpy(buffer, &device->buffer[part_offset], size);
+		return size;
+	} else if(device->last_read_sector < lba_offset && device->last_read_sector + device->last_read_size > lba_offset) {
+		target_offset = (lba_offset - device->last_read_sector) * 512;
+		uint32_t read_size = (device->last_read_sector + device->last_read_size - lba_offset) * 512;
+		if(read_size > size) {
+			read_size = size;
+		}
+		memcpy(buffer, &device->buffer[target_offset], read_size);
+		dma_size  -= target_offset / 512;
+		lba_offset = device->last_read_sector + device->last_read_size;
+		if(read_size == size) {
+			return size;
+		}
+	}
+
+	device->last_read_sector = lba_offset;
+	device->last_read_size   = dma_size;
+
 	device->prdt[0].size = size;
 
 	ata_write_busmaster_command(device->bus, 0x0);
@@ -256,14 +297,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	outb(ATA_FEAT(device->bus), 0);
 
-	uint32_t lba_offset  = offset / 512;
-	uint32_t part_offset = offset % 512;
-
-	uint32_t full_sectors = size / 512;
-	uint32_t last_sector  = size % 512 - part_offset;
-
-	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
-
 	outb(ATA_SECCOUNT(device->bus), dma_size);
 	outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba_offset & 0xFF));
 	outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba_offset & 0xFF00) >> 8));
@@ -277,13 +310,7 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
 
-	for(uint32_t i = 0; i < full_sectors; i++) {
-		memcpy(&buffer[i * 512], &device->buffer[part_offset + i * 512], 512);
-	}
-
-	if(last_sector) {
-		memcpy(&buffer[full_sectors * 512], &device->buffer[part_offset + full_sectors * 512], last_sector);
-	}
+	memcpy(&buffer[target_offset * 512], &device->buffer[part_offset], size);
 
 	return size;
 }
@@ -322,6 +349,7 @@ static void detect_drives() {
 				k_free(device_name);
 
 				node->inode = (uint32_t) device;
+				node->size = device->lba28_sectors * 512;
 				node->fs.read = &ata_read;
 
 				k_fs_vfs_mount_node(device_path, node);

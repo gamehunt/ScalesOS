@@ -250,6 +250,7 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		return -4;
 	}
 
+
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 

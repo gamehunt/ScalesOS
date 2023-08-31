@@ -57,6 +57,7 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 			__builtin_unreachable();
 		} else {
 			k_debug("Debug syscall.");
+			k_debug("%.08x %.08x %.08x", ctx->eip, ctx->esp, ctx->ebp);
 			return ctx;
 		}
 	}

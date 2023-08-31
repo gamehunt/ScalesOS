@@ -131,7 +131,7 @@ typedef struct {
 	uint32_t journal_inode;
 	uint32_t journal_dev;
 	uint32_t orphan_inodes_list;
-	uint8_t  pad[787];
+	uint8_t  pad[788];
 } __attribute__((packed)) ext2_superblock_t;
 
 typedef struct {
@@ -256,7 +256,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 
 		__ext2_read_block(fs, target_block, block_buffer);
 		
-		if(size <= block_size) {
+		if(size <= block_size - part_offset) {
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], size);
 			buffer_offset += size;
 			break;
@@ -265,6 +265,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 			size -= (block_size - part_offset);
 			buffer_offset += (block_size - part_offset);
 			part_offset = 0;
+			block_offset++;
 		}
 	}
 

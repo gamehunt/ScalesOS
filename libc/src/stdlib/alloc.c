@@ -26,15 +26,20 @@ mem_block_t* heap      = (mem_block_t*) HEAP_START;
 
 #include "sys/syscall.h"
 
-mem_block_t* heap      = (mem_block_t*) USER_HEAP_START;
+mem_block_t* heap         = (mem_block_t*) USER_HEAP_START;
 static uint32_t heap_size = USER_HEAP_INITIAL_SIZE;
 
-uint32_t __mem_grow_heap(int32_t size) {
+static uint32_t __mem_grow_heap(int32_t size) {
 	return __sys_grow(size);
 }
 
 void __mem_init_heap() {
 	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
+}
+
+extern void _debug(int mode);
+void __test() {
+	_debug(1);
 }
 #endif
 
