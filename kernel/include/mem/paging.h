@@ -10,6 +10,7 @@ void     k_mem_paging_init();
 addr_t   k_mem_paging_get_pd(uint8_t phys);
 void     k_mem_paging_set_pd(addr_t addr, uint8_t phys, uint8_t force);
 addr_t   k_mem_paging_clone_pd(vaddr_t pd, uint32_t* phys);
+addr_t   k_mem_paging_clone_root();
 paddr_t  k_mem_paging_virt2phys(vaddr_t vaddr);
 void     k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags);
 void     k_mem_paging_unmap(vaddr_t vaddr);

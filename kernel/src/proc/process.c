@@ -100,6 +100,7 @@ static process_t* __k_proc_process_create_init() {
     strcpy(proc->name, "[init]");
 
 	proc->pid = 1;
+	proc->state = PROCESS_STATE_STARTING;
 
     __k_proc_process_create_kernel_stack(proc);
 
@@ -178,6 +179,8 @@ void k_proc_process_switch() {
 		new_proc = k_proc_process_next();
 	}while(new_proc->state == PROCESS_STATE_FINISHED);
 
+	// k_debug("Switching to %s...", new_proc->name);
+
     current_core->current_process = new_proc;
 
 	__k_proc_process_update_stats();
@@ -250,7 +253,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		return -4;
 	}
 
-
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
@@ -260,15 +262,14 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 	k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
 	//TODO release old directory
 
-    k_info("Executing: %s", proc->name);
-
 	proc->image.heap       = USER_HEAP_START;
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
 	proc->image.user_stack = USER_STACK_START + USER_STACK_SIZE;
 
     uint32_t entry;
     if ((entry = k_mod_elf_load_exec(buffer))) {
-        k_free(buffer);
+
+		k_free(buffer);
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START,  0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
@@ -794,4 +795,32 @@ void k_proc_process_return_from_signal(interrupt_context_t* ctx) {
 	}
 
 	//TODO restart syscall
+}
+
+extern void __k_proc_process_enter_tasklet(void);
+
+pid_t k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* data) {
+	process_t* proc = k_calloc(1, sizeof(process_t));
+	strcpy(proc->name, name);
+
+	proc->pid = __k_proc_process_allocate_pid();
+	proc->flags = PROCESS_FLAG_TASKLET;
+	proc->state = PROCESS_STATE_STARTING;
+
+	proc->image.page_directory = k_mem_paging_virt2phys(k_mem_paging_clone_root());
+	__k_proc_process_create_kernel_stack(proc);
+
+	PUSH(proc->image.kernel_stack, uintptr_t, entry);
+	PUSH(proc->image.kernel_stack, void*, data);
+
+	proc->context.ebp = proc->image.kernel_stack;
+	proc->context.esp = proc->image.kernel_stack;
+	proc->context.eip = (uintptr_t) &__k_proc_process_enter_tasklet;
+
+	proc->wait_queue = list_create();
+
+	__k_proc_process_spawn(proc, process_tree->root->value);
+	k_proc_process_mark_ready(proc);
+
+	return proc->pid;
 }

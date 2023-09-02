@@ -236,6 +236,9 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 
 	if(offset + size >= inode->size_low) {
 		size = inode->size_low - offset;
+		if(!size) {
+			return 0;
+		}
 	}
 
 	uint32_t block_size = BLOCK_SIZE(fs->superblock);
@@ -294,8 +297,9 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 
 	uint32_t group = GROUP_FROM_INODE(fs->superblock, inode);
 	uint32_t table_block_offset = group * sizeof(ext2_block_group_descriptor_t) / block_size;
-	uint32_t table_block = (BLOCK_SIZE(fs->superblock) == 1024 ? 2 : 1) + table_block_offset; 
+	uint32_t table_block = (block_size == 1024 ? 2 : 1) + table_block_offset; 
 	uint32_t shifted_group = group - table_block_offset * block_size / sizeof(ext2_block_group_descriptor_t);
+
 	__ext2_read_block(fs, table_block, buffer);
 
 	ext2_block_group_descriptor_t* block_group_table = buffer;

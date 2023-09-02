@@ -251,9 +251,23 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 		size = node->size - offset;
 	}
 
-	// k_info("ATA read: +%ld, size=%ld", offset, size);
-
 	drive_t* device = (drive_t*) node->inode;
+
+	// Somehow device->prdt[0] becomes zero at some point for no reason
+	// This solves this problem, but reason it does something like that is unknown
+	paddr_t buff_address = k_mem_paging_virt2phys((uint32_t) device->buffer);
+	if(buff_address != device->prdt[0].address) {
+		k_warn("Fixing PRDT.");
+		device->prdt[0].address = buff_address;
+		device->prdt[0].last = 0x8000;
+	}
+
+	// if(offset == 1052672) {
+	// 	k_info("ATA read: +%ld, size=%ld to 0x%.8x (0x%.8x == 0x%.8x). PRDT = 0x%.8x (0x%.8x == 0x%.8x)", 
+	// 			offset, size, device->buffer, k_mem_paging_virt2phys((uint32_t) device->buffer), device->prdt[0].address,
+	// 			device->prdt, k_mem_paging_virt2phys((uint32_t) device->prdt), device->prdt_phys
+	// 			);
+	// }
 
 	uint32_t lba_offset  = offset / 512;
 	uint32_t part_offset = offset % 512;
@@ -317,6 +331,8 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
 
 	memcpy(&buffer[target_offset], &device->buffer[part_offset], size);
+
+	// k_debug("0x%.8x after reading %d bytes from +%d", device->prdt[0].address, size, offset);
 
 	return size;
 }

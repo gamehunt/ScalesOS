@@ -166,6 +166,14 @@ void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
     }
 }
 
+addr_t  k_mem_paging_clone_root() {
+	uint32_t prev = k_mem_paging_get_pd(1);
+	k_mem_paging_set_pd(0, 1, 0);
+	addr_t copy = k_mem_paging_clone_pd(0, 0);
+	k_mem_paging_set_pd(prev, 1, 0);
+	return copy;
+}
+
 addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
     if (!pd) {
         pd = k_mem_paging_get_pd(0);
@@ -203,7 +211,7 @@ addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
             k_mem_paging_unmap(PT_TMP_MAP);
         }
     }
-    k_mem_paging_set_pd(prev, 1, 0);
+    k_mem_paging_set_pd(prev, 1, 1);
 
     if (phys) {
         *phys = k_mem_paging_virt2phys((uint32_t)copy);

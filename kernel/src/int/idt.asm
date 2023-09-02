@@ -2,5 +2,4 @@
 k_int_load_idt:
 	mov	eax, [esp+4]	; Get the pointer to the IDT, passed as a parameter.
 	lidt	 [eax]		; Load the new IDT pointer.
-
 	ret

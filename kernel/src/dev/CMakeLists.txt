@@ -17,6 +17,7 @@ set(SOURCES
 	tty.c
 	random.asm
 	random.c
+	vt.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

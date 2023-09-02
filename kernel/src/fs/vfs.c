@@ -197,6 +197,7 @@ vfs_entry_t* k_fs_vfs_create_entry(const char* name, tree_node_t* parent){
 fs_node_t* k_fs_vfs_create_node(const char* name){
     fs_node_t* node = k_calloc(1, sizeof(fs_node_t));
     strcpy(node->name, name);
+	node->links = 1;
     return node;
 }
 
@@ -209,10 +210,9 @@ int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* 
 		return -EPERM;
 	}
 
-	// k_debug("VFS read: %d bytes at +%d in %s", size, offset, node->name);
-
     return node->fs.read(node, offset, size, buffer);
 }
+
 int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.write){
         return 0;
@@ -227,12 +227,12 @@ int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8
 
 fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
     if(!vfs_tree){
-        return 0;
+        return NULL;
     }
 
     fs_node_t* root_node = __k_fs_vfs_find_node(path);
 	if(!root_node) {
-		return 0;
+		return NULL;
 	}
 
 	fs_node_t* node = (fs_node_t*) k_malloc(sizeof(fs_node_t));
@@ -263,7 +263,7 @@ void k_fs_vfs_close(fs_node_t* node){
 
 struct dirent*   k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
     if(!node->fs.readdir){
-        return 0;
+        return NULL;
     }
 
     return node->fs.readdir(node, index);
@@ -279,10 +279,26 @@ uint32_t  k_fs_vfs_readlink(fs_node_t* node, uint8_t* buf, uint32_t size) {
 
 fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
     if(!node->fs.finddir){
-        return 0;
+        return NULL;
     }
 
     return node->fs.finddir(node, path);
+}
+
+fs_node_t* k_fs_vfs_create(fs_node_t* node, const char* path, uint8_t mode) {
+	if(!node->fs.create) {
+		return NULL;
+	}
+
+	return node->fs.create(node, path, mode);
+}
+
+fs_node_t* k_fs_vfs_mkdir(fs_node_t* node, const char* path, uint8_t mode) {
+	if(!node->fs.mkdir) {
+		return NULL;
+	}
+
+	return node->fs.mkdir(node, path, mode);
 }
 
 K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){

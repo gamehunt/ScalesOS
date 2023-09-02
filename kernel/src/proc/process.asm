@@ -11,8 +11,6 @@ __k_proc_process_save:
     xor eax, eax       ; return 0
     ret
 
-extern k_mem_paging_set_pd
-
 [global __k_proc_process_load]
 __k_proc_process_load:
     mov ebx, [esp + 4] ; Get arg
@@ -52,3 +50,13 @@ __k_proc_process_fork_return:
     popad
     add esp, 8
     iret
+
+[global __k_proc_process_enter_tasklet]
+__k_proc_process_enter_tasklet:
+	pushf
+	pop eax
+	or eax, 0x200
+	push eax
+	popf
+	pop edi
+	jmp edi

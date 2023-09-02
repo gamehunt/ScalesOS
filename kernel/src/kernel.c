@@ -22,6 +22,8 @@
 #include "dev/random.h"
 #include "dev/timer.h"
 #include "dev/null.h"
+#include "dev/tty.h"
+#include "dev/vt.h"
 #include "fs/tar.h"
 #include "fs/tmpfs.h"
 #include "int/syscall.h"
@@ -35,7 +37,6 @@
 #include "proc/process.h"
 #include "util/exec.h"
 #include "util/panic.h"
-#include "util/types/list.h"
 
 extern void _libk_set_print_callback(void*);
 
@@ -57,7 +58,6 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 	k_mem_mmio_init();
     k_mem_heap_init();
 
-
     k_fs_vfs_init();
     k_dev_console_init();
 
@@ -77,11 +77,13 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_ps2_init();
 	k_dev_null_init();
 	k_dev_random_init();
+	k_dev_tty_init();
 
     k_mod_symtable_init();
     k_mod_load_modules(mb);
 
     k_proc_process_init();
+	k_dev_vt_init();
     // k_proc_smp_init();
 
     if(!IS_OK(k_fs_vfs_mount("/", "/dev/ram0", "tar"))){

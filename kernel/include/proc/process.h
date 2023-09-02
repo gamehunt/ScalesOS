@@ -19,6 +19,8 @@
 #define PROCESS_WAITPID_WNOHANG          (1 << 0)
 #define PROCESS_WAITPID_WUNTRACED        (1 << 1)
 
+#define PROCESS_FLAG_TASKLET             (1 << 0)
+
 typedef struct context {
     uint32_t esp;             // +0
     uint32_t ebp;             // +4
@@ -124,5 +126,7 @@ void       k_proc_process_process_signals(process_t* process, interrupt_context_
 void       k_proc_process_return_from_signal(interrupt_context_t* ctx);
 
 process_t* k_proc_process_find_by_pid(pid_t pid);
+
+pid_t      k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* data);
 
 #endif

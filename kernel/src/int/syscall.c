@@ -1,6 +1,7 @@
 #include <int/syscall.h>
 #include "dev/acpi.h"
 #include "dev/timer.h"
+#include "dev/tty.h"
 #include "dirent.h"
 #include "errno.h"
 #include "fs/pipe.h"
@@ -14,6 +15,7 @@
 #include "int/idt.h"
 #include "int/isr.h"
 #include "kernel.h"
+#include "sys/tty.h"
 #include "util/exec.h"
 #include "util/log.h"
 #include "shared.h"
@@ -321,6 +323,40 @@ uint32_t sys_dup2(int fd1, int fd2) {
 
 	return fd2;
 }
+
+uint32_t sys_openpty(int* master, int* slave, char* name, struct termios* ts, struct winsize* ws) {
+	if(!master || !slave) {
+		return -EINVAL;
+	}
+
+	if(ts && !IS_VALID_PTR((uint32_t) ts)) {
+		return -EINVAL;
+	}
+
+	if(ws && !IS_VALID_PTR((uint32_t) ws)) {
+		return -EINVAL;
+	}
+
+	if(name && !IS_VALID_PTR((uint32_t) name)) {
+		return -EINVAL;
+	}
+
+	fs_node_t* master_node;
+	fs_node_t* slave_node;
+
+	k_dev_tty_create_pty(ws, &master_node, &slave_node);
+
+	master_node->mode = O_RDWR;
+	slave_node->mode  = O_RDWR;
+
+	process_t* process = k_proc_process_current();
+
+	*master = k_proc_process_open_node(process, master_node);
+	*slave  = k_proc_process_open_node(process, slave_node);
+
+	return 0;
+}
+
 
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);

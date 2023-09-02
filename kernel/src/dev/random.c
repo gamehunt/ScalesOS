@@ -12,7 +12,7 @@ uint32_t __k_dev_random_get_value_fallback() {
 
 extern uint32_t __k_dev_random_get_value();
 
-static uint32_t __k_dev_random_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static uint32_t __k_dev_random_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
 	uint32_t full_bytes = size / 4;
 	uint8_t  part_bytes = size % 4;
 

@@ -6,6 +6,7 @@
 #include "kernel/mem/paging.h"
 #include "mem/memory.h"
 #include "mem/heap.h"
+#include "proc/spinlock.h"
 
 #define M_BLOCK_FREE    (1 << 0)
 #define M_BLOCK_ALIGNED (1 << 1)
@@ -15,12 +16,19 @@
 //void* M_MEMORY(mem_header_t* addr);     
 #define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
 
+static spinlock_t heap_lock = 0; //TODO
+#undef LOCK
+#undef UNLOCK
+
+#define LOCK(x)
+#define UNLOCK(x)
+
 #ifdef __LIBK
 
 #include "util/log.h"
 #include "util/panic.h"
 
-mem_block_t* heap      = (mem_block_t*) HEAP_START;
+mem_block_t* heap            = (mem_block_t*) HEAP_START;
 
 #else
 
@@ -35,11 +43,6 @@ static uint32_t __mem_grow_heap(int32_t size) {
 
 void __mem_init_heap() {
 	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
-}
-
-extern void _debug(int mode);
-void __test() {
-	_debug(1);
 }
 #endif
 
@@ -128,7 +131,8 @@ uint32_t __heap_usage() {
 	return __allocated - __freed;
 }
 
-void* malloc(size_t size){
+void* __attribute__((malloc)) malloc(size_t size){
+	LOCK(heap_lock);
 
     __mem_merge();
 
@@ -165,6 +169,7 @@ void* malloc(size_t size){
 
     if(block->size == size){
         block->flags &= ~M_BLOCK_FREE;
+		UNLOCK(heap_lock);
         return (void*) (M_MEMORY(block));
     }else{
         mem_block_t* sblock;
@@ -178,17 +183,18 @@ void* malloc(size_t size){
         }
         block->flags &= ~M_BLOCK_FREE;
 		__allocated += size;
+		UNLOCK(heap_lock);
         return (void*) (M_MEMORY(block));
     }
 }
 
-void* calloc(size_t num, size_t size){
+void* __attribute__((malloc)) calloc(size_t num, size_t size){
     void* mem = malloc(num * size);
     memset(mem, 0, num * size);
     return mem;
 }
 
-void* realloc(void* old, size_t size){
+void* __attribute__((malloc)) realloc(void* old, size_t size){
     mem_block_t* hdr = M_HEADER(old);
 	if(hdr->size == size) {
 		return old;
@@ -206,6 +212,7 @@ void* realloc(void* old, size_t size){
 }
 
 void free(void* ptr){
+	LOCK(heap_lock);
     mem_block_t* header = M_HEADER(ptr);
     if(!__mem_heap_is_valid_block(header) || header->flags & M_BLOCK_FREE){
 #ifdef __LIBK
@@ -214,17 +221,19 @@ void free(void* ptr){
 		k_warn("0x%.8x", __builtin_return_address(1));
 		k_warn("0x%.8x", __builtin_return_address(2));
 #endif
+		UNLOCK(heap_lock);
         return;
     }
     header->flags |= M_BLOCK_FREE;
 	__freed += header->size;
+	UNLOCK(heap_lock);
 }
 
 void vfree(void* mem){
     free(((void**)mem)[-1]);
 }
 
-void* valloc(size_t size, size_t alignment){
+void* __attribute__((malloc)) valloc(size_t size, size_t alignment){
 	void* p1;  // original block
     void** p2; // aligned block
     int offset = alignment - 1 + sizeof(void*);

@@ -3,10 +3,24 @@
 
 typedef volatile int spinlock_t;
 
+#if defined(__KERNEL) || defined(__LIBK)
+
+extern void k_proc_process_yield();
+
+#define YIELD() k_proc_process_yield() 
+
+#else
+
+#define YIELD() __sys_yield()
+
+#endif
+
 #define LOCK(spinlock) \
-    while(!__sync_bool_compare_and_swap(&spinlock, 0, 1)){ asm("pause"); }
+	while(__sync_lock_test_and_set(&spinlock, 1)){ \
+		YIELD(); \
+	}
 
 #define UNLOCK(spinlock) \
-    spinlock = 0;
+	__sync_lock_release(&spinlock);
 
 #endif
