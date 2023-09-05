@@ -25,6 +25,7 @@ typedef uint32_t       (*fs_readlink_t) (fs_node_t* node, uint8_t* buf, uint32_t
 typedef struct dirent* (*fs_readdir_t)  (fs_node_t* node, uint32_t index);
 typedef fs_node_t*     (*fs_create_t)   (fs_node_t* node, const char* name, uint8_t flags);
 typedef fs_node_t*     (*fs_mkdir_t)    (fs_node_t* node, const char* name, uint8_t flags);
+typedef int            (*fs_ioctl_t)    (fs_node_t* node, uint32_t request, void* args);
 
 typedef struct fs_ops{
     fs_write_t    write;
@@ -36,6 +37,7 @@ typedef struct fs_ops{
 	fs_readlink_t readlink;
 	fs_create_t   create;
 	fs_mkdir_t    mkdir;
+	fs_ioctl_t    ioctl;
 }fs_ops_t;
 
 struct fs_node{
@@ -73,6 +75,7 @@ fs_node_t*       k_fs_vfs_open         (const char* path, uint8_t mode);
 void             k_fs_vfs_close        (fs_node_t* node);
 fs_node_t*       k_fs_vfs_create       (fs_node_t* node, const char* path, uint8_t mode);
 fs_node_t*       k_fs_vfs_mkdir        (fs_node_t* node, const char* path, uint8_t mode);
+int              k_fs_vfs_ioctl        (fs_node_t* node, uint32_t req, void* args);
 void             k_d_fs_vfs_print      ();
 void             k_fs_vfs_register_fs  (const char* alias, mount_callback m);
 #endif

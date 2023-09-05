@@ -16,11 +16,9 @@ void __init_stdio() {
 	stdin->read_buffer  = malloc(BUFSIZE);
 
 	stdout->write_buffer = malloc(BUFSIZE);
-	stderr->write_buffer = malloc(BUFSIZE);
 
 	stdin->buffer_size  = BUFSIZE;
 	stdout->buffer_size = BUFSIZE;
-	stderr->buffer_size = BUFSIZE;
 }
 
 void _putchar(char c) {

@@ -21,8 +21,19 @@ int main(int argc, char** argv) {
 	if(!fork()) {
 		fprintf(console, "Loading ScalesOS...\r\n");
 
+		uint8_t op = 0;
 		while(1) {
-			fprintf(console, "%c", fgetc(pipe));	
+			char c = fgetc(pipe);
+			if(op && c == 'q') {
+				break;
+			} else if(!op && c == '!') {
+				op = 1;
+				continue;
+			} else if(op) {
+				op = 0;
+				fprintf(console, "!");
+			}
+			fprintf(console, "%c", c);	
 		}
 	}
 

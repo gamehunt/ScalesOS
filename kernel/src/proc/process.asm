@@ -58,5 +58,5 @@ __k_proc_process_enter_tasklet:
 	or eax, 0x200
 	push eax
 	popf
-	pop edi
-	jmp edi
+	pop eax
+	jmp eax

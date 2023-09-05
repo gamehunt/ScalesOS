@@ -171,6 +171,18 @@ static void __k_dev_fb_move_right() {
     }
 }
 
+static void __k_dev_fb_move_left() {
+	if(!pos_x) {
+		return;
+	}
+    if (info.type == 2) {
+        pos_x--;
+    } else {
+        PSF_font* font = (PSF_font*)&_binary_font_psf_start;
+        pos_x -= font->width;
+    }
+}
+
 static void __k_dev_fb_draw_char(uint16_t c, uint32_t cx, uint32_t cy,
                                  uint32_t fg, uint32_t bg) {
     PSF_font* font = (PSF_font*)&_binary_font_psf_start;
@@ -204,7 +216,12 @@ void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg) {
         for (int i = 0; i < 3; i++) {
             k_dev_fb_putchar(' ', fg, bg);
         }
-    } else {
+	} else if(c == '\b') {
+		if(pos_x) {
+			__k_dev_fb_move_left();
+            __k_dev_fb_draw_char(' ', pos_x, pos_y, fg, bg);
+		}
+	} else {
         if (info.type == 2) {
             framebuffer[info.pitch * pos_y + pos_x] = c;
         } else {
@@ -212,6 +229,12 @@ void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg) {
         }
         __k_dev_fb_move_right();
     }
+}
+
+void k_dev_fb_clear(uint32_t color) {
+	pos_x = 0;
+	pos_y = 0;
+	memset(framebuffer, color, info.width * info.height * info.bpp / 8);
 }
 
 fb_info_t k_dev_fb_get_info() { return info; }

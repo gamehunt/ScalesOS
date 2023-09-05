@@ -14,6 +14,7 @@ int system(const char* cmd) {
 	if(!pid) {
 		execve("/bin/scsh", args, 0);
 		exit(1);
+		__builtin_unreachable();
 	} else {
 		int status;
 		waitpid(pid, &status, 0);

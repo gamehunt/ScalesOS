@@ -357,6 +357,19 @@ uint32_t sys_openpty(int* master, int* slave, char* name, struct termios* ts, st
 	return 0;
 }
 
+static uint32_t sys_ioctl(int fd, uint32_t req, void* args) {
+	process_t* proc = k_proc_process_current();
+	
+	fd_list_t* fds = &proc->fds;
+
+	if(fd < 0 || (uint32_t) fd >= fds->size || !fds->nodes[fd]) {
+		return -EINVAL;
+	}
+
+	fs_node_t* node = fds->nodes[fd]->node;
+
+	return k_fs_vfs_ioctl(node, req, args);
+}
 
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
@@ -383,6 +396,8 @@ DEFN_SYSCALL3(sys_mount, const char*, const char*, const char*);
 DEFN_SYSCALL1(sys_umount, const char*);
 DEFN_SYSCALL2(sys_mkfifo, const char*, int);
 DEFN_SYSCALL2(sys_dup2, int, int);
+DEFN_SYSCALL5(sys_openpty, int*, int*, char*, struct termios*, struct winsize*);
+DEFN_SYSCALL3(sys_ioctl, int, uint32_t, void*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -413,6 +428,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_UMOUNT, REF_SYSCALL(sys_umount));
 	k_int_syscall_setup_handler(SYS_MKFIFO, REF_SYSCALL(sys_mkfifo));
 	k_int_syscall_setup_handler(SYS_DUP2, REF_SYSCALL(sys_dup2));
+	k_int_syscall_setup_handler(SYS_OPENPTY, REF_SYSCALL(sys_openpty));
+	k_int_syscall_setup_handler(SYS_IOCTL, REF_SYSCALL(sys_ioctl));
     
 	return K_STATUS_OK;
 }

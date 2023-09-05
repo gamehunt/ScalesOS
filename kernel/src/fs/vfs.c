@@ -203,7 +203,7 @@ fs_node_t* k_fs_vfs_create_node(const char* name){
 
 int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.read){
-        return 0;
+        return -EPERM;
     }
 
 	if(!(node->mode & O_RDONLY)) {
@@ -215,7 +215,7 @@ int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* 
 
 int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.write){
-        return 0;
+        return -EPERM;
     }
 
 	if(!(node->mode & O_WRONLY)) {
@@ -299,6 +299,14 @@ fs_node_t* k_fs_vfs_mkdir(fs_node_t* node, const char* path, uint8_t mode) {
 	}
 
 	return node->fs.mkdir(node, path, mode);
+}
+
+int k_fs_vfs_ioctl(fs_node_t *node, uint32_t req, void *args) {
+	if(!node->fs.ioctl) {
+		return -EPERM;
+	}
+
+	return node->fs.ioctl(node, req, args);
 }
 
 K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){

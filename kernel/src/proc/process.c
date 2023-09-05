@@ -30,6 +30,9 @@
 
 static uint8_t sig_defaults[] = {
 	SIG_IGNORE,
+	[SIGINT]  = SIG_TERMINATE,
+	[SIGQUIT] = SIG_TERMINATE,
+	[SIGABRT] = SIG_TERMINATE,
 	[SIGKILL] = SIG_TERMINATE,
 	[SIGSEGV] = SIG_TERMINATE
 };
@@ -252,6 +255,8 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		k_err("Failed to read whole file.");
 		return -4;
 	}
+
+	k_debug("Executing: %s", path);
 
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
@@ -810,8 +815,8 @@ pid_t k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* dat
 	proc->image.page_directory = k_mem_paging_virt2phys(k_mem_paging_clone_root());
 	__k_proc_process_create_kernel_stack(proc);
 
-	PUSH(proc->image.kernel_stack, uintptr_t, entry);
 	PUSH(proc->image.kernel_stack, void*, data);
+	PUSH(proc->image.kernel_stack, uintptr_t, entry);
 
 	proc->context.ebp = proc->image.kernel_stack;
 	proc->context.esp = proc->image.kernel_stack;

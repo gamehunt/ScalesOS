@@ -1,5 +1,5 @@
 set(SOURCES 
-    isspace.c
+    ctype.c
 )
 
 target_sources(k PRIVATE ${SOURCES})

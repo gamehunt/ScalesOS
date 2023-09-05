@@ -7,6 +7,8 @@ set(SOURCES
 	time.c
 	mount.c
 	stat.c
+	ioctl.c
+	tty.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

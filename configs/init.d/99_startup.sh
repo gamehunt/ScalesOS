@@ -1,3 +1,6 @@
 #!/bin/scsh
 
-getty
+echo Finalizing... > /tmp/splash
+echo !q > /tmp/splash
+
+/bin/getty

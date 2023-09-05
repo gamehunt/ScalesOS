@@ -29,6 +29,7 @@
 #define SYS_MKFIFO       23
 #define SYS_DUP2         24
 #define SYS_OPENPTY      25
+#define SYS_IOCTL        26
 
 #define SYS_DEBUG        255
 
@@ -68,6 +69,7 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_mkfifo(path, mode)                	  __syscall(SYS_MKFIFO, path, mode, UNUSED3)
 #define __sys_dup2(fd1, fd2)                    	  __syscall(SYS_DUP2, fd1, fd2, UNUSED3)
 #define __sys_openpty(master, slave, name, opts, ws)  __syscall(SYS_OPENPTY, master, slave, opts, ws, UNUSED1)
+#define __sys_ioctl(fd, req, args)                    __syscall(SYS_IOCTL, fd, req, args, UNUSED2)
 
 #define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 
