@@ -320,6 +320,7 @@ uint32_t sys_dup2(int fd1, int fd2) {
 	}
 
 	fds->nodes[fd2] = fds->nodes[fd1];
+	fds->nodes[fd1]->links++;
 
 	return fd2;
 }

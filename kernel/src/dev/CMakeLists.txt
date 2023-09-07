@@ -6,7 +6,6 @@ set(SOURCES
     timer.c
     speaker.c
     fb.c
-    console.c
     fpu.asm
     fpu.c
     cmos.c

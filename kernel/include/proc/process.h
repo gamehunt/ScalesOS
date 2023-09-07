@@ -40,6 +40,7 @@ typedef struct image{
 typedef struct fd {
 	fs_node_t* node;
 	uint32_t   offset;
+	uint32_t   links;
 } fd_t;
 
 typedef struct fd_list {

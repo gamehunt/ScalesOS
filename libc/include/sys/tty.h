@@ -150,6 +150,8 @@
 #define TCGETAW  TCGETSW
 #define TCGETAF  TCGETSF
 
+#define VT_ACTIVATE	0x5606
+
 struct termios {
 	tcflag_t c_iflag;
 	tcflag_t c_oflag;

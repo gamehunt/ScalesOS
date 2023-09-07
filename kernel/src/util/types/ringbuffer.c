@@ -61,7 +61,7 @@ static void __ringbuffer_bump_read_ptr(ringbuffer_t* rb) {
 
 uint32_t ringbuffer_write(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 	uint32_t written = 0;
-	while(written < size) {
+	while(!written) {
 		while(ringbuffer_write_available(rb) && written < size) {
 			rb->buffer[rb->write_ptr] = *buffer;
 			written++;
@@ -69,7 +69,7 @@ uint32_t ringbuffer_write(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 			__ringbuffer_bump_write_ptr(rb);
 		}
 		k_proc_process_wakeup_queue(rb->read_wait_queue);
-		if(written < size) {
+		if(!written) {
 			k_proc_process_sleep_on_queue(k_proc_process_current(), rb->write_wait_queue);
 		}
 	}
@@ -79,7 +79,7 @@ uint32_t ringbuffer_write(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 
 uint32_t ringbuffer_read(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 	uint32_t read = 0;
-	while(read < size) {
+	while(!read) {
 		while(ringbuffer_read_available(rb) && read < size) {
 			*buffer = rb->buffer[rb->read_ptr];
 			read++;
@@ -87,7 +87,7 @@ uint32_t ringbuffer_read(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 			__ringbuffer_bump_read_ptr(rb);
 		}
 		k_proc_process_wakeup_queue(rb->write_wait_queue);
-		if(read < size) {
+		if(!read) {
 			k_proc_process_sleep_on_queue(k_proc_process_current(), rb->read_wait_queue);
 		}
 	}

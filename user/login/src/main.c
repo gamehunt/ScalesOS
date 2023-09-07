@@ -5,6 +5,6 @@ int main(int argc, char** argv) {
 	fflush(stdout);
 	char name[128];
 	fgets(name, sizeof(name), stdin);
-	printf("Your login: %s\r\n", name);
+	printf("Your login: %s\n", name);
 	return 0;
 }

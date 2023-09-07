@@ -8,7 +8,7 @@ static uint16_t buff_idx = 0;
 static void (*print_callback)(char* a, uint32_t size) = 0;
 
 void _libk_set_print_callback(void (*pk)(char* a, uint32_t size)){
-    if(!print_callback){
+    if(pk && !print_callback){
         for(int i = 0; i < buff_idx; i++){
             pk(&buffered[i], 1);
         }
@@ -20,7 +20,7 @@ void _putchar(char a){
     k_dev_serial_putchar(a);
     if(print_callback){
         print_callback(&a, 1);
-    }else{
+    }else if(buff_idx < 65535){
         buffered[buff_idx] = a;
         buff_idx++;
     }

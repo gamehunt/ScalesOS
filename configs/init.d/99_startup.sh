@@ -3,4 +3,4 @@
 echo Finalizing... > /tmp/splash
 echo !q > /tmp/splash
 
-/bin/getty
+/bin/getty 1

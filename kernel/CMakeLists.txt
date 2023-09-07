@@ -4,7 +4,12 @@ project(Scales-Kernel VERSION 1.0.0)
 
 enable_language(C ASM_NASM)
 
-add_definitions(-D__KERNEL -DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}" -DVIRTUAL_BASE=0xC0000000 -DDEBUG)
+add_definitions(
+	-D__KERNEL 
+	-DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}" 
+	-DVIRTUAL_BASE=0xC0000000 
+	-DDEBUG_LEVEL=3
+)
 
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -mno-red-zone")
 set(CMAKE_C_STANDARD 11)

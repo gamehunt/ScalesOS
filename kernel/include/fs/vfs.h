@@ -22,6 +22,8 @@ typedef void           (*fs_open_t)     (fs_node_t* node, uint8_t mode);
 typedef void           (*fs_close_t)    (fs_node_t* node);
 typedef fs_node_t*     (*fs_finddir_t)  (fs_node_t* node, const char* name);
 typedef uint32_t       (*fs_readlink_t) (fs_node_t* node, uint8_t* buf, uint32_t size);
+typedef int32_t        (*fs_link_t)     (fs_node_t* node, const char* source, const char* target);
+typedef int32_t        (*fs_unlink_t)   (fs_node_t* node);
 typedef struct dirent* (*fs_readdir_t)  (fs_node_t* node, uint32_t index);
 typedef fs_node_t*     (*fs_create_t)   (fs_node_t* node, const char* name, uint8_t flags);
 typedef fs_node_t*     (*fs_mkdir_t)    (fs_node_t* node, const char* name, uint8_t flags);
@@ -35,6 +37,8 @@ typedef struct fs_ops{
     fs_finddir_t  finddir;
     fs_readdir_t  readdir;
 	fs_readlink_t readlink;
+	fs_link_t     link;
+	fs_unlink_t   unlink;
 	fs_create_t   create;
 	fs_mkdir_t    mkdir;
 	fs_ioctl_t    ioctl;
@@ -68,6 +72,8 @@ int32_t          k_fs_vfs_write        (fs_node_t* node, uint32_t offset, uint32
 fs_node_t*       k_fs_vfs_finddir      (fs_node_t* node, const char* path);
 struct dirent*   k_fs_vfs_readdir      (fs_node_t* node, uint32_t index);
 uint32_t         k_fs_vfs_readlink     (fs_node_t* node, uint8_t* buf, uint32_t size);
+int32_t          k_fs_vfs_link         (const char* source, const char* target);
+int32_t          k_fs_vfs_unlink       (const char* target);
 K_STATUS         k_fs_vfs_mount_node   (const char* path, fs_node_t* root);
 K_STATUS         k_fs_vfs_mount        (const char* path, const char* device, const char* type);
 K_STATUS         k_fs_vfs_umount       (const char* path);

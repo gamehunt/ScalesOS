@@ -14,6 +14,7 @@ set(SOURCES
     strcspn.c
     strncmp.c
 	strtol.c
+	strncpy.c
 )
 
 target_sources(k PRIVATE ${SOURCES})

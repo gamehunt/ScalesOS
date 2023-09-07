@@ -9,7 +9,7 @@
 
 #define TTY_FLAG_NEXTL (1 << 0)
 
-typedef struct {
+typedef struct tty {
 	uint32_t id;
 	
 	fs_node_t* master;

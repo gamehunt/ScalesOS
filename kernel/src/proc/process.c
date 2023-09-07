@@ -182,8 +182,6 @@ void k_proc_process_switch() {
 		new_proc = k_proc_process_next();
 	}while(new_proc->state == PROCESS_STATE_FINISHED);
 
-	// k_debug("Switching to %s...", new_proc->name);
-
     current_core->current_process = new_proc;
 
 	__k_proc_process_update_stats();
@@ -426,6 +424,7 @@ uint32_t k_proc_process_fork() {
 			new->fds.nodes[i] = k_malloc(sizeof(fd_t));
 			memcpy(new->fds.nodes[i], original_node, sizeof(fd_t));
 			new->fds.nodes[i]->node->links++;
+			new->fds.nodes[i]->links = 1;
 		}
 	}
 
@@ -441,6 +440,7 @@ uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
 	fd_t* fdt   = k_malloc(sizeof(fd_t));
 	fdt->node   = node;
 	fdt->offset = 0;
+	fdt->links  = 1;
 	
 	if(process->fds.size == process->fds.amount) {
 		uint32_t fd = process->fds.size;
@@ -472,7 +472,10 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	process->fds.amount--;
 	
 	k_fs_vfs_close(process->fds.nodes[fd]->node);
-	k_free(process->fds.nodes[fd]);
+	process->fds.nodes[fd]->links--;
+	if(!process->fds.nodes[fd]->links) {
+		k_free(process->fds.nodes[fd]);
+	}
 
 	process->fds.nodes[fd] = 0;
 	UNLOCK(process->fds.lock);
@@ -502,8 +505,7 @@ void k_proc_process_exit(process_t* process, int code) {
 	fd_list_t* list = &process->fds;
 	for(uint32_t i = 0; i < list->size; i++){
 		if(list->nodes[i]) {
-			k_fs_vfs_close(list->nodes[i]->node);
-			k_free(list->nodes[i]);
+			k_proc_process_close_fd(process, i);
 		}
 	}
 	k_free(list->nodes);

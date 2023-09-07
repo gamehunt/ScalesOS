@@ -1,32 +1,57 @@
 #include "dev/vt.h"
-#include "dev/console.h"
 #include "dev/fb.h"
 #include "dev/tty.h"
+#include "errno.h"
 #include "fs/vfs.h"
+#include "mem/paging.h"
 #include "proc/process.h"
+#include "proc/spinlock.h"
 #include "stdio.h"
 #include "util/log.h"
+#include "util/panic.h"
+#include "util/types/ringbuffer.h"
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
 
-static fs_node_t* __tty0 = 0;
+static fs_node_t* __tty0  = 0;
+static fs_node_t* __atty  = 0;
+static spinlock_t vt_lock = 0;
 
 extern void _libk_set_print_callback(void (*pk)(char* a, uint32_t size));
 
-void k_dev_vt_write(char* buff, uint32_t size) {
-	if(!__tty0) {
-		return;
+int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
+	LOCK(vt_lock);
+
+	char path[32];
+	snprintf(path, 32, "/dev/tty%d", number);
+
+	fs_node_t* tty = k_fs_vfs_open(path, O_RDWR);
+	if(!tty) {
+		UNLOCK(vt_lock);
+		return -EINVAL;
 	}
-	k_fs_vfs_write(__tty0, 0, size, buff);
+
+	if(__atty) {
+		k_fs_vfs_close(__atty);
+	}
+
+	__atty = tty;
+
+	if(clear) {
+		k_dev_fb_clear(0);
+	}
+
+	UNLOCK(vt_lock);
+	return 0;
 }
 
 static char __k_dev_vt_getc(tty_t* tty) {
-	char c;
-	int32_t read = k_fs_vfs_read(tty->master, 0, 1, &c);
-	if(read != 1) {
+	if(!ringbuffer_read_available(tty->out_buffer)) {
 		return 0;
 	}
+	char c;
+	k_fs_vfs_read(tty->master, 0, 1, &c);
 	return c;
 }
 
@@ -122,7 +147,7 @@ static uint8_t ex   = 0;
 static uint8_t mods = 0;
 
 void k_dev_vt_handle_scancode(uint8_t v) {
-	if(!__tty0) {
+	if(!__atty) {
 		return;
 	}
 
@@ -213,20 +238,54 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 			scancode = (mods & MOD_SHIFT) ? __scancodes_shifted[v] : __scancodes[v];
 		}
 
-		tty_t* tty = __tty0->device;
+		tty_t* tty = __atty->device;
 		k_fs_vfs_write(tty->master, 0, 1, &scancode);
 	}
 }
 
-static void __k_dev_vt_tasklet() {
-	tty_t* tty = __tty0->device;
-	while(1) {
-		char c = __k_dev_vt_getc(tty);	
-		if(!c) {
-			continue;
-		}
-		k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
+void k_dev_vt_tty_callback(struct tty* tty) {
+	LOCK(vt_lock);
+	tty_t* a = __atty->device;
+	if(tty->id == a->id) {
+		char c = __k_dev_vt_getc(tty);
+		while(c) {
+			k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
+			c = __k_dev_vt_getc(tty);
+		} 
 	}
+	UNLOCK(vt_lock);
+}
+
+static void __k_dev_vt_klog_write(char* buff, uint32_t size) {
+	if(!__tty0) {
+		return;
+	}
+	k_fs_vfs_write(__tty0, 0, size, buff);
+}
+
+static uint32_t __k_dev_vt_console_readlink(fs_node_t* node UNUSED, uint8_t* buf, uint32_t size) {
+	strncpy("/dev/tty0", buf, size);
+	return strlen(buf) + 1;
+}
+
+static int __k_dev_vt_console_ioctl(fs_node_t* node UNUSED, uint32_t req, void* args) {
+	switch(req) {
+		case VT_ACTIVATE:
+			if(!IS_VALID_PTR((uint32_t) args)) {
+				return -EINVAL;
+			}
+			return k_dev_vt_change(*((uint8_t*) args), 1);
+		default:
+			return -EINVAL;
+	}
+}
+
+static fs_node_t* __k_dev_vt_create_console() {
+	fs_node_t* node = k_fs_vfs_create_node("console");
+	node->flags = VFS_SYMLINK;
+	node->fs.ioctl    = &__k_dev_vt_console_ioctl;	
+	node->fs.readlink = &__k_dev_vt_console_readlink;
+	return node;
 }
 
 int k_dev_vt_init() {
@@ -235,9 +294,8 @@ int k_dev_vt_init() {
 		k_err("Failed to open tty0.");
 		return 1;
 	}
-	k_dev_fb_clear(0);
-    _libk_set_print_callback(k_dev_vt_write);
-    k_dev_console_set_source(k_dev_vt_write);
-	k_proc_process_create_tasklet("[vt_routine]", (uintptr_t) &__k_dev_vt_tasklet, NULL);
+	k_fs_vfs_mount_node("/dev/console", __k_dev_vt_create_console());
+	k_dev_vt_change(0, 0);
+    _libk_set_print_callback(&__k_dev_vt_klog_write);
 	return 0;
 }

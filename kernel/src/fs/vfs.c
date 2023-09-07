@@ -213,7 +213,7 @@ int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* 
     return node->fs.read(node, offset, size, buffer);
 }
 
-int32_t    k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
+int32_t k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.write){
         return -EPERM;
     }
@@ -344,6 +344,36 @@ K_STATUS k_fs_vfs_umount(const char* path) {
 		return K_STATUS_OK;
 	}
 	return K_STATUS_ERR_GENERIC;
+}
+
+int32_t k_fs_vfs_link(const char* source, const char* target) {
+	char* path = k_util_path_folder(target);
+	
+	fs_node_t* parent = __k_fs_vfs_find_node(path);
+	k_free(path);
+	
+	if(!parent) {
+		return -ENOENT;
+	}
+
+	if(!parent->fs.link) {
+		return -EINVAL;
+	}
+
+	return parent->fs.link(parent, source, target);
+}
+
+int32_t k_fs_vfs_unlink(const char* target) {
+	fs_node_t* target_node = __k_fs_vfs_find_node(target);
+	if(target_node) {
+		if(target_node->fs.unlink) {
+			target_node->fs.unlink(target_node);
+		}
+		k_fs_vfs_close(target_node);
+		return 0;
+	} else {
+		return -ENOENT;
+	}
 }
 
 void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){

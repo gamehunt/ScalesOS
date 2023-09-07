@@ -14,7 +14,6 @@
 #include <util/log.h>
 #include <fs/vfs.h>
 #include "dev/acpi.h"
-#include "dev/console.h"
 #include "dev/fb.h"
 #include "dev/fpu.h"
 #include "dev/pci.h"
@@ -59,11 +58,9 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_heap_init();
 
     k_fs_vfs_init();
-    k_dev_console_init();
 
     k_dev_fb_init(mb);
     _libk_set_print_callback(k_dev_fb_write);
-    k_dev_console_set_source(k_dev_fb_write);
 
     k_dev_fpu_init();
     k_dev_acpi_init();

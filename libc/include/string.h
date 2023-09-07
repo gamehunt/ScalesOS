@@ -9,6 +9,7 @@ void *memcpy (void *dest, const void *src, size_t n);
 int   memcmp(const void *buf1, const void *buf2, size_t count);
 
 char*  strcpy(char* destination, const char* source);
+char*  strncpy(char *dst, const char *src, size_t len);
 char*  strtok(char* string, const char* delim);
 size_t strlen(const char *s);
 int    strcmp(const char* s1, const char* s2);

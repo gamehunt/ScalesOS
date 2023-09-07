@@ -1,4 +1,5 @@
 #include "dev/tty.h"
+#include "dev/vt.h"
 #include "dirent.h"
 #include "errno.h"
 #include "fs/vfs.h"
@@ -32,8 +33,7 @@ static inline void __rb_putchar(ringbuffer_t* rb, char c) {
 
 static void __k_dev_tty_pty_process_output_char(tty_t* pty, char c) {
 	if (!(pty->ts.c_oflag & OPOST)) {
-		PUTC_OUT(c);
-		return;
+		goto end;
 	}
 
 	if(c == '\n'){
@@ -54,7 +54,9 @@ static void __k_dev_tty_pty_process_output_char(tty_t* pty, char c) {
 		c = isupper(c);
 	}
 
+end:
 	PUTC_OUT(c);
+	k_dev_vt_tty_callback(pty);
 }
 
 #define process_output __k_dev_tty_pty_process_output_char
@@ -88,9 +90,11 @@ static void __k_dev_tty_line_putc(tty_t* pty, char c) {
 }
 
 static void __k_dev_tty_line_flush(tty_t* pty) {
+	size_t i = 0;
 	while(pty->line_length > 0) {
-		PUTC_IN(pty->line_buffer[pty->line_length - 1]);
+		PUTC_IN(pty->line_buffer[i]);
 		pty->line_length--;
+		i++;
 	}
 }
 
@@ -174,8 +178,8 @@ static void __k_dev_tty_pty_process_input_char(tty_t* pty, char c) {
 				return;
 			}
 		} else if((pty->ts.c_lflag & ECHOCTL) && (c == pty->ts.c_cc[VERASE] || c == pty->ts.c_cc[VWERASE])) {
-				PUTC_OUT('^');
-				PUTC_OUT(('@' + c) % 128);
+				process_output(pty,'^');
+				process_output(pty,('@' + c) % 128);
 				return;
 		}
 
@@ -183,8 +187,8 @@ static void __k_dev_tty_pty_process_input_char(tty_t* pty, char c) {
 			if(pty->ts.c_lflag & ECHOK) {
 				__k_dev_tty_erase(pty, pty->line_length);
 			} else if(pty->ts.c_lflag & ECHOCTL) {
-				PUTC_OUT('^');
-				PUTC_OUT(('@' + c) % 128);
+				process_output(pty,'^');
+				process_output(pty,('@' + c) % 128);
 			}
 			return;
 		}
@@ -234,7 +238,6 @@ static uint32_t __k_dev_tty_pty_read_slave(tty_t* pty, uint32_t size, uint8_t* b
 			if(size < ringbuffer_read_available(pty->in_buffer)) {
 				size = ringbuffer_read_available(pty->in_buffer);
 			}
-			return ringbuffer_read(pty->in_buffer, size, buffer);
 		} else {
 			if(size < pty->ts.c_cc[VMIN]) {
 				size = pty->ts.c_cc[VMIN];
@@ -250,6 +253,7 @@ static uint32_t __k_dev_tty_pty_write_master(tty_t* pty, uint32_t size, uint8_t*
 		__k_dev_tty_pty_process_input_char(pty, *buffer);
 		buffer++;
 	}
+
 	return size;
 }
 
@@ -259,6 +263,8 @@ static uint32_t __k_dev_tty_pty_write_slave(tty_t* pty, uint32_t size, uint8_t* 
 		__k_dev_tty_pty_process_output_char(pty, *buffer);
 		buffer++;
 	}
+	
+
 	return size;
 }
 
@@ -485,7 +491,6 @@ K_STATUS k_dev_tty_init() {
 		snprintf(path, 32, "/dev/tty%d", i);
 		k_fs_vfs_mount_node(path, __k_dev_tty_create_tty(i));
 	}
-	k_d_fs_vfs_print();
 	return K_STATUS_OK;
 }
 
