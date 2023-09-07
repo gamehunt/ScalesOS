@@ -238,6 +238,10 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 			scancode = (mods & MOD_SHIFT) ? __scancodes_shifted[v] : __scancodes[v];
 		}
 
+		if(scancode == '\b') {
+			scancode = 0x7F;
+		}
+
 		tty_t* tty = __atty->device;
 		k_fs_vfs_write(tty->master, 0, 1, &scancode);
 	}

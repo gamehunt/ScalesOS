@@ -4,19 +4,48 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <dirent.h>
 
 #define MAX_LINE_LENGTH 4096
+
+void dump(const char* path) {
+	DIR* root = opendir(path);
+	if(root) {
+		seekdir(root, 2);
+		struct dirent* dir;
+		while((dir = readdir(root))) {
+			printf("%d %s\r\n", dir->ino, dir->name);
+		}
+		closedir(root);
+	} else {
+		printf("No such dir.\n");
+	}
+}
 
 int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* in) {
 	if(!out) {
 		out = stdout;
 	}
+
+	if(!in) {
+		in = stdin;
+	}
+
 	if(!strcmp(op, "echo")) {
 		for(int i = 0; i < argc; i++) {
 			fprintf(out, "%s ", argv[i]);
 		}
-		fprintf(out, "\r\n");
+		fprintf(out, "\n");
 		return 0;
+	} else if(!strcmp(op, "ls")) {
+		if(argc < 1) {
+			dump(".");
+		} else {
+			dump(argv[0]);
+		}
+		return 0;
+	} else {
+		printf("strlen(%s): %d\n", op, strlen(op));
 	}
 
 	return 1;
@@ -79,9 +108,9 @@ int execute_line(char* line) {
 	char path[255];
 
 	if(op[0] != '/') {
-		sprintf(path, "/bin/%s", op); //TODO Path?
+		snprintf(path, 255, "/bin/%s", op); //TODO Path?
 	} else {
-		strcpy(path, op);
+		strncpy(path, op, 255);
 	}
 
 	pid_t child = fork();
@@ -98,11 +127,11 @@ int execute_line(char* line) {
 				dup2(fileno(in_pipe), 0);
 			}
 			execve(path, _op_argv, 0);
-			fprintf(stderr, "Failed to execute: %s\r\n", path);
+			fprintf(stderr, "Failed to execute: %s\n", path);
 			exit(1);
 		} else {
 			if(try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe)){
-				fprintf(stderr, "No such command: %s\r\n", op);
+				fprintf(stderr, "No such command: %s\n", op);
 				exit(1);
 			}
 			exit(0);
@@ -192,7 +221,16 @@ void usage() {
 }
 
 int interactive() {
-	fprintf(stderr, "interactive(): UNIMPL.\r\n");
+	while(1) {
+		printf("> ");
+		fflush(stdout);
+		char line[MAX_LINE_LENGTH];
+		fgets(line, MAX_LINE_LENGTH, stdin);
+		if(line[0] == '\n') {
+			continue;
+		}
+		execute_script(line, NULL, NULL);
+	}
 	return 0;
 }
 

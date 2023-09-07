@@ -51,22 +51,6 @@ static uint8_t load_modules() {
 	}
 }
 
-void dump(const char* path) {
-	printf("Gonna open %s\r\n", path);
-	DIR* root = opendir(path);
-	if(root) {
-		printf("Dir opened, reading...\r\n");
-		seekdir(root, 2);
-		struct dirent* dir;
-		while((dir = readdir(root))) {
-			printf("%d %s\r\n", dir->ino, dir->name);
-		}
-		closedir(root);
-	} else {
-		printf("No such dir.\r\n");
-	}
-	printf("End\r\n");
-}
 
 int execute(const char* path, char** argv, char** envp) {
 	pid_t pid = fork();
