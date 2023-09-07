@@ -32,8 +32,9 @@ int try_login_with_password(int32_t uid, char* entry, char* name, char* pass) {
 		}
 	}
 
+	system("motd");
+
 	int r = execve(entry, NULL, NULL);
-	printf("Execve returned code %d", r);
 	return -2;
 }
 
