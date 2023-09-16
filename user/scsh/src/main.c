@@ -44,6 +44,24 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 			dump(argv[0]);
 		}
 		return 0;
+	} else if(!strcmp(op, "cat")) {
+		FILE* f = fopen(argv[0], "r");
+		if(!f) {
+			printf("No such file.");
+			return 1;
+		}
+		fseek(f, 0, SEEK_END);
+		size_t l = ftell(f);
+		fseek(f, 0, SEEK_SET);
+		char* buff = malloc(l);
+		fread(buff, 1, l, f);
+		fclose(f);
+		for(size_t i = 0; i < l; i++) {
+			fputc(buff[i], stdout);
+		}
+		free(buff);
+		fflush(stdout);
+		return 0;
 	}
 
 	return 1;

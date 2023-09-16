@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
 
 	setbuf(pipe, 0);
 	
-	if(!(console = fopen("/dev/console", "w"))) {
+	if(!(console = fopen("/dev/tty0", "w"))) {
 		return 2;
 	}
 	

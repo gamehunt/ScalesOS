@@ -15,16 +15,16 @@ void init_output() {
 	__sys_open((uint32_t) "/dev/null", O_WRONLY, 0); // stderr
 }
 
-static uint8_t load_modules() {
-	printf("Loading modules...\r\n");
-	DIR*  dev = opendir("/modules");
+static uint8_t load_modules(const char* mod_path) {
+	printf("Loading modules from %s...\r\n", mod_path);
+	DIR*  dev = opendir(mod_path);
 	char  path[1024];
 	void* buffer;
 	if(dev) {
 		seekdir(dev, 2);
 		struct dirent* dir;
 		while((dir = readdir(dev))) {
-			sprintf(path, "/modules/%s", dir->name);
+			sprintf(path, "%s/%s", mod_path, dir->name);
 			FILE* f = fopen(path, "r");
 			if(!f) {
 				printf("Failed to open module: %s\r\n", path);
@@ -46,7 +46,7 @@ static uint8_t load_modules() {
 		closedir(dev);
 		return 0;
 	} else {
-		printf("Failed to open /modules\r\n");
+		printf("Failed to open %s\r\n", mod_path);
 		return 1;
 	}
 }
@@ -95,7 +95,7 @@ void sort(char** arr, int n) {
 int main(int argc, char** argv){
 	init_output();
 
-	if(load_modules()){
+	if(load_modules("/modules")){
 		printf("Errors occured during modules loading...\r\n");
 	} else{
 		printf("Loaded initrd modules.\r\n");

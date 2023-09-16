@@ -2,7 +2,9 @@
 #include <mem/heap.h>
 #include <string.h>
 
+#include "fs/vfs.h"
 #include "kernel.h"
+#include "kernel/fs/vfs.h"
 #include "mem/memory.h"
 #include "mem/paging.h"
 #include "multiboot.h"

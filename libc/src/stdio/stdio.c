@@ -87,8 +87,9 @@ FILE* fdopen(int fildes, const char *mode) {
 }
 
 FILE* fopen(const char *path, const char *mode){
-  uint32_t fd = __sys_open((uint32_t) path, __mode_to_options(mode), 0);
-  if(!fd) {
+  int32_t fd = __sys_open((uint32_t) path, __mode_to_options(mode), 0);
+  if(fd < 0) {
+	  __set_errno(-fd);
 	  return NULL;
   }
   return fdopen(fd, mode);

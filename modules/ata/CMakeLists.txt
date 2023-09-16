@@ -21,5 +21,4 @@ add_custom_target(
     VERBATIM
 )
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_FILE} DESTINATION bin/modules)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${TARGET_FILE} DESTINATION ramdisk/modules)

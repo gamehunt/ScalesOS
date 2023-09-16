@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 
 int closedir(DIR* dir) {
 	int result = __sys_close(dir->fd);
@@ -10,8 +11,14 @@ int closedir(DIR* dir) {
 }
 
 DIR* opendir(const char* path) {
+	int32_t fd = __sys_open((uint32_t) path, O_RDONLY, 0);
+	if(fd < 0) {
+		__set_errno(-fd);
+		return NULL;
+	}
+
 	DIR* dir   = malloc(sizeof(DIR));
-	dir->fd    = __sys_open((uint32_t) path, O_RDONLY, 0);
+	dir->fd    = fd;	
 	dir->index = 0;
 	return dir;
 }

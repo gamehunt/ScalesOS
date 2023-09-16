@@ -116,7 +116,7 @@ static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
 	fs_node_t* node = k_fs_vfs_open(path, flags);
 	if(!node) {
-		return 0;
+		return -ENOENT;
 	}
 	return k_proc_process_open_node(k_proc_process_current(), node);
 }
