@@ -91,7 +91,7 @@ static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
 		tree_insert_node(process_tree, proc->node, parent->node);
 	}
 
-    k_info("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
+    k_debug("Process spawned: %s (%d). Kernel stack: 0x%.8x", proc->name,
            proc->pid, proc->image.kernel_stack);
 
     UNLOCK(process_list->lock)
@@ -110,7 +110,7 @@ static process_t* __k_proc_process_create_init() {
     proc->context.esp = 0;
     proc->context.ebp = 0;
     proc->context.eip = 0;
-    k_mem_paging_clone_pd(0, &proc->image.page_directory);
+    proc->image.page_directory = k_mem_paging_clone_page_directory(NULL, NULL);
 
 	proc->wait_queue = list_create();
 
@@ -133,7 +133,7 @@ static process_t* __k_proc_process_create_idle() {
     proc->context.eip = (uint32_t)&__k_proc_process_idle;
 	proc->context.esp = proc->image.kernel_stack;
 	proc->context.ebp = proc->image.kernel_stack;
-    k_mem_paging_clone_pd(0, &proc->image.page_directory);
+    proc->image.page_directory = k_mem_paging_clone_page_directory(NULL, NULL);
 
     return proc;
 }
@@ -205,9 +205,8 @@ void k_proc_process_switch() {
         k_panic(buffer, 0);
     }
 
-    k_mem_gdt_set_directory(new_proc->image.page_directory);
     k_mem_gdt_set_stack((uint32_t) new_proc->image.kernel_stack);
-    k_mem_paging_set_pd(new_proc->image.page_directory, 1, 0);
+    k_mem_paging_set_page_directory(new_proc->image.page_directory, 0);
 
     __k_proc_process_load(&new_proc->context);
 }
@@ -261,8 +260,8 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
-	proc->image.page_directory = k_mem_paging_virt2phys(k_mem_paging_clone_root());
-	k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
+	proc->image.page_directory = k_mem_paging_clone_root_page_directory(NULL);
+	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0);
 
 	//TODO release old directory
 
@@ -363,7 +362,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		proc->image.entry = entry;
 
         k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
-        k_mem_gdt_set_directory(proc->image.page_directory);
         __k_proc_process_enter_usermode(entry, proc->image.user_stack);
     } else {
         k_free(buffer);
@@ -401,10 +399,7 @@ uint32_t k_proc_process_fork() {
 
 	new->wait_queue = list_create();
 
-    uint32_t prev = k_mem_paging_get_pd(1);
-    k_mem_paging_set_pd(new->image.page_directory, 1, 0);
-    k_mem_paging_clone_pd(0, &new->image.page_directory);
-    k_mem_paging_set_pd(prev, 1, 0);
+	new->image.page_directory = k_mem_paging_clone_page_directory(new->image.page_directory, NULL);
 
     __k_proc_process_create_kernel_stack(new);
 
@@ -499,7 +494,7 @@ void k_proc_process_wakeup_queue(list_t* queue) {
 }
 
 void k_proc_process_exit(process_t* process, int code) {
-	k_info("Process %s (%d) exited with code %d", process->name, process->pid, code);
+	k_debug("Process %s (%d) exited with code %d", process->name, process->pid, code);
 
 	process->status = code;
 
@@ -532,14 +527,14 @@ void k_proc_process_exit(process_t* process, int code) {
 }
 
 void k_proc_process_grow_heap(process_t* process, int32_t size){
-	uint32_t old_pd = k_mem_paging_get_pd(1);
+	pde_t* old_pd = k_mem_paging_get_page_directory(NULL);
 	if(size > 0) {
 		k_mem_paging_map_region(process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
 		process->image.heap_size += size * 0x1000;
 	} else {
 		//TODO unmap
 	}
-	k_mem_paging_set_pd(old_pd, 1, 0);
+	k_mem_paging_set_page_directory(old_pd, 0);
 }
 
 uint8_t __k_proc_process_waitpid_can_pick(process_t* process, process_t* parent, int pid) {
@@ -775,7 +770,7 @@ process_t* k_proc_process_find_by_pid(pid_t pid) {
 }
 
 void k_proc_process_return_from_signal(interrupt_context_t* ctx) {
-	k_info("Returning from signal handler...");
+	k_debug("Returning from signal handler...");
 
 	process_t* proc = k_proc_process_current();
 
@@ -815,7 +810,7 @@ pid_t k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* dat
 	proc->flags = PROCESS_FLAG_TASKLET;
 	proc->state = PROCESS_STATE_STARTING;
 
-	proc->image.page_directory = k_mem_paging_virt2phys(k_mem_paging_clone_root());
+	proc->image.page_directory = k_mem_paging_clone_root_page_directory(NULL);
 	__k_proc_process_create_kernel_stack(proc);
 
 	PUSH(proc->image.kernel_stack, void*, data);

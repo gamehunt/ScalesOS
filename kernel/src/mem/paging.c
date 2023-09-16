@@ -1,4 +1,5 @@
 #include "int/isr.h"
+#include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
 #include "proc/process.h"
@@ -18,23 +19,15 @@
 #define PTE(addr)    (addr >> 12 & 0x03FF)
 #define ADDR(pd, pt) ((pd)*0x400000 + (pt)*0x1000)
 
-#define PT_PTR(pd_index) ((uint32_t*)((0xFFC00000) + (0x1000 * pd_index)))
+#define PT_PTR(pd_index) ((pte_t*) ((0xFFC00000) + (0x1000 * pd_index)))
 
-#define GET_ADDR(pde)  (pde & 0xFFFFF000)
-#define GET_FLAGS(pde) (pde & 0xFFF)
-
-#define PD_PRESENT_FLAG (1 << 0)
-#define PD_SIZE_FLAG    (1 << 7)
-
-#define PT_PRESENT_FLAG PD_PRESENT_FLAG
-
-static volatile uint32_t* page_directory = (uint32_t*)0xFFFFF000;
-uint32_t __k_mem_paging_initial_directory = 0;
+static volatile pde_t* current_page_directory = 0;
+pde_t*                 initial_page_directory = 0;
 
 extern void* _kernel_end;
 
 extern uint32_t k_mem_paging_get_fault_addr();
-extern void __k_mem_paging_invlpg(uint32_t addr);
+extern void    __k_mem_paging_invlpg(uint32_t addr);
 
 interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 	process_t* proc          = k_proc_process_current();
@@ -51,33 +44,37 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 		}
 	}
     char buffer[128];
-    sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x", fault_address, ctx->err_code);
+    sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x Directory: 0x%.8x", fault_address, ctx->err_code, current_page_directory);
     k_panic(buffer, ctx);
     __builtin_unreachable();
 }
 
 void k_mem_paging_init() {
     k_int_isr_setup_handler(14, __pf_handler);
-    uint32_t phys = k_mem_paging_get_pd(1);
-    __k_mem_paging_initial_directory = phys;
-    uint32_t* pd = (uint32_t*)(phys + VIRTUAL_BASE);
-    pd[1023] = (phys) | 0x03;
+
+    paddr_t phys; 
+	k_mem_paging_get_page_directory(&phys);
+    
+	pde_t* pd = (pde_t*) (phys + VIRTUAL_BASE);
+    initial_page_directory = pd;
+	current_page_directory = initial_page_directory;
+
+    pd[1023].raw = phys | PAGE_PRESENT | PAGE_WRITABLE;
 }
 
 paddr_t k_mem_paging_virt2phys(vaddr_t vaddr) {
     uint16_t pd_index = PDE(vaddr);
-    uint32_t pde = page_directory[pd_index];
-    if (!(pde & PD_PRESENT_FLAG)) {
+    pde_t pde         = current_page_directory[pd_index];
+    if (!(pde.data.present)) {
         return 0;
     }
-    if (pde & PD_SIZE_FLAG) {
-        return (((pde & 0xffc00000) << 8) | (pde & 0x1fe000)) +
-               ((vaddr % 0x400000) & 0xfffff000) + (vaddr % 0x1000);
+    if (pde.data.size) {
+        return (((pde.raw & 0xffc00000) << 8) | (pde.raw & 0x1fe000)) + ((vaddr % 0x400000) & 0xfffff000) + (vaddr % 0x1000);
     } else {
-        uint32_t* pt = PT_PTR(pd_index);
-        uint32_t pte = pt[PTE(vaddr)];
-        if (pte & PT_PRESENT_FLAG) {
-            return GET_ADDR(pte) + (vaddr % 0x1000);
+        pte_t* pt = PT_PTR(pd_index);
+        pte_t  pte = pt[PTE(vaddr)];
+        if (pte.data.present) {
+            return PAGE_ADDRESS(pte.data.page) + (vaddr % 0x1000);
         }
         return 0;
     }
@@ -86,66 +83,76 @@ paddr_t k_mem_paging_virt2phys(vaddr_t vaddr) {
 extern paddr_t __k_mem_paging_get_pd_phys();
 extern vaddr_t __k_mem_paging_set_pd(paddr_t phys);
 
-addr_t k_mem_paging_get_pd(uint8_t p) {
-    if (p) {
-        return __k_mem_paging_get_pd_phys();
+pde_t* k_mem_paging_get_page_directory(paddr_t* phys) {
+    if (phys) {
+        *phys = __k_mem_paging_get_pd_phys();
     }
-    return (uint32_t) page_directory;
+    return current_page_directory;
 }
 
-void k_mem_paging_set_pd(addr_t addr, uint8_t phys, uint8_t force) {
+void k_mem_paging_set_page_directory(pde_t* addr, uint8_t flags) {
     if (!addr) {
-        phys = 1;
-        addr = __k_mem_paging_initial_directory;
+        addr = initial_page_directory;
     }
-    if (!force) {
-        uint32_t current = k_mem_paging_get_pd(phys);
+
+	if(!IS_VALID_PTR((uint32_t) addr)) {
+		k_panic("Tried to set invalid page directory.", NULL);
+	}
+
+    if (!(flags & PD_SET_FORCE)) {
+        pde_t* current = k_mem_paging_get_page_directory(NULL);
         if (addr == current) {
             return;
         }
     }
-    if (!phys) {
-        addr = k_mem_paging_virt2phys(addr);
-    }
-    __k_mem_paging_set_pd(addr);
+    
+	pde_t* va = addr;
+    addr = (pde_t*) k_mem_paging_virt2phys((addr_t) addr);
+
+	current_page_directory = va;
+
+    k_mem_gdt_set_directory((uint32_t) addr);
+    __k_mem_paging_set_pd((addr_t) addr);
 }
 
 void k_mem_paging_unmap(vaddr_t vaddr) {
     uint32_t pd_index = PDE(vaddr);
-    if (!(page_directory[pd_index] & PD_PRESENT_FLAG)) {
+    if (!(current_page_directory[pd_index].data.present)) {
         return;
     }
 
-    uint32_t* pt = PT_PTR(pd_index);
+    pte_t* pt         = PT_PTR(pd_index);
     uint32_t pt_index = PTE(vaddr);
 
-    pt[pt_index] = 0;
+    pt[pt_index].raw  = 0;
 
     __k_mem_paging_invlpg(vaddr);
 }
 
 void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
+	if(!flags) {
+		flags = PAGE_PRESENT | PAGE_WRITABLE;
+	}
+
     uint32_t pd_index = PDE(vaddr);
-    if (!(page_directory[pd_index] & PD_PRESENT_FLAG)) {
+    if (!current_page_directory[pd_index].data.present) {
         pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
         if (!frame) {
             k_panic("Out of memory. Failed to allocate page table.", 0);
             __builtin_unreachable();
         }
-        page_directory[pd_index] =
-            frame | flags |
-            0x03; // TODO if allocated frame is big, then make a 4MB page
+        current_page_directory[pd_index].raw = frame | flags; // TODO if allocated frame is big, then make a 4MB page
         __k_mem_paging_invlpg((uint32_t) PT_PTR(pd_index));
     }
 
-    uint32_t* pt = PT_PTR(pd_index);
+    pte_t*   pt = PT_PTR(pd_index);
     uint32_t pt_index = PTE(vaddr);
 
     if (!paddr) {
         paddr = k_mem_pmm_alloc_frames(1);
     }
 
-    pt[pt_index] = paddr | flags | 0x03;
+    pt[pt_index].raw = paddr | flags;
 
     __k_mem_paging_invlpg(vaddr);
 }
@@ -166,44 +173,39 @@ void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
     }
 }
 
-addr_t  k_mem_paging_clone_root() {
-	uint32_t prev = k_mem_paging_get_pd(1);
-	k_mem_paging_set_pd(0, 1, 0);
-	addr_t copy = k_mem_paging_clone_pd(0, 0);
-	k_mem_paging_set_pd(prev, 1, 0);
-	return copy;
+pde_t* k_mem_paging_clone_root_page_directory(paddr_t* phys) {
+	return k_mem_paging_clone_page_directory(initial_page_directory, phys);
 }
 
-addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
-    if (!pd) {
-        pd = k_mem_paging_get_pd(0);
-    }
+pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
+    if (!src) {
+        src = k_mem_paging_get_page_directory(NULL);
+	}
 
-    uint32_t* src = (uint32_t*)pd;
-    uint32_t  src_phys = k_mem_paging_virt2phys(pd);
-
-    uint32_t* copy = k_valloc(0x1000, 0x1000);
+    pde_t*  copy      = k_valloc(0x1000, 0x1000);
+	paddr_t copy_phys = k_mem_paging_virt2phys((uint32_t)copy);
 
     memcpy(copy, src, 0x1000);
 
-    copy[1023] = (k_mem_paging_virt2phys((uint32_t)copy)) | 0x03;
+    copy[1023].raw = copy_phys | PAGE_PRESENT | PAGE_WRITABLE;
 
     uint32_t kernel_pd = PDE(VIRTUAL_BASE);
-    uint32_t prev = k_mem_paging_get_pd(1);
-    k_mem_paging_set_pd(src_phys, 1, 0);
+    pde_t*   prev      = k_mem_paging_get_page_directory(NULL);
+
+    k_mem_paging_set_page_directory(src, 0);
 
     for(uint32_t i = 0; i < kernel_pd; i++){
-        if(src[i] & PD_PRESENT_FLAG){
+        if(src[i].data.present){
             uint32_t frame = k_mem_pmm_alloc_frames(1);
-            k_mem_paging_map(PT_TMP_MAP, frame, 0x3);
-            copy[i] = frame | GET_FLAGS(src[i]);
-            uint32_t* copy_pt = (uint32_t*) PT_TMP_MAP;
-            uint32_t* src_pt  = PT_PTR(i);
+            k_mem_paging_map(PT_TMP_MAP, frame, 0);
+            copy[i].raw       = frame | (src[i].raw & 0xFFF);
+            pte_t* copy_pt    = (pte_t*) PT_TMP_MAP;
+            pte_t* src_pt     = PT_PTR(i);
             for(int j = 0; j < 1024; j++){
-                if(src_pt[j] & PD_PRESENT_FLAG){
+                if(src_pt[j].data.present){
                     frame = k_mem_pmm_alloc_frames(1);
-                    k_mem_paging_map(PG_TMP_MAP, frame, 0x3);
-                    copy_pt[j] = frame | GET_FLAGS(src_pt[j]);
+                    k_mem_paging_map(PG_TMP_MAP, frame, 0);
+                    copy_pt[j].raw       = frame | (src_pt[j].raw & 0xFFF);
                     memcpy((void*) PG_TMP_MAP, (void*) ADDR(i, j), 0x1000);
                     k_mem_paging_unmap(PG_TMP_MAP);
                 }
@@ -211,11 +213,12 @@ addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
             k_mem_paging_unmap(PT_TMP_MAP);
         }
     }
-    k_mem_paging_set_pd(prev, 1, 1);
+
+    k_mem_paging_set_page_directory(prev, 0);
 
     if (phys) {
         *phys = k_mem_paging_virt2phys((uint32_t)copy);
     }
 
-    return (uint32_t)copy;
+    return copy;
 }

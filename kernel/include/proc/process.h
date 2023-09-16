@@ -3,6 +3,7 @@
 
 #include "fs/vfs.h"
 #include "int/isr.h"
+#include "mem/paging.h"
 #include "proc/spinlock.h"
 #include "sys/signal.h"
 #include "signal.h"
@@ -28,7 +29,7 @@ typedef struct context {
 } context_t;
 
 typedef struct image{
-    uint32_t   page_directory;
+    pde_t*     page_directory;
 	uint32_t   heap;
 	uint32_t   heap_size;
     uint32_t   kernel_stack;

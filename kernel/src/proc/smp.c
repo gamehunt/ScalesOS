@@ -1,6 +1,7 @@
 #include "dev/timer.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
+#include "mem/mmio.h"
 #include "mem/paging.h"
 #include "proc/process.h"
 #include "util/asm_wrappers.h"

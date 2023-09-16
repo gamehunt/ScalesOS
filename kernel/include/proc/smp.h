@@ -12,7 +12,7 @@ typedef struct {
     struct tss_entry* tss;
 
     volatile process_t* current_process;
-    process_t* idle_process;
+    process_t*          idle_process;
 } core;
 
 static core __seg_gs * const current_core __attribute__((__used__)) = 0;

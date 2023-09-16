@@ -94,7 +94,7 @@ int k_util_exec_shebang(const char* path, const char* argv[], const char* envp[]
 		interp[99] = '\0';
 	} 
 
-	k_info("Interpeter: %s", interp);
+	k_debug("Interpeter: %s", interp);
 
 	if(!argv) {
 		argv = k_malloc(sizeof(char*));

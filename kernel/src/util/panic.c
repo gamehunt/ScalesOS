@@ -3,6 +3,7 @@
 #include <util/panic.h>
 #include "mem/paging.h"
 #include "mod/symtable.h"
+#include "proc/process.h"
 
 struct stackframe {
   struct stackframe* ebp;

@@ -20,7 +20,7 @@ typedef struct tmpfs_node {
 	uint32_t   blocks_amount;
 	uint32_t   block_array_size;
 	uint32_t** blocks;
-	uint32_t   mappings;
+	pde_t*     mappings;
 	uint32_t   last_map;
 	struct tmpfs_node* parent;
 	list_t*            children;
@@ -49,8 +49,8 @@ static uint32_t __k_fs_tmpfs_read(fs_node_t* node, uint32_t offset, uint32_t siz
 	uint32_t block_offset = offset / TMPFS_BLOCK_SIZE;
 	uint32_t part_offset  = offset % TMPFS_BLOCK_SIZE;
 
-	uint32_t prev = k_mem_paging_get_pd(1);
-	k_mem_paging_set_pd(tmp_node->mappings, 1, 0);
+	pde_t* prev = k_mem_paging_get_page_directory(NULL);
+	k_mem_paging_set_page_directory(tmp_node->mappings, 0);
 
 	for(uint32_t i = 0; i < full_blocks; i++) {
 		if(!tmp_node->blocks[block_offset + i]) {
@@ -66,7 +66,7 @@ static uint32_t __k_fs_tmpfs_read(fs_node_t* node, uint32_t offset, uint32_t siz
 
 	memcpy(&buffer[full_blocks * TMPFS_BLOCK_SIZE], &tmp_node->blocks[block_offset + full_blocks][part_offset], part_size);
 
-	k_mem_paging_set_pd(prev, 1, 0);
+	k_mem_paging_set_page_directory(prev, 0);
 
 	return size;
 }
@@ -102,8 +102,8 @@ static uint32_t __k_fs_tmpfs_allocate_blocks(tmpfs_node_t* node, uint32_t blocks
 static uint32_t __k_fs_tmpfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
 	tmpfs_node_t* tmp_node = node->device;
 
-	uint32_t prev = k_mem_paging_get_pd(1);
-	k_mem_paging_set_pd(tmp_node->mappings, 1, 0);
+	pde_t* prev = k_mem_paging_get_page_directory(NULL);
+	k_mem_paging_set_page_directory(tmp_node->mappings, 0);
 
 	uint32_t block_offset = offset / TMPFS_BLOCK_SIZE;
 	uint32_t part_offset = offset % TMPFS_BLOCK_SIZE;
@@ -139,7 +139,7 @@ static uint32_t __k_fs_tmpfs_write(fs_node_t* node, uint32_t offset, uint32_t si
 		memcpy(&buffer[part_size + full_blocks_required * TMPFS_BLOCK_SIZE], tmp_node->blocks[block_offset + (part_offset > 0) + full_blocks_required], part_block_required);
 	}
 
-	k_mem_paging_set_pd(prev, 1, 0);
+	k_mem_paging_set_page_directory(prev, 0);
 	return size;
 }
 
@@ -181,7 +181,7 @@ static fs_node_t* __k_fs_tmpfs_mkdir(fs_node_t* root, const char* path, uint8_t 
 static tmpfs_node_t* __k_fs_tmpfs_create_node(char* name, tmpfs_node_t* parent) {
 	tmpfs_node_t* node = k_calloc(1, sizeof(tmpfs_node_t));
 	strcpy(node->name, name);
-	node->mappings = k_mem_paging_clone_root();
+	node->mappings = k_mem_paging_clone_root_page_directory(NULL);
 	node->last_map = 0x10000000;
 	node->children = list_create();
 	if(parent) {

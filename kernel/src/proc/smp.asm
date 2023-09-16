@@ -36,7 +36,7 @@ bits 32
 
 extern __k_proc_smp_stack
 extern __k_proc_smp_ap_startup
-extern __k_mem_paging_initial_directory
+extern initial_page_directory
 
 __k_proc_smp_ap_pm_bootstrap: ; 0x60
     mov ax, 0x10
@@ -46,7 +46,7 @@ __k_proc_smp_ap_pm_bootstrap: ; 0x60
     mov gs, ax
     mov fs, ax
 
-    mov eax, [__k_mem_paging_initial_directory - 0xC0000000] 
+    mov eax, [initial_page_directory - 0xC0000000] 
     mov cr3, eax ; load page directory
 
     mov eax, cr4
