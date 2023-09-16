@@ -55,7 +55,7 @@ K_STATUS k_proc_smp_init() {
 
     k_info("Initializing SMP with %d cores", total_cores);
 
-    lapic_addr = (uint32_t)k_mem_paging_map_mmio(lapic_addr, 1);
+    lapic_addr = (uint32_t)k_mem_mmio_map_register(lapic_addr, 4);
 
     int ebx, unused;
     __cpuid(0, unused, ebx, unused, unused);

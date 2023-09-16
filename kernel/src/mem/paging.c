@@ -90,7 +90,7 @@ addr_t k_mem_paging_get_pd(uint8_t p) {
     if (p) {
         return __k_mem_paging_get_pd_phys();
     }
-    return (uint32_t)page_directory;
+    return (uint32_t) page_directory;
 }
 
 void k_mem_paging_set_pd(addr_t addr, uint8_t phys, uint8_t force) {
@@ -218,13 +218,4 @@ addr_t k_mem_paging_clone_pd(vaddr_t pd, paddr_t* phys) {
     }
 
     return (uint32_t)copy;
-}
-
-static uint32_t mmio_base = MMIO_START;
-
-void* k_mem_paging_map_mmio(paddr_t pstart, uint32_t size){
-    void* ptr = (void*) mmio_base;
-    k_mem_paging_map_region((uint32_t) ptr, pstart, size, 0x3, 1);
-    mmio_base += size * 0x1000;
-    return ptr;
 }

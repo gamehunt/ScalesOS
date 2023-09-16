@@ -114,6 +114,8 @@ static process_t* __k_proc_process_create_init() {
 
 	proc->wait_queue = list_create();
 
+	strncpy(proc->wd, "/", 255);
+
     __k_proc_process_spawn(proc, 0);
 
     return proc;
@@ -259,10 +261,9 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
-	uint32_t* prev = (uint32_t*) k_mem_paging_get_pd(0);
-	k_mem_paging_set_pd(0, 0, 0);
-	k_mem_paging_clone_pd(0, &proc->image.page_directory);
+	proc->image.page_directory = k_mem_paging_virt2phys(k_mem_paging_clone_root());
 	k_mem_paging_set_pd(proc->image.page_directory, 1, 0);
+
 	//TODO release old directory
 
 	proc->image.heap       = USER_HEAP_START;

@@ -15,12 +15,4 @@
 K_STATUS k_mem_heap_init();
 void     k_d_mem_heap_print();
 
-struct __attribute__((packed)) mem_block {
-    struct mem_block* next;
-    size_t            size;
-    uint8_t           flags;
-};
-
-typedef struct mem_block mem_block_t;
-
 #endif

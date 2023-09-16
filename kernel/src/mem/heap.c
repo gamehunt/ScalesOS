@@ -4,20 +4,21 @@
 #include "string.h"
 #include "mem/memory.h"
 #include <mem/heap.h>
+#include "sys/heap.h"
 
 extern uint8_t __mem_heap_is_valid_block(mem_block_t* block);
 extern void __mem_heap_init_block(mem_block_t* block, uint32_t size);
 extern mem_block_t* heap;
 
 void __k_d_mem_heap_print_block(mem_block_t* src){
-    k_debug("0x%.8x: 0x%.8x %d 0x%.2x", src, src->next, src->size, src->flags);
+    k_debug("0x%.8x: %d 0x%.2x", src, src->size, src->flags);
 }
 
 void k_d_mem_heap_print(){
     mem_block_t* src = heap;
     while(__mem_heap_is_valid_block(src)){
         __k_d_mem_heap_print_block(src);
-        src = src->next;
+        src = M_NEXT(src);
     }
 	k_info("Last next: 0x%.8x", (uint32_t) src);
 }

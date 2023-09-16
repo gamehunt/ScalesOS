@@ -5,18 +5,11 @@
 
 #include "kernel/mem/paging.h"
 #include "mem/memory.h"
-#include "mem/heap.h"
+#include "sys/heap.h"
 #include "proc/spinlock.h"
 
-#define M_BLOCK_FREE    (1 << 0)
-#define M_BLOCK_ALIGNED (1 << 1)
-
-//mem_block_t* M_HEADER(void* addr);
-#define M_HEADER(addr)     (mem_block_t*)(((uint32_t)addr) - sizeof(mem_block_t))    
-//void* M_MEMORY(mem_header_t* addr);     
-#define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
-
 static spinlock_t heap_lock = 0; //TODO
+								 
 #undef LOCK
 #undef UNLOCK
 
@@ -86,7 +79,6 @@ void __mem_heap_init_block(mem_block_t* block, uint32_t size){
         __builtin_unreachable();
     }
 
-    block->next  = 0;
     block->size  = size;
     block->flags = M_BLOCK_FREE;
 }
@@ -106,8 +98,6 @@ static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint3
     __mem_heap_init_block(*splitted, diff - sizeof(mem_block_t));
 
     src->size          = size;
-    (*splitted)->next  = src->next;
-    src->next          = *splitted;
 
     return 0;
 }
@@ -115,11 +105,11 @@ static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint3
 static void __mem_merge(){
     mem_block_t* src = heap;
     while(__mem_heap_is_valid_block(src)){
-        if(src->flags & M_BLOCK_FREE && __mem_heap_is_valid_block(src->next) && src->next->flags & M_BLOCK_FREE){
-            src->size += sizeof(mem_block_t) + src->next->size;
-            src->next = src->next->next;
+		mem_block_t* next = M_NEXT(src);
+        if(src->flags & M_BLOCK_FREE && __mem_heap_is_valid_block(next) && next->flags & M_BLOCK_FREE){
+            src->size += sizeof(mem_block_t) + M_NEXT(src)->size;
         }
-        src = src->next;
+        src = next; 
     }
 }
 
@@ -142,7 +132,7 @@ void* __attribute__((malloc)) malloc(size_t size){
     || (block->size < size 
     || (block->size > size && block->size < size + sizeof(mem_block_t) + 1)))){
 		last_valid_block = block;
-        block = block->next;
+        block = M_NEXT(block);
     }
 
     if(!__mem_heap_is_valid_block(block)){
@@ -152,7 +142,7 @@ void* __attribute__((malloc)) malloc(size_t size){
 		k_err("Pre-Last block: 0x%.8x %d", last_valid_block, last_valid_block->size);
 		k_err("Last block: 0x%.8x", block);
 		if(IS_VALID_PTR((uint32_t) block)) {
-			k_err("%d 0x%.8x", block->size, block->next);
+			k_err("%d 0x%.8x", block->size);
 		}
 		k_err("Allocation size: %d (used: %d/%d KB)", size, __heap_usage() / 1024, HEAP_SIZE / 1024);
 		k_panic("Out of memory.", 0);
@@ -160,7 +150,6 @@ void* __attribute__((malloc)) malloc(size_t size){
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
 		__mem_heap_init_block(block, grow * 0x1000);
-		last_valid_block->next = block;
 		heap_size += grow;
 #endif
     }

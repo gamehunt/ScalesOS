@@ -44,8 +44,6 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 			dump(argv[0]);
 		}
 		return 0;
-	} else {
-		printf("strlen(%s): %d\n", op, strlen(op));
 	}
 
 	return 1;

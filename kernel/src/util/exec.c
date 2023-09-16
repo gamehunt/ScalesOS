@@ -21,15 +21,6 @@ void k_util_add_exec_format(executable_t exec) {
 	list_push_back(exec_list, copy);
 }
 
-static uint8_t __k_util_match_signature(uint8_t* buffer, uint8_t length, uint8_t signature[]) {
-	for(uint32_t i = 0; i < length; i++){
-		if(buffer[i] != signature[i]) {
-			return 0;
-		}
-	}
-	return 1;
-}
-
 int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 	fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
 
@@ -44,7 +35,7 @@ int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 
 	for(uint32_t i = 0; i < exec_list->size; i++){
 		executable_t* fmt = exec_list->data[i];
-		if(__k_util_match_signature(buffer, fmt->length, fmt->signature)) {
+		if(!memcmp(buffer, fmt->signature, fmt->length)) {
 			if(argv) {
 				int argc = 1;
 
