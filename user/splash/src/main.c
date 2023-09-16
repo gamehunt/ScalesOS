@@ -1,5 +1,7 @@
+#include "sys/tty.h"
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 static FILE* pipe;
@@ -14,12 +16,21 @@ int main(int argc, char** argv) {
 
 	setbuf(pipe, 0);
 
+	FILE* rnd = fopen("/dev/random", "r");
+	if(!rnd) {
+		return 0;
+	}
+
+	FILE* console = fopen("/dev/console", "r");
+	if(!console) {
+		return 0;
+	}
+
+	int n = 7;
+	ioctl(fileno(console), VT_ACTIVATE, &n);
+
 	FILE* fb = fopen("/dev/fb", "w");
 	if(fb) {
-		FILE* rnd = fopen("/dev/random", "r");
-		if(!rnd) {
-			return 0;
-		}
 		for(int i = 0; i < 1024 * 640 * 32; i++) {
 			uint8_t byte;
 			fread(&byte, 1, 1, rnd);
