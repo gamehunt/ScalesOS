@@ -12,24 +12,20 @@ uint32_t __k_dev_random_get_value_fallback() {
 
 extern uint32_t __k_dev_random_get_value();
 
-static uint32_t __k_dev_random_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
+static uint32_t __k_dev_random_read(fs_node_t* node UNUSED, uint32_t offset UNUSED, uint32_t size, uint8_t* buffer) {
 	uint32_t full_bytes = size / 4;
 	uint8_t  part_bytes = size % 4;
 
-	uint32_t ptr = 0;
-
-	uint32_t* buf_ptr = (uint32_t*) (buffer + offset);
-
 	for(uint32_t i = 0; i < full_bytes; i++) {
-		buf_ptr[i] = __k_dev_random_get_value();
-		ptr += 4;
+		*((uint32_t*) buffer) = __k_dev_random_get_value();
+		buffer += 4;
 	}
 
 	if(part_bytes) {
 		uint32_t value = __k_dev_random_get_value();
 
 		for(uint32_t i = 0; i < part_bytes; i++) {
-			(((uint8_t*) buf_ptr) + ptr)[i] = BYTE(value, i);
+			buffer[i] = BYTE(value, i);
 		}
 	}
 

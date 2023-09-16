@@ -146,6 +146,26 @@ static void __k_video_lfb_clear(uint32_t color) {
 	memset(framebuffer, color, info.width * info.height * info.bpp / 8);
 }
 
+static uint32_t __k_video_lfb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!size) {
+		return 0;
+	}
+
+	uint32_t max = info.width * info.height * info.bpp / 8;
+	
+	if(offset >= max) {
+		return 0;	
+	}
+
+	if(offset + size >= max) {
+		size = max - offset;
+	}
+
+	memcpy(framebuffer + offset, buffer, size);
+
+	return size;
+}
+
 void k_video_generic_lfb_init(multiboot_info_t* mb) {
 	if (!(mb->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO)) {
         k_warn("Framebuffer info unavailable");
@@ -174,11 +194,15 @@ void k_video_generic_lfb_init(multiboot_info_t* mb) {
     k_info("Framebuffer info: %dx%dx%d, type=%d", info.width, info.height,
            info.bpp, info.type);
 
-	fb_impl_t* fb_impl = k_malloc(sizeof(lfb_info_t));
+	fb_impl_t* fb_impl = k_malloc(sizeof(fb_impl_t));
+	
 	fb_impl->scroll   = &__k_video_lfb_scroll;
 	fb_impl->putpixel = &__k_video_lfb_putpixel;
 	fb_impl->putchar  = &__k_video_lfb_put_char;
 	fb_impl->stat     = &__k_video_lfb_stat;
 	fb_impl->clear    = &__k_video_lfb_clear;
+
+	fb_impl->fs.write = &__k_video_lfb_write;
+
 	k_dev_fb_set_impl(fb_impl);
 }
