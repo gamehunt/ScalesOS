@@ -36,6 +36,7 @@
 #include "proc/process.h"
 #include "util/exec.h"
 #include "util/panic.h"
+#include "video/lfbgeneric.h"
 
 extern void _libk_set_print_callback(void*);
 
@@ -59,7 +60,8 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_fs_vfs_init();
 
-    k_dev_fb_init(mb);
+    k_dev_fb_init();
+	k_video_generic_lfb_init(mb);
     _libk_set_print_callback(k_dev_fb_write);
 
     k_dev_fpu_init();
