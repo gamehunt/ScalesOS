@@ -11,6 +11,7 @@ set(SOURCES
 	tty.c
 	mod.c
 	utsname.c
+	reboot.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

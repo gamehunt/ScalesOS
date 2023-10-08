@@ -1,0 +1,7 @@
+#ifndef __SCALES_REBOOT_H
+#define __SCALES_REBOOT_H
+
+#define SCALES_REBOOT_CMD_REBOOT   1
+#define SCALES_REBOOT_CMD_SHUTDOWN 2
+
+#endif

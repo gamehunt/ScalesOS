@@ -40,7 +40,9 @@ add_executable(motd   motd.c)
 add_executable(mount  mount.c)
 add_executable(umount umount.c)
 add_executable(scfetch scfetch.c)
+add_executable(reboot reboot.c)
+add_executable(shutdown shutdown.c)
 
-install(TARGETS getty stty mount umount insmod motd login scfetch DESTINATION bin/)
+install(TARGETS getty stty mount umount insmod motd login scfetch reboot shutdown DESTINATION bin/)
 
 install(CODE "MESSAGE(\"Userspace installed.\")")

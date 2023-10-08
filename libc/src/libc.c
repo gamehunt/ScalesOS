@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <sys/__internals.h>
+#include <scales/env.h>
 
 extern void __mem_init_heap();
 extern void __init_stdio();

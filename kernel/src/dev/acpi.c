@@ -352,3 +352,8 @@ void k_dev_acpi_reboot() {
 			__builtin_unreachable();
 	}
 }
+
+void k_dev_acpi_shutdown() {
+	outw(0x604, 0x2000); // TODO we need to parse AML and then do outw(PM1a_CNT, SLP_TYPa | SLP_EN );
+						 // This will only work in QEMU
+}

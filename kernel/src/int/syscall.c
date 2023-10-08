@@ -27,6 +27,7 @@
 #include "util/path.h"
 
 #include <proc/process.h>
+#include <scales/reboot.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -179,9 +180,16 @@ static uint32_t sys_sleep(uint64_t microseconds) {
 	return k_proc_process_sleep(k_proc_process_current(), microseconds);
 }
 
-static uint32_t sys_reboot() {
-	k_dev_acpi_reboot();
-	__builtin_unreachable();
+static uint32_t sys_reboot(int op) {
+	if(op == SCALES_REBOOT_CMD_REBOOT) {
+		k_dev_acpi_reboot();
+		__builtin_unreachable();
+	} else if(op == SCALES_REBOOT_CMD_SHUTDOWN) {
+		k_dev_acpi_shutdown();
+		__builtin_unreachable();
+	}
+
+	return -EINVAL;
 }
 
 static uint32_t sys_times(struct tms* tms) {
@@ -463,7 +471,7 @@ DEFN_SYSCALL3(sys_exec, const char*, char**, char**);
 DEFN_SYSCALL1(sys_grow, int32_t);
 DEFN_SYSCALL3(sys_waitpid, pid_t, int*, int);
 DEFN_SYSCALL1(sys_sleep, uint64_t);
-DEFN_SYSCALL0(sys_reboot);
+DEFN_SYSCALL1(sys_reboot, int);
 DEFN_SYSCALL1(sys_times, struct tms*);
 DEFN_SYSCALL2(sys_gettimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);

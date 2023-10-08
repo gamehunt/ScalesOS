@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/__internals.h>
+#include <scales/env.h>
 
 
 extern int              __envc;

@@ -59,7 +59,7 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_waitpid(pid, status, options)     	  __syscall(SYS_WAITPID, pid, status, options, UNUSED2)
 #define __sys_exec(path, argv, envp)            	  __syscall(SYS_EXEC, path, argv, envp, UNUSED2)
 #define __sys_sleep(microseconds)               	  __syscall(SYS_SLEEP, microseconds, UNUSED4)
-#define __sys_reboot()                          	  __syscall(SYS_REBOOT, UNUSED5)
+#define __sys_reboot(op)                              __syscall(SYS_REBOOT, op, UNUSED4)
 #define __sys_times(tms)                        	  __syscall(SYS_TIMES, tms, UNUSED4)
 #define __sys_gettimeofday(tv, tz)              	  __syscall(SYS_GETTIMEOFDAY, tv, tz, UNUSED3)
 #define __sys_settimeofday(tv, tz)              	  __syscall(SYS_SETTIMEOFDAY, tv, tz, UNUSED3)

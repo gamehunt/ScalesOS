@@ -8,6 +8,8 @@
 #include <dirent.h>
 #include <sys/syscall.h>
 #include <sys/mount.h>
+#include <sys/reboot.h>
+#include <scales/reboot.h>
 
 void init_output() {
 	__sys_open((uint32_t) "/dev/null", O_RDONLY, 0); // stdin
@@ -131,6 +133,6 @@ int main(int argc, char** argv){
 
 	while(1);
 
-	__sys_reboot();
+	reboot(SCALES_REBOOT_CMD_REBOOT);
 	__builtin_unreachable();
 }

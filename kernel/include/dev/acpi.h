@@ -5,6 +5,7 @@
 
 void     k_dev_acpi_set_addr(void* buff);
 void     k_dev_acpi_reboot();
+void     k_dev_acpi_shutdown();
 K_STATUS k_dev_acpi_init();
 
 #endif

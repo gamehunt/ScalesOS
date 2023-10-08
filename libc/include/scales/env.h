@@ -1,5 +1,5 @@
-#ifndef __SYS_INTERNALS_H
-#define __SYS_INTERNALS_H
+#ifndef __SCALES_ENV_H
+#define __SCALES_ENV_H
 
 struct env_var {
 	const char* name;
