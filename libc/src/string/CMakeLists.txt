@@ -8,6 +8,7 @@ set(SOURCES
     strtok.c
     strcmp.c
     strcat.c
+	strncat.c
     strdup.c
     strchr.c
     strchrnul.c

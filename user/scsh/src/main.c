@@ -1,3 +1,4 @@
+#include "errno.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -45,9 +46,13 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 		}
 		return 0;
 	} else if(!strcmp(op, "cat")) {
+		if(argc < 1) {
+			fprintf(out, "Usage: cat <file>\n");
+			return 1;
+		}
 		FILE* f = fopen(argv[0], "r");
 		if(!f) {
-			printf("No such file.");
+			fprintf(out, "No such file.\n");
 			return 1;
 		}
 		fseek(f, 0, SEEK_END);
@@ -57,14 +62,39 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 		fread(buff, 1, l, f);
 		fclose(f);
 		for(size_t i = 0; i < l; i++) {
-			fputc(buff[i], stdout);
+			fputc(buff[i], out);
 		}
 		free(buff);
-		fflush(stdout);
 		return 0;
+	} else if(!strcmp(op, "cd")) {
+		if(argc < 1) {
+			fprintf(out, "Usage: cd <directory>\n");
+			return 1;
+		}
+		int r = chdir(argv[0]);
+		if(r < 0) {
+			if(errno == EINVAL) {
+				fprintf(out, "No such directory: %s\n", argv[0]);
+			} else if(errno == ENOTDIR) {
+				fprintf(out, "Not a directory: %s\n", argv[0]);
+			} else {
+				fprintf(out, "Unknown error occured: %ld\n", errno);
+			}
+			return 1;
+		}
+		return 0;
+	} else if(!strcmp(op, "pwd")) {
+		char* path = get_current_dir_name();
+		if(path) {
+			fprintf(out, "%s\n", path);
+			return 0;
+		} else {
+			fprintf(out, "Error occured. Path is too long? Errno: %ld", errno);
+			return 1;
+		}
 	}
 
-	return 1;
+	return -1;
 }
 
 int execute_line(char* line) {
@@ -129,12 +159,13 @@ int execute_line(char* line) {
 		strncpy(path, op, 255);
 	}
 
-	pid_t child = fork();
+	int status = 0;
 
-	if(!child) {
-		FILE* test = fopen(path, "r");
-		if(test) {
-			fclose(test);
+	FILE* test = fopen(path, "r");
+	if(test) {
+		fclose(test);
+		pid_t child = fork();
+		if(!child) {
 			if(out_pipe) {
 				dup2(fileno(out_pipe), 1);
 				dup2(fileno(out_pipe), 2);
@@ -145,17 +176,14 @@ int execute_line(char* line) {
 			execve(path, _op_argv, 0);
 			fprintf(stderr, "Failed to execute: %s\n", path);
 			exit(1);
-		} else {
-			if(try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe)){
-				fprintf(stderr, "No such command: %s\n", op);
-				exit(1);
-			}
-			exit(0);
+		}
+		waitpid(child, &status, 0);
+	} else {
+		status = try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe);
+		if(status < 0){
+			fprintf(stderr, "No such command: %s\n", op);
 		}
 	}
-
-	int status;
-	waitpid(child, &status, 0);
 
 	if(in_pipe) {
 		fclose(in_pipe);

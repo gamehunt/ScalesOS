@@ -85,6 +85,7 @@ typedef struct process {
 	signal_t   signals[MAX_SIGNAL];
 	uint64_t   signal_queue;
 
+	fs_node_t* wd_node;
 	char       wd[256];
 } process_t;
 

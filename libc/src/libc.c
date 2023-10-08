@@ -66,9 +66,12 @@ void __init_arguments(int argc, char** argv, int envc, char** envp) {
 	__envp[__envc] = "\0";
 }
 
-void libc_exit(int code) {
+void __atexit_flush_streams() {
 	fflush(stderr);
 	fflush(stdout);
+}
+
+void libc_exit(int code) {
 	_fini();
 	exit(code);
 }
@@ -81,6 +84,7 @@ void libc_init(int argc, char** argv, int envc, char** envp) {
 	__init_arguments(argc, argv, envc, envp);
 	__parse_env();
 	_init();
+	atexit(&__atexit_flush_streams);
 	libc_exit(main(__argc, __argv));
 }
 

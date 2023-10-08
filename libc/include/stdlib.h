@@ -1,6 +1,8 @@
 #ifndef __STDLIB_H
 #define __STDLIB_H
 
+#define __ATEXIT_MAX 32
+
 #include <stddef.h>
 
 void* malloc(size_t size);

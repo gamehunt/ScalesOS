@@ -36,6 +36,7 @@
 #include "proc/process.h"
 #include "util/exec.h"
 #include "util/panic.h"
+#include "util/path.h"
 #include "video/lfbgeneric.h"
 
 extern void _libk_set_print_callback(void*);
@@ -104,6 +105,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 	};
 
 	k_util_add_exec_format(shebang_exec);
+
 
     k_proc_process_exec("/bin/init", 0, 0);
 

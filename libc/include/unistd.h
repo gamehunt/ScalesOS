@@ -2,6 +2,7 @@
 #define __UNISTD_H
 
 #include <sys/types.h>
+#include <stddef.h>
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 
@@ -23,6 +24,13 @@ unsigned int usleep(unsigned long usec);
 
 int dup(int oldfd);
 int dup2(int oldfd, int newfd);
+
+int chdir(const char *path);
+int fchdir(int fd);  
+
+
+char* getcwd(char buf[], size_t size);
+char* get_current_dir_name(void);
 
 #endif
 

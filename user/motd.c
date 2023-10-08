@@ -15,7 +15,7 @@ int main(int argc, char** argv) {
 		printf("%s", buffer);
 	}
 
-	printf("\n*****\n");
+	printf("\n*****\n\n");
 
 	return 0;
 }

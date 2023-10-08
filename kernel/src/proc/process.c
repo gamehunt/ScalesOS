@@ -114,6 +114,7 @@ static process_t* __k_proc_process_create_init() {
 
 	proc->wait_queue = list_create();
 
+	proc->wd_node = k_fs_vfs_open("/", O_RDONLY);
 	strncpy(proc->wd, "/", 255);
 
     __k_proc_process_spawn(proc, 0);

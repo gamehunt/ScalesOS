@@ -10,6 +10,7 @@ set(SOURCES
 	ioctl.c
 	tty.c
 	mod.c
+	utsname.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

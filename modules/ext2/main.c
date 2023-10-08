@@ -403,6 +403,11 @@ static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t in
 	file->inode = inode;
 	file->device = fs;
 	file->size = ino->size_low; 
+	
+	if(ino->perms & EXT2_DIR) {
+		file->flags |= VFS_DIR;
+	}
+
 	file->fs.read    = &__ext2_read;
 	file->fs.readdir = &__ext2_readdir;
 	file->fs.finddir = &__ext2_finddir;
@@ -468,6 +473,7 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs_node_t* root = k_fs_vfs_create_node(filename);
 	root->inode  = 2;
 	root->device = fs;
+	root->flags  = VFS_DIR;
 	root->fs.read    = &__ext2_read;
 	root->fs.readdir = &__ext2_readdir;
 	root->fs.finddir = &__ext2_finddir;

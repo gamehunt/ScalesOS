@@ -3,6 +3,7 @@
 #include "errno.h"
 #include "kernel.h"
 #include "mem/heap.h"
+#include "mem/paging.h"
 #include "util/path.h"
 #include "util/types/list.h"
 #include "util/types/tree.h"
@@ -75,8 +76,12 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
 }
 
 static struct dirent* __k_fs_virtual_readdir(fs_node_t* node, uint32_t index) {
-	tree_node_t* tnode = (tree_node_t*) node->device;
-	if(!tnode) {
+	if(!IS_VALID_PTR((uint32_t) node->device)) {
+		return 0;
+	}
+
+	tree_node_t* tnode = ((vfs_entry_t*) node->device)->tree_node;
+	if(!IS_VALID_PTR((uint32_t) tnode)) {
 		return 0;
 	}
 
@@ -230,8 +235,12 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
         return NULL;
     }
 
-    fs_node_t* root_node = __k_fs_vfs_find_node(path);
+	char* canon_path = k_util_path_canonize(path, "");
+
+    fs_node_t* root_node = __k_fs_vfs_find_node(canon_path);
+
 	if(!root_node) {
+		k_free(canon_path);
 		return NULL;
 	}
 
@@ -244,6 +253,7 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
 
 	node->mode  = mode;
 	node->links = 1;
+	node->path  = canon_path;
 
     return node;
 }
@@ -255,6 +265,9 @@ void k_fs_vfs_close(fs_node_t* node){
         	if(node->fs.close){
         	    node->fs.close(node);
         	}
+			if(node->path) {
+				k_free(node->path);
+			}
         	k_free(node);
     	}
 	}
@@ -399,5 +412,3 @@ void __k_d_fs_vfs_print_node(tree_node_t* node, uint8_t depth){
 void  k_d_fs_vfs_print(){
     __k_d_fs_vfs_print_node(vfs_tree->root, 0);
 }
-
-

@@ -53,6 +53,7 @@ struct fs_node{
     uint32_t size;
     fs_ops_t fs;
 	uint32_t links;
+	const char* path;
 };
 
 typedef struct vfs_entry{
@@ -84,4 +85,5 @@ fs_node_t*       k_fs_vfs_mkdir        (fs_node_t* node, const char* path, uint8
 int              k_fs_vfs_ioctl        (fs_node_t* node, uint32_t req, void* args);
 void             k_d_fs_vfs_print      ();
 void             k_fs_vfs_register_fs  (const char* alias, mount_callback m);
+
 #endif

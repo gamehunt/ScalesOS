@@ -22,7 +22,9 @@
 #include "sys/times.h"
 #include "sys/time.h"
 #include "sys/signal.h"
+#include "sys/utsname.h"
 #include "util/panic.h"
+#include "util/path.h"
 
 #include <proc/process.h>
 #include <string.h>
@@ -114,11 +116,30 @@ static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 }
 
 static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
-	fs_node_t* node = k_fs_vfs_open(path, flags);
+	if(!IS_VALID_PTR((uint32_t) path) || !strlen(path)) {
+		return -EINVAL;
+	}
+
+	process_t* cur = k_proc_process_current();
+
+	char  fullpath[255];
+	char* canonpath = NULL;
+	
+	if(path[0] != '/') {
+		canonpath = k_util_path_canonize(cur->wd, path);
+	} else {
+		canonpath = k_util_path_canonize(path, "");
+	}
+
+	strncpy(fullpath, canonpath, sizeof(fullpath));
+	k_free(canonpath);
+	
+	fs_node_t* node = k_fs_vfs_open(fullpath, flags);
 	if(!node) {
 		return -ENOENT;
 	}
-	return k_proc_process_open_node(k_proc_process_current(), node);
+
+	return k_proc_process_open_node(cur, node);
 }
 
 static uint32_t sys_close(uint32_t fd) {
@@ -372,6 +393,57 @@ static uint32_t sys_ioctl(int fd, uint32_t req, void* args) {
 	return k_fs_vfs_ioctl(node, req, args);
 }
 
+static uint32_t sys_uname(struct utsname* buf) {
+	if(!IS_VALID_PTR((uint32_t) buf)) {
+		return -EINVAL;
+	}
+
+	strncpy(buf->sysname,  "ScalesOS x86", sizeof(buf->sysname));
+	strncpy(buf->version,  KERNEL_VERSION, sizeof(buf->version));
+	strncpy(buf->release,  "1",            sizeof(buf->release));
+	strncpy(buf->nodename, "\0",           sizeof(buf->nodename));
+	strncpy(buf->machine,  "Unknown",      sizeof(buf->machine));
+
+	return 0;
+}
+
+static uint32_t sys_getcwd(char buf[], size_t size) {
+	process_t* cur = k_proc_process_current();
+
+	const char* path = cur->wd;
+
+	if(strlen(path) >= size) {
+		return -ERANGE; 
+	}
+
+	strncpy(buf, path, size);
+
+	return (uint32_t) buf;
+}
+
+static uint32_t sys_chdir(int fd) {
+	process_t* cur = k_proc_process_current();
+
+	fd_list_t* fds = &cur->fds;
+
+	if(fd < 0 || (uint32_t) fd >= fds->size || !fds->nodes[fd]) {
+		return -EINVAL;
+	}
+
+	fs_node_t* node = fds->nodes[fd]->node;
+
+	if(!(node->flags & VFS_DIR)) {
+		return -ENOTDIR;
+	}
+
+	k_fs_vfs_close(cur->wd_node);
+	cur->wd_node = node;	
+
+	strncpy(cur->wd, node->path, sizeof(cur->wd));
+
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -399,6 +471,9 @@ DEFN_SYSCALL2(sys_mkfifo, const char*, int);
 DEFN_SYSCALL2(sys_dup2, int, int);
 DEFN_SYSCALL5(sys_openpty, int*, int*, char*, struct termios*, struct winsize*);
 DEFN_SYSCALL3(sys_ioctl, int, uint32_t, void*);
+DEFN_SYSCALL1(sys_uname, struct utsname*);
+DEFN_SYSCALL2(sys_getcwd, char*, size_t);
+DEFN_SYSCALL1(sys_chdir, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -431,6 +506,9 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_DUP2, REF_SYSCALL(sys_dup2));
 	k_int_syscall_setup_handler(SYS_OPENPTY, REF_SYSCALL(sys_openpty));
 	k_int_syscall_setup_handler(SYS_IOCTL, REF_SYSCALL(sys_ioctl));
+	k_int_syscall_setup_handler(SYS_UNAME, REF_SYSCALL(sys_uname));
+	k_int_syscall_setup_handler(SYS_CHDIR, REF_SYSCALL(sys_chdir));
+	k_int_syscall_setup_handler(SYS_GETCWD, REF_SYSCALL(sys_getcwd));
     
 	return K_STATUS_OK;
 }

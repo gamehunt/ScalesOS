@@ -96,6 +96,7 @@ FILE* fopen(const char *path, const char *mode){
 }
 
 int fclose(FILE * stream){
+  fflush(stream);
   __sys_close(stream->fd);
   free(stream->read_buffer);
   free(stream->write_buffer);

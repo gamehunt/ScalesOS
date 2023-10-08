@@ -102,7 +102,7 @@ static struct dirent* __k_fs_tar_readdir(fs_node_t* node, uint32_t index) {
     uint32_t offs = 0;
     uint32_t i    = 0;
 
-    char* folder = k_util_path_canonize(parent_header->filename);
+    char* folder = k_util_path_strip(parent_header->filename);
     k_free(parent_header);
 
 	uint32_t target_path_length = k_util_path_length(folder) + 1;
@@ -149,7 +149,7 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
 	fs_node_t* dev = (fs_node_t*) node->device;
     tar_header_t* parent_header = __k_fs_tar_read_header(node->device, node->inode);
 
-    char* fullpath = k_util_path_join(parent_header->filename, path); 
+    char* fullpath = k_util_path_join(parent_header->filename, path); 	
     k_free(parent_header);
 
     uint32_t offs = 0;
@@ -163,11 +163,11 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
             return 0;
         }
 
-        char* simplified = k_util_path_canonize(header->filename);
+        char* simplified = k_util_path_strip(header->filename);
         if (!strcmp(simplified, fullpath)) {
             k_free(fullpath);
             k_free(simplified);
-            fs_node_t* node =  __k_fs_tar_create_node(dev, header, offs);
+            fs_node_t* node = __k_fs_tar_create_node(dev, header, offs);
             k_free(header);
             return node;
         }
@@ -182,7 +182,6 @@ static struct fs_node* __k_fs_tar_finddir(fs_node_t* node, const char* path) {
     }
 
     k_free(fullpath);
-	k_info("--> Not found");
 
 	return 0;
 }

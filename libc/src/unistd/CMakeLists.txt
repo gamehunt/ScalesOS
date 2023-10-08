@@ -5,6 +5,8 @@ set(SOURCES
 	usleep.c
 	sleep.c
 	dup.c
+	chdir.c
+	getcwd.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

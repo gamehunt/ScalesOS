@@ -106,6 +106,8 @@ typedef struct {
 	uint32_t last_read_size;
 
 	list_t*  blocked_processes;
+
+	uint64_t read_start;
 } drive_t;
 
 char device_letter = 'a';
@@ -262,13 +264,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 		device->prdt[0].last = 0x8000;
 	}
 
-	// if(offset == 1052672) {
-	// 	k_info("ATA read: +%ld, size=%ld to 0x%.8x (0x%.8x == 0x%.8x). PRDT = 0x%.8x (0x%.8x == 0x%.8x)", 
-	// 			offset, size, device->buffer, k_mem_paging_virt2phys((uint32_t) device->buffer), device->prdt[0].address,
-	// 			device->prdt, k_mem_paging_virt2phys((uint32_t) device->prdt), device->prdt_phys
-	// 			);
-	// }
-
 	uint32_t lba_offset  = offset / 512;
 	uint32_t part_offset = offset % 512;
 
@@ -331,8 +326,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
 
 	memcpy(&buffer[target_offset], &device->buffer[part_offset], size);
-
-	// k_debug("0x%.8x after reading %d bytes from +%d", device->prdt[0].address, size, offset);
 
 	return size;
 }
