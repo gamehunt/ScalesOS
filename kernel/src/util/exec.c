@@ -1,4 +1,5 @@
 #include "util/exec.h"
+#include "errno.h"
 #include "fs/vfs.h"
 #include "mem/heap.h"
 #include "proc/process.h"
@@ -25,7 +26,7 @@ int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 	fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
 
 	if(!node) {
-		return -1;
+		return -ENOENT;
 	}
 
 	uint8_t buffer[4];
@@ -68,13 +69,13 @@ int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 		}
 	}
 
-	return -2;
+	return -EINVAL;
 }
 
 int k_util_exec_shebang(const char* path, const char* argv[], const char* envp[]) {
 	fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
 	if(!node) {
-		return -1;
+		return -ENOENT;
 	}
 
 	char interp[100];

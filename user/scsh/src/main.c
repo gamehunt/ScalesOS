@@ -6,8 +6,12 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <dirent.h>
+#include <pwd.h>
 
 #define MAX_LINE_LENGTH 4096
+
+const char* pwd  = "";
+const char* user = "";
 
 void dump(const char* path) {
 	DIR* root = opendir(path);
@@ -82,16 +86,11 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 			}
 			return 1;
 		}
+		pwd = get_current_dir_name();
 		return 0;
 	} else if(!strcmp(op, "pwd")) {
-		char* path = get_current_dir_name();
-		if(path) {
-			fprintf(out, "%s\n", path);
-			return 0;
-		} else {
-			fprintf(out, "Error occured. Path is too long? Errno: %ld", errno);
-			return 1;
-		}
+		fprintf(out, "%s\n", pwd);
+		return 0;
 	}
 
 	return -1;
@@ -246,7 +245,7 @@ int execute_script(char* buffer, int argc, char** argv) {
 int execute(char* path, int argc, char** argv) {
 	FILE* script = fopen(path, "r");
 	if(!script) {
-		fprintf(stderr, "%s: no such file\r\n", path);
+		fprintf(stderr, "%s: no such file\n", path);
 		return 1;
 	}
 	
@@ -266,7 +265,7 @@ void usage() {
 
 int interactive() {
 	while(1) {
-		printf("> ");
+		printf("%s:%s > ", user, pwd);
 		fflush(stdout);
 		char line[MAX_LINE_LENGTH];
 		fgets(line, MAX_LINE_LENGTH, stdin);
@@ -279,6 +278,15 @@ int interactive() {
 }
 
 int main(int argc, char** argv) {
+	
+	pwd  = get_current_dir_name();
+	
+	struct passwd* usr = getpwuid(getuid());
+
+	if(usr) {
+		user = strdup(usr->pw_name);
+	}
+
 	if(argc < 2) {
 		return interactive();
 	} else if(argv[1][0] != '-'){

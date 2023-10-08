@@ -12,6 +12,9 @@
 
 pid_t fork(void);
 pid_t getpid(void);
+       
+uid_t getuid(void);
+uid_t geteuid(void);
 
 int execl(const char *path, const char *arg, ...);
 int execlp(const char *file, const char *arg, ...);

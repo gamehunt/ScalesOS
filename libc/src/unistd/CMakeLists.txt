@@ -7,6 +7,7 @@ set(SOURCES
 	dup.c
 	chdir.c
 	getcwd.c
+	getuid.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

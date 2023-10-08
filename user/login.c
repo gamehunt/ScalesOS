@@ -1,3 +1,4 @@
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,7 +8,7 @@ int compare(char* passw, char* enc_passw) {
 	return 0;
 }
 
-int try_login_with_password(int32_t uid, char* entry, char* name, char* pass) {
+int try_login_with_password(struct passwd* pwd, char* pass) {
 	static FILE* passwords = NULL;
 	if(!passwords) {
 		passwords = fopen("/etc/passwords", "r");
@@ -22,7 +23,7 @@ int try_login_with_password(int32_t uid, char* entry, char* name, char* pass) {
 	char line[128];
 	while(fgets(line, 128, passwords) != NULL) {
 		char* word = strtok(line, ":");
-		if(!strcmp(word, name)) {
+		if(!strcmp(word, pwd->pw_name)) {
 			char* enc_pass = strtok(NULL, ":");
 			if(enc_pass && compare(pass, enc_pass)) {
 				return 1;
@@ -34,51 +35,21 @@ int try_login_with_password(int32_t uid, char* entry, char* name, char* pass) {
 
 	system("motd");
 
-	int r = execve(entry, NULL, NULL);
+	chdir(pwd->pw_dir);
+	int r = execve(pwd->pw_shell, NULL, NULL);
+
 	return -2;
 }
 
 int login(char* name, char* pass) {
-	static FILE* accounts  = NULL;
+	
+	struct passwd* pwd = getpwnam(name);
 
-	if(!accounts) {
-		accounts = fopen("/etc/accounts", "r");
-		if(!accounts) {
-			fprintf(stderr, "Failed to open /etc/accounts\n");
-			return -1;
-		}
-	} else {
-		fseek(accounts, SEEK_SET, 0);
+	if(!pwd) {
+		return 1;
 	}
 
-
-	char line[128];
-	while(fgets(line, 128, accounts) != NULL) {
-		char* word = strtok(line, ":");
-		if(!strcmp(word, name)) {
-			char* uid   = strdup(strtok(NULL, ":"));
-			char* guid  = strdup(strtok(NULL, ":"));
-			char* home  = strdup(strtok(NULL, ":"));
-			char* entry = strdup(strtok(NULL, ":"));
-
-			if(entry[strlen(entry) - 1] == '\n') {
-				entry[strlen(entry) - 1] = '\0';
-			}
-
-			int32_t iuid = atoi(uid);
-
-			int r = try_login_with_password(iuid, entry, name, pass);
-
-			free(uid);
-			free(guid);
-			free(home);
-			free(entry);
-
-			return r;
-		}
-	}
-
-	return 1;
+	return try_login_with_password(pwd, pass);
 }
 
 int main(int argc, char** argv) {

@@ -444,6 +444,14 @@ static uint32_t sys_chdir(int fd) {
 	return 0;
 }
 
+static uint32_t sys_getuid() {
+	return k_proc_process_current()->uid;
+}
+
+static uint32_t sys_geteuid() {
+	return sys_getuid(); 
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -474,6 +482,8 @@ DEFN_SYSCALL3(sys_ioctl, int, uint32_t, void*);
 DEFN_SYSCALL1(sys_uname, struct utsname*);
 DEFN_SYSCALL2(sys_getcwd, char*, size_t);
 DEFN_SYSCALL1(sys_chdir, int);
+DEFN_SYSCALL0(sys_getuid);
+DEFN_SYSCALL0(sys_geteuid);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -509,6 +519,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_UNAME, REF_SYSCALL(sys_uname));
 	k_int_syscall_setup_handler(SYS_CHDIR, REF_SYSCALL(sys_chdir));
 	k_int_syscall_setup_handler(SYS_GETCWD, REF_SYSCALL(sys_getcwd));
+	k_int_syscall_setup_handler(SYS_GETUID, REF_SYSCALL(sys_getuid));
+	k_int_syscall_setup_handler(SYS_GETEUID, REF_SYSCALL(sys_geteuid));
     
 	return K_STATUS_OK;
 }

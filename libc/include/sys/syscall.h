@@ -33,6 +33,8 @@
 #define SYS_UNAME        27
 #define SYS_CHDIR        28
 #define SYS_GETCWD       29
+#define SYS_GETUID       30
+#define SYS_GETEUID      31
 
 #define SYS_DEBUG        255
 
@@ -76,6 +78,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_uname(ts)                               __syscall(SYS_UNAME, ts, UNUSED4)
 #define __sys_chdir(fd)                               __syscall(SYS_CHDIR, fd, UNUSED4)
 #define __sys_getcwd(buf, size)                       __syscall(SYS_GETCWD, buf, size, UNUSED3)
+#define __sys_getuid()                                __syscall(SYS_GETUID, UNUSED5)
+#define __sys_geteuid()                               __syscall(SYS_GETEUID, UNUSED5)
 
 #define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 

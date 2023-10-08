@@ -12,6 +12,7 @@ typedef int32_t   syscall_result_t;
 
 typedef int32_t pid_t;
 typedef int32_t uid_t;
+typedef int32_t gid_t;
 typedef int32_t group_t;
 
 #endif
