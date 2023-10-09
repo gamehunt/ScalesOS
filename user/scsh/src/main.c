@@ -1,5 +1,6 @@
 #include "errno.h"
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,6 +28,20 @@ void dump(const char* path) {
 	}
 }
 
+void calc(const char* expr, FILE* out) {
+	pid_t child = fork();
+	if(!child) {
+		double x = 0;
+		while(x < 25) {
+			fprintf(out, "sqrt(%f) = %f\n", x, sqrt(x));
+			x += 0.5;
+		}
+		exit(0);
+	}
+	int status;
+	waitpid(child, &status, 0);
+}
+
 int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* in) {
 	if(!out) {
 		out = stdout;
@@ -34,6 +49,16 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 
 	if(!in) {
 		in = stdin;
+	}
+
+	if(op[0] == '&') {
+		char expr[4096];
+		strncat(expr, op, sizeof(expr));
+		for(int i = 0; i < argc; i++) {
+			strncat(expr, argv[i], sizeof(expr) - strlen(expr) - 1);
+		}
+		calc(op, out);
+		return 0;
 	}
 
 	if(!strcmp(op, "echo")) {

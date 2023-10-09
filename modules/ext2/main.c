@@ -295,6 +295,7 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	static uint32_t      last_inode_number = 0;
 	static ext2_inode_t* last_inode;
 
+	// TODO we can actually make it even more faster if we precache block groups
 	if(inode == last_inode_number) {
 		ext2_inode_t* ino = k_malloc(sizeof(ext2_inode_t));
 		memcpy(ino, &last_inode, sizeof(ext2_inode_t));

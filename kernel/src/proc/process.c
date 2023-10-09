@@ -1,7 +1,9 @@
+#include "dev/fpu.h"
 #include "dev/timer.h"
 #include "fs/vfs.h"
 #include "int/isr.h"
 #include "kernel.h"
+#include "kernel/mem/heap.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
@@ -112,6 +114,8 @@ static process_t* __k_proc_process_create_init() {
     proc->context.ebp = 0;
     proc->context.eip = 0;
     proc->image.page_directory = k_mem_paging_clone_page_directory(NULL, NULL);
+	proc->context.fp_regs = k_valloc(512, 16);
+	memset(proc->context.fp_regs, 0, 512);
 
 	proc->wait_queue = list_create();
 
@@ -228,7 +232,10 @@ void k_proc_process_yield() {
         return;
     }
 
+	k_dev_fpu_save(old_proc);
+
     if (__k_proc_process_save(&old_proc->context)) {
+		k_dev_fpu_restore(old_proc);
         return; // Just returned from switch, do nothing and let it return
     }
 
@@ -256,7 +263,6 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		k_err("Failed to read whole file.");
 		return -4;
 	}
-
 
 	k_debug("Executing: %s", path);
 
@@ -414,6 +420,8 @@ uint32_t k_proc_process_fork() {
 	new->context.esp = new->image.kernel_stack;
 	new->context.ebp = new->image.kernel_stack;
     new->context.eip = (uint32_t)&__k_proc_process_fork_return;
+	new->context.fp_regs = k_valloc(512, 16);
+	memcpy(new->context.fp_regs, src->context.fp_regs, 512);
 
 	new->fds.nodes = k_calloc(src->fds.size, sizeof(fd_t*));
 	for(uint32_t i = 0; i < src->fds.size; i++) {
@@ -596,6 +604,7 @@ void k_proc_process_destroy(process_t* process) {
 	tree_remove_node(process_tree, process->node);
 	tree_free_node(process->node);
 	list_free(process->wait_queue);
+	k_vfree(process->context.fp_regs);
 	k_vfree(process->image.kernel_stack_base);
 	k_free(process);
 }

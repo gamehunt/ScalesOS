@@ -23,9 +23,10 @@
 #define PROCESS_FLAG_TASKLET             (1 << 0)
 
 typedef struct context {
-    uint32_t esp;             // +0
-    uint32_t ebp;             // +4
-    uint32_t eip;             // +8
+    uint32_t esp;                                     // +0
+    uint32_t ebp;                                     // +4
+    uint32_t eip;                                     // +8
+	uint8_t* fp_regs;
 } context_t;
 
 typedef struct image{

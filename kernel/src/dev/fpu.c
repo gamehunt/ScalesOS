@@ -5,8 +5,15 @@
 extern uint8_t __k_dev_fpu_probe();
 extern void    __k_dev_fpu_control_word(uint16_t w);
 
+void k_dev_fpu_save(process_t* process) {
+	asm volatile ("fxsave (%0)" :: "r"(process->context.fp_regs));
+}
 
-K_STATUS k_dev_fpu_init(){
+void k_dev_fpu_restore(process_t* process) {
+	asm volatile ("fxrstor (%0)" :: "r"(process->context.fp_regs));
+}
+
+K_STATUS k_dev_fpu_init() {
     uint8_t has = __k_dev_fpu_probe();
 
     if(!has){

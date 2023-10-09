@@ -21,11 +21,19 @@ ExternalProject_Add(
 )
 
 ExternalProject_Add(
+    libs
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/libs/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/libs/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_scales_toolchain.cmake
+)
+
+ExternalProject_Add(
     kernel
     SOURCE_DIR  ${PROJECT_SOURCE_DIR}/kernel/
     BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/kernel/
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_scales_toolchain.cmake
 )
+
 
 ExternalProject_Add(
     modules

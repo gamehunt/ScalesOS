@@ -1,5 +1,7 @@
 #include "sys/tty.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -16,11 +18,6 @@ int main(int argc, char** argv) {
 
 	setbuf(pipe, 0);
 
-	FILE* rnd = fopen("/dev/random", "r");
-	if(!rnd) {
-		return 0;
-	}
-
 	FILE* console = fopen("/dev/console", "r");
 	if(!console) {
 		return 0;
@@ -29,15 +26,17 @@ int main(int argc, char** argv) {
 	int n = 7;
 	ioctl(fileno(console), VT_ACTIVATE, &n);
 
-	// FILE* fb = fopen("/dev/fb", "w");
-	// if(fb) {
-	// 	for(int i = 0; i < 1024 * 640 * 32; i++) {
-	// 		uint8_t byte;
-	// 		fread(&byte, 1, 1, rnd);
-	// 		fwrite(&byte, 1, 1, fb);
-	// 		fflush(fb);
-	// 	} 
-	// }
+	FILE* fb = fopen("/dev/fb", "w");
+	if(fb) {
+		uint32_t  resolution = 1200 * 1080;
+		uint32_t* screen = malloc(resolution * 4);
+		for(int i = 0; i < resolution; i++) {
+			screen[i] = 0x236bb2;
+		}
+		fwrite(screen, 4, resolution, fb);
+		fflush(fb);
+		free(screen);
+	}
 	
 	if(!(console = fopen("/dev/tty0", "w"))) {
 		return 2;
