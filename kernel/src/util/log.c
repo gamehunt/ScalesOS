@@ -23,14 +23,14 @@ void k_util_log_warn(const char* format, ...){
     va_end(va);
 }
 
-void k_util_log_err (const char* format, ...){
+void k_util_log_err(const char* format, ...){
     va_list va;
     va_start(va, format);
     __k_util_log_vprintf_prefixed("[E] ", format, va);
     va_end(va);
 }
 
-void k_util_log_debug (const char* format, ...){
+void k_util_log_debug(const char* format, ...){
 #ifdef DEBUG
     va_list va;
     va_start(va, format);

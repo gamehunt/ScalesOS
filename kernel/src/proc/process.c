@@ -11,6 +11,7 @@
 #include "signal.h"
 #include "util/log.h"
 #include "util/panic.h"
+#include "util/perf.h"
 #include "util/types/list.h"
 #include "util/types/stack.h"
 #include "util/types/tree.h"
@@ -256,6 +257,7 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		return -4;
 	}
 
+
 	k_debug("Executing: %s", path);
 
     process_t* proc = k_proc_process_current(); 
@@ -272,12 +274,12 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 
     uint32_t entry;
     if ((entry = k_mod_elf_load_exec(buffer))) {
-
+		
 		k_free(buffer);
 
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START,  0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
-		
+
 		int       envc       = 0;
 		uintptr_t envp_stack = 0; 
 
@@ -363,6 +365,7 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		proc->image.entry = entry;
 
         k_mem_gdt_set_stack((uint32_t) proc->image.kernel_stack);
+
         __k_proc_process_enter_usermode(entry, proc->image.user_stack);
     } else {
         k_free(buffer);

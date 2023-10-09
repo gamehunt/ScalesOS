@@ -9,10 +9,8 @@
 #include "mem/paging.h"
 #include "proc/process.h"
 #include "sys/tty.h"
-#include "util/log.h"
 #include "util/types/list.h"
 #include "util/types/ringbuffer.h"
-#include "signal.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>

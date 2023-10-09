@@ -5,6 +5,7 @@
 #include <kernel/kernel.h>
 #include <kernel/util/log.h>
 #include <kernel/util/path.h>
+#include <kernel/util/perf.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -288,7 +289,16 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 
 static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	if(!inode) {
-		return 0;
+		return NULL;
+	}
+
+	static uint32_t      last_inode_number = 0;
+	static ext2_inode_t* last_inode;
+
+	if(inode == last_inode_number) {
+		ext2_inode_t* ino = k_malloc(sizeof(ext2_inode_t));
+		memcpy(ino, &last_inode, sizeof(ext2_inode_t));
+		return ino;
 	}
 
 	uint32_t block_size = BLOCK_SIZE(fs->superblock);
@@ -317,6 +327,9 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	memcpy(actual_inode, (uint8_t*) (((uintptr_t)buffer) + inner_offset * fs->superblock->inode_size), fs->superblock->inode_size);
 
 	k_free(buffer);
+
+	last_inode_number = inode;
+	memcpy(&last_inode, actual_inode, sizeof(ext2_inode_t));
 
 	return actual_inode;
 }
@@ -350,6 +363,7 @@ static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
 	}
 
 	ext2_inode_t* inode = __ext2_read_inode(fs, dir->inode);
+
 	if(!inode){
 		k_info("%s (%d): invalid inode.", dir->name, dir->inode);
 		return 0;
@@ -389,8 +403,6 @@ static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
 	result->name[dirent.name_length] = '\0';
 	result->ino = dirent.inode;
 
-	k_free(inode);
-
 	return result;
 }
 
@@ -416,6 +428,7 @@ static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t in
 }
 
 static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
+	perf_t perf_info;
 	uint32_t segments = k_util_path_length(path);
 	for(uint32_t i = 0; i < segments; i++) {
 		char* folder = k_util_path_segment(path, i);
