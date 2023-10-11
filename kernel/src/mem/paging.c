@@ -183,8 +183,6 @@ pde_t* k_mem_paging_clone_root_page_directory(paddr_t* phys) {
 }
 
 pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
-	cli();
-
     if (!src) {
         src = k_mem_paging_get_page_directory(NULL);
 	}
@@ -226,8 +224,6 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
     if (phys) {
         *phys = copy_phys;
     }
-
-	sti();
 
     return copy;
 }
