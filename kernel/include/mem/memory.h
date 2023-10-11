@@ -15,7 +15,7 @@
 #define HEAP_START         0xC1000000
 #define HEAP_END           HEAP_START + HEAP_SIZE
 
-#define MMIO_SIZE          MB(32)
+#define MMIO_SIZE          MB(4)
 #define MMIO_START         HEAP_END + 0x1000
 #define MMIO_END           MMIO_START + MMIO_SIZE
 

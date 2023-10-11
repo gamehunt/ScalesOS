@@ -1,6 +1,7 @@
 #include "dev/serial.h"
 #include "shared.h"
 #include "util/asm_wrappers.h"
+#include "util/log.h"
 #include <mem/gdt.h>
 #include <mem/heap.h>
 #include <stdio.h>

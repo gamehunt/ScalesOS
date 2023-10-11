@@ -293,12 +293,12 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	}
 
 	static uint32_t      last_inode_number = 0;
-	static ext2_inode_t* last_inode;
+	static ext2_inode_t  last_inode;
 
 	// TODO we can actually make it even more faster if we precache block groups
 	if(inode == last_inode_number) {
-		ext2_inode_t* ino = k_malloc(sizeof(ext2_inode_t));
-		memcpy(ino, &last_inode, sizeof(ext2_inode_t));
+		ext2_inode_t* ino = k_malloc(fs->superblock->inode_size);
+		memcpy(ino, &last_inode, fs->superblock->inode_size);
 		return ino;
 	}
 
@@ -330,7 +330,7 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	k_free(buffer);
 
 	last_inode_number = inode;
-	memcpy(&last_inode, actual_inode, sizeof(ext2_inode_t));
+	memcpy(&last_inode, actual_inode, fs->superblock->inode_size);
 
 	return actual_inode;
 }
@@ -429,7 +429,6 @@ static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t in
 }
 
 static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
-	perf_t perf_info;
 	uint32_t segments = k_util_path_length(path);
 	for(uint32_t i = 0; i < segments; i++) {
 		char* folder = k_util_path_segment(path, i);

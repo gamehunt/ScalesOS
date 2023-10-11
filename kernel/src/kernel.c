@@ -28,6 +28,7 @@
 #include "int/syscall.h"
 #include "kernel.h"
 #include "mem/heap.h"
+#include "mem/memory.h"
 #include "mem/mmio.h"
 #include "mem/pmm.h"
 #include "mod/elf.h"
@@ -56,7 +57,6 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
     k_mem_pmm_init(mb);
     k_mem_paging_init();
-	k_mem_mmio_init();
     k_mem_heap_init();
 
     k_fs_vfs_init();
@@ -64,6 +64,12 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_dev_fb_init();
 	k_video_generic_lfb_init(mb);
     _libk_set_print_callback(k_dev_fb_write);
+
+	k_info("Memory ranges:");
+	printf("-- 0x%.8x - 0x%.8x\r\n", USER_STACK_START, USER_STACK_START + USER_STACK_SIZE);
+	printf("-- 0x%.8x - ...   \r\n", USER_HEAP_START);
+	printf("-- 0x%.8x - 0x%.8x\r\n", HEAP_START, HEAP_END);
+	printf("-- 0x%.8x - 0x%.8x\r\n", MMIO_START, MMIO_END);
 
     k_dev_fpu_init();
     k_dev_acpi_init();

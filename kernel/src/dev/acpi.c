@@ -342,7 +342,7 @@ void k_dev_acpi_reboot() {
 	} 
 	switch(fadt->reset_reg.address_space) {
 		case 0: /*Memory mapped*/
-			*((uint8_t*)k_mem_mmio_map_register(fadt->reset_reg.address, 1)) = fadt->reset_value;
+			*((uint8_t*)k_mem_mmio_map_register(fadt->reset_reg.address)) = fadt->reset_value;
 		case 1: /*System IO*/
 			outb(fadt->reset_reg.address, fadt->reset_value);
 		case 2: /*PCI*/

@@ -1,7 +1,11 @@
 #include "dev/acpi.h"
+#include "mem/memory.h"
+#include "mem/paging.h"
 #include "multiboot.h"
 #include "shared.h"
+#include "util/asm_wrappers.h"
 #include "util/log.h"
+#include "util/panic.h"
 
 #include <mem/pmm.h>
 
@@ -19,19 +23,17 @@ static uint32_t first_free_index = 0xFFFFFFFF;
 static uint8_t  init = 0;
 
 void k_mem_pmm_init(multiboot_info_t *mb) {
-    bitmap = (uint32_t *)ALIGN((uint32_t)&_kernel_end, 0x1000) + 0x10000;
+    bitmap = (uint32_t *)(ALIGN((uint32_t)&_kernel_end, 0x1000) + 0x100000);
     k_debug("PMM bitmap at 0x%.8x", bitmap);
     k_info("Memory map:");
-    for (uint32_t i = 0; i < mb->mmap_length;
-         i += sizeof(multiboot_memory_map_t)) {
-        multiboot_memory_map_t *mmap =
-            (multiboot_memory_map_t *)(mb->mmap_addr + VIRTUAL_BASE + i);
+    for (uint32_t i = 0; i < mb->mmap_length; i += sizeof(multiboot_memory_map_t)) {
+        multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)(mb->mmap_addr + VIRTUAL_BASE + i);
         if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE) {
             k_info("   0x%.9llx - 0x%.9llx Type: 0x%x <-- Usable", mmap->addr,
                    mmap->addr + mmap->len, mmap->type);
             for (uint32_t i = 0; i < mmap->len; i += 0x1000) {
                 pmm_frame_t frame = mmap->addr + i;
-                if (frame > (uint32_t)bitmap + bitmap_size * 4 - VIRTUAL_BASE) {
+                if (frame >= (uint32_t)bitmap - VIRTUAL_BASE) {
                     k_mem_pmm_mark_frame(frame);
                 }
             }
@@ -40,23 +42,33 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
                    mmap->addr + mmap->len, mmap->type);
             k_dev_acpi_set_addr((void*) (mmap->addr + VIRTUAL_BASE));
         } else {
-            k_info("   0x%.9llx - 0x%.9llx Type: 0x%x", mmap->addr,
-                   mmap->addr + mmap->len, mmap->type);
+            k_info("   0x%.9llx - 0x%.9llx Type: 0x%x", mmap->addr, mmap->addr + mmap->len, mmap->type);
         }
     }
+	
+	// Mark all frames that need for us as occupied
+	for(uint32_t* i = bitmap; i <= (bitmap + k_mem_pmm_bitmap_size()); i++) {
+		uint32_t frame = ((uint32_t) i - VIRTUAL_BASE);
+		bitmap[BITMAP_INDEX(frame)] &= ~BITMAP_BIT_MASK(frame);
+	}
+
     init = 1;
     k_debug("Final bitmap size: %d bytes", k_mem_pmm_bitmap_size() * 4);
 }
 
 pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
+	if(!frames) {
+		k_panic("Tried to allocate invalid amount of frames.", 0);
+	}
+
     if (first_free_index >= bitmap_size) {
-        return 0x0;
+		k_panic("Out of physical memory.", 0);
     }
 
     uint32_t found_frames = 0;
 
     uint32_t frame = 0;
-    uint8_t found = 0;
+    uint8_t  found = 0;
 
     for (uint32_t i = first_free_index; i < bitmap_size; i++) {
         for (int j = 0; j < 32; j++) {
@@ -78,24 +90,30 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
         }
     }
 
+
     if (found) {
+		if(!frame) {
+			k_panic("Found invalid frame? Tf.", 0);
+		}
+
         for (uint32_t i = 0; i < frames; i++) {
             uint32_t target_frame = frame + i * 0x1000;
-            bitmap[BITMAP_INDEX(target_frame)] &=
-                ~BITMAP_BIT_MASK(target_frame);
+            bitmap[BITMAP_INDEX(target_frame)] &= ~BITMAP_BIT_MASK(target_frame);
         }
+
         while (first_free_index < bitmap_size && !bitmap[first_free_index]) {
             first_free_index++;
         }
+
         return frame;
     }
 
-    return 0;
+	k_panic("Out of physical memory.", 0);
+	__builtin_unreachable();
 }
 
 void k_mem_pmm_free(pmm_frame_t frame, uint32_t size) {
-    for (pmm_frame_t f = frame; f < frame + ((pmm_frame_t)0x1000) * size;
-         f += 0x1000) {
+    for (pmm_frame_t f = frame; f < frame + ((pmm_frame_t)0x1000) * size; f += 0x1000) {
         uint32_t index = BITMAP_INDEX(frame);
         while (index >= bitmap_size) {
             bitmap[bitmap_size] = 0;

@@ -52,7 +52,6 @@ extern void _syscall_stub();
 static syscall_handler_t syscalls[MAX_SYSCALL + 1];
 
 interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
-	
 	PRE_INTERRUPT
 
     process_t* cur = k_proc_process_current();
@@ -257,10 +256,13 @@ static uint32_t sys_insmod(void* buffer, uint32_t size) {
 
 	module_info_t* mod = k_mod_elf_load_module(kernel_buffer);
 	if(!mod || !mod->load) {
+		k_info("-- Invalid header.");
 		return 1;
 	}
 	k_info("Loading module %s...", mod->name);
-	return mod->load();
+	int result = mod->load();
+	k_info("-- Finished with status %d", result);
+	return result;
 }
 
 static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {

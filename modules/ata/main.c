@@ -231,8 +231,12 @@ static const char* drivestr(uint8_t bus, uint8_t drive) {
 }
 
 static void ata_initialize(drive_t* device) {
-	device->prdt   = k_mem_mmio_alloc(MMIO_64KB, &device->prdt_phys);
-	device->buffer = k_mem_mmio_alloc(MMIO_64KB, &device->prdt[0].address);
+	device->prdt   = k_vallocp(KB(64), 0x1000, &device->prdt_phys);
+	device->buffer = k_vallocp(KB(64), 0x1000, &device->prdt[0].address);
+
+	k_info("PRDT: 0x%.8x (0x%.8x)", device->prdt, device->prdt_phys);
+	k_info("Buffer: 0x%.8x (0x%.8x)", device->buffer, device->prdt[0].address);
+
 	memset(device->buffer, 0x0, KB(64));
 	device->prdt[0].size = 0;
 	device->prdt[0].last = 0x8000;
@@ -254,15 +258,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 	}
 
 	drive_t* device = (drive_t*) node->inode;
-
-	// Somehow device->prdt[0] becomes zero at some point for no reason
-	// This solves this problem, but reason it does something like that is unknown
-	paddr_t buff_address = k_mem_paging_virt2phys((uint32_t) device->buffer);
-	if(buff_address != device->prdt[0].address) {
-		k_warn("Fixing PRDT.");
-		device->prdt[0].address = buff_address;
-		device->prdt[0].last = 0x8000;
-	}
 
 	uint32_t lba_offset  = offset / 512;
 	uint32_t part_offset = offset % 512;
@@ -439,7 +434,7 @@ K_STATUS load(){
 			busmaster_register = bar4 & 0xFFFFFFFC;
 		} else {
 			busmaster_is_mmio  = 1;
-			busmaster_register = k_mem_mmio_map_register(bar4 & 0xFFFFFFF0, 1);
+			busmaster_register = k_mem_mmio_map_register(bar4 & 0xFFFFFFF0);
 		}
 	}
 

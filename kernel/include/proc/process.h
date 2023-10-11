@@ -99,7 +99,7 @@ typedef struct wait_node {
 } wait_node_t;
 
 void       k_proc_process_yield();
-void       k_proc_process_switch();
+void       k_proc_process_switch() __attribute__((noreturn));
 void       k_proc_process_update_timings();
 void       k_proc_process_init();
 int        k_proc_process_exec(const char* path, char** argv, char** envp);
@@ -110,6 +110,7 @@ void       k_proc_process_mark_ready(process_t* process);
 
 process_t* k_proc_process_current();
 process_t* k_proc_process_next();
+list_t*    k_proc_process_list();
 
 uint32_t   k_proc_process_open_node(process_t* process, fs_node_t* node);
 void       k_proc_process_close_fd(process_t* process, uint32_t fd);
@@ -121,7 +122,7 @@ void       k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 void       k_proc_process_wakeup_queue(list_t* queue);
 
-void       k_proc_process_exit(process_t* process, int code);
+void       k_proc_process_exit(process_t* process, int code) __attribute__((noreturn));
 void       k_proc_process_destroy(process_t* process);
 
 uint8_t    k_proc_process_is_ready(process_t* process);

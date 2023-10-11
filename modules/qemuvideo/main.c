@@ -1,6 +1,7 @@
 #include "dev/pci.h"
 #include "fs/vfs.h"
 #include <kernel/mem/heap.h>
+#include <kernel/mem/paging.h>
 #include <kernel/mod/modules.h>
 #include <kernel/kernel.h>
 #include <kernel/util/log.h>

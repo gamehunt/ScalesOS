@@ -8,8 +8,8 @@ add_definitions(
 	-D__KERNEL 
 	-DKERNEL_VERSION="${CMAKE_PROJECT_VERSION}" 
 	-DVIRTUAL_BASE=0xC0000000 
-	#   -DDEBUG
-	#	-DDEBUG_LEVEL=3
+	-DDEBUG
+	#-DDEBUG_LEVEL=3
 )
 
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra -mno-red-zone")

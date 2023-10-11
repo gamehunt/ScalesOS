@@ -32,7 +32,7 @@ static void __k_panic_pseudo_stacktrace() {
 	printf("3: 0x%.8x\r\n", __builtin_return_address(4));
 }
 
-void k_panic(const char* reason, interrupt_context_t* ctx) {
+void k_panic(const char* reason, interrupt_context_t* ctx){
     cli(); 
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);

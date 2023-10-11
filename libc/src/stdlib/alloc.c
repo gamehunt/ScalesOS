@@ -1,12 +1,16 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 #include <stddef.h>
 
 #include "kernel/mem/paging.h"
+#include "mem/heap.h"
 #include "mem/memory.h"
+#include "proc/process.h"
 #include "sys/heap.h"
 #include "proc/spinlock.h"
+#include "util/asm_wrappers.h"
 
 static spinlock_t heap_lock = 0; //TODO
 								 
@@ -137,12 +141,18 @@ void* __attribute__((malloc)) malloc(size_t size){
 
     if(!__mem_heap_is_valid_block(block)){
 #ifdef __LIBK
-		// k_d_mem_heap_print();
+		cli();
+		list_t* list = k_proc_process_list();	
+		for(int i = 0; i < list->size; i++) {
+			process_t* process = list->data[i];
+			k_info("%d: %s %d 0x%.8x 0x%.8x", process->pid, process->name, process->state, process->image.kernel_stack, process->context.esp);
+		}
+		k_d_mem_heap_print();
 		k_err("Last allocation was from 0x%.8x", __last_alloc_address);
 		k_err("Pre-Last block: 0x%.8x %d", last_valid_block, last_valid_block->size);
-		k_err("Last block: 0x%.8x", block);
+		printf("[E] Last block: 0x%.8x", block);
 		if(IS_VALID_PTR((uint32_t) block)) {
-			k_err("%d 0x%.8x", block->size);
+			printf("%d\r\n", block->size);
 		}
 		k_err("Allocation size: %d (used: %d/%d KB)", size, __heap_usage() / 1024, HEAP_SIZE / 1024);
 		k_panic("Out of memory.", 0);
@@ -156,11 +166,7 @@ void* __attribute__((malloc)) malloc(size_t size){
 
 	__last_alloc_address = (uint32_t) __builtin_return_address(0);
 
-    if(block->size == size){
-        block->flags &= ~M_BLOCK_FREE;
-		UNLOCK(heap_lock);
-        return (void*) (M_MEMORY(block));
-    }else{
+    if(block->size != size){
         mem_block_t* sblock;
         if(__mem_split_block(block, &sblock, size) != 0){
 #ifdef __LIBK
@@ -170,11 +176,13 @@ void* __attribute__((malloc)) malloc(size_t size){
 #endif
             __builtin_unreachable();
         }
-        block->flags &= ~M_BLOCK_FREE;
-		__allocated += size;
-		UNLOCK(heap_lock);
-        return (void*) (M_MEMORY(block));
     }
+    
+    block->flags &= ~M_BLOCK_FREE;
+	__allocated += size;
+
+	UNLOCK(heap_lock);
+	return (void*) (M_MEMORY(block));
 }
 
 void* __attribute__((malloc)) calloc(size_t num, size_t size){
@@ -223,7 +231,7 @@ void vfree(void* mem){
 }
 
 void* __attribute__((malloc)) valloc(size_t size, size_t alignment){
-	void* p1;  // original block
+	void*  p1; // original block
     void** p2; // aligned block
     int offset = alignment - 1 + sizeof(void*);
     p1 = (void*) malloc(size + offset);

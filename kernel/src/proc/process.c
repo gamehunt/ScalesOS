@@ -13,7 +13,6 @@
 #include "signal.h"
 #include "util/log.h"
 #include "util/panic.h"
-#include "util/perf.h"
 #include "util/types/list.h"
 #include "util/types/stack.h"
 #include "util/types/tree.h"
@@ -46,9 +45,6 @@ static list_t* ready_queue     = 0;
 static wait_node_t* sleep_queue     = 0;
 
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
-    if (proc->pid == 1) {
-        return 1;
-    }
     return proc->image.kernel_stack_base[0] == GUARD_MAGIC;
 }
 
@@ -201,6 +197,12 @@ void k_proc_process_switch() {
 		current_core->current_process->state = PROCESS_STATE_RUNNING;
 	}
 
+	if(current_core->current_process->state != PROCESS_STATE_RUNNING) {
+        char buffer[256];
+        sprintf(buffer, "Invalid process scheduled: %s (%d) in state %d!", new_proc->name, new_proc->pid, new_proc->state);
+		k_panic(buffer, NULL);
+	}
+
     if (!__k_proc_process_check_stack(new_proc)) {
         char buffer[256];
         sprintf(buffer,
@@ -212,9 +214,9 @@ void k_proc_process_switch() {
     }
 
     k_mem_gdt_set_stack((uint32_t) new_proc->image.kernel_stack);
-    k_mem_paging_set_page_directory(new_proc->image.page_directory, 0);
-
-    __k_proc_process_load(&new_proc->context);
+	k_mem_paging_set_page_directory(new_proc->image.page_directory, 0);
+	
+	__k_proc_process_load(&new_proc->context);
 }
 
 void k_proc_process_yield() {
@@ -264,13 +266,14 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
 		return -4;
 	}
 
-	k_debug("Executing: %s", path);
+	k_debug("Executing: %s", path); 
 
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
 	proc->image.page_directory = k_mem_paging_clone_root_page_directory(NULL);
-	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0);
+	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0); 																
+
 
 	//TODO release old directory
 
@@ -286,6 +289,7 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
         k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
 		k_mem_paging_map_region(USER_HEAP_START,  0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
 
+		
 		int       envc       = 0;
 		uintptr_t envp_stack = 0; 
 
@@ -384,6 +388,10 @@ process_t* k_proc_process_current() {
     return current_core->current_process;
 }
 
+list_t*    k_proc_process_list() {
+	return process_list;
+}
+
 process_t* k_proc_process_next() {
     process_t* process = list_pop_front(ready_queue);
     if(!process){
@@ -399,7 +407,7 @@ uint32_t k_proc_process_fork() {
         return 0;
     }
 
-    process_t* src = current_core->current_process;
+    process_t* src = (process_t*) current_core->current_process;
     process_t* new = k_malloc(sizeof(process_t));
 
     memcpy(new, src, sizeof(process_t));
@@ -409,7 +417,7 @@ uint32_t k_proc_process_fork() {
 
 	new->wait_queue = list_create();
 
-	new->image.page_directory = k_mem_paging_clone_page_directory(new->image.page_directory, NULL);
+    new->image.page_directory = k_mem_paging_clone_page_directory(src->image.page_directory, NULL);
 
     __k_proc_process_create_kernel_stack(new);
 
@@ -731,7 +739,6 @@ static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt
 		uint8_t def = sig_defaults[sig];
 		if(def == SIG_TERMINATE) {
 			k_proc_process_exit(process, ((128 + sig) << 4) | sig);
-			__builtin_unreachable();
 		} else if (def == SIG_STOP) {
 			process->state = PROCESS_STATE_SLEEPING;
 
