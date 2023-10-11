@@ -201,8 +201,6 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
 
     k_mem_paging_set_page_directory(src, 0);
 
-	// k_debug("1 0x%.8x", *((uint31_t*) HEAP_START));
-
     for(uint32_t i = 0; i < kernel_pd; i++){
         if(src[i].data.present){
             uint32_t frame = k_mem_pmm_alloc_frames(1);
@@ -212,13 +210,7 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
             pte_t* src_pt     = PT_PTR(i);
             for(int j = 0; j < 1024; j++){
                 if(src_pt[j].data.present){
-					uint32_t pre = *((uint32_t*)HEAP_START);
                     frame = k_mem_pmm_alloc_frames(1);
-					uint32_t post = *((uint32_t*)HEAP_START);
-					if(!*(uint32_t*)HEAP_START) {
-						k_err("0x%.8x 0x%.8x", pre, post);
-						halt();
-					}
                     k_mem_paging_map(PG_TMP_MAP, frame, 0);
                     copy_pt[j].raw       = frame | (src_pt[j].raw & 0xFFF);
                     memcpy((void*) PG_TMP_MAP, (void*) ADDR(i, j), 0x1000);
@@ -228,7 +220,6 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
             k_mem_paging_unmap(PT_TMP_MAP);
         }
     }
-	// k_debug("2 0x%.8x", *((uint32_t*) HEAP_START));
 
     k_mem_paging_set_page_directory(prev, 0);
 
