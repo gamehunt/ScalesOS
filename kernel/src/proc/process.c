@@ -271,11 +271,10 @@ int k_proc_process_exec(const char* path, char** argv, char** envp) {
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
 
+	pde_t* old = proc->image.page_directory;
 	proc->image.page_directory = k_mem_paging_clone_root_page_directory(NULL);
 	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0); 																
-
-
-	//TODO release old directory
+	k_mem_paging_release_directory(old);
 
 	proc->image.heap       = USER_HEAP_START;
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
@@ -612,6 +611,7 @@ void k_proc_process_destroy(process_t* process) {
 	tree_remove_node(process_tree, process->node);
 	tree_free_node(process->node);
 	list_free(process->wait_queue);
+    k_mem_paging_release_directory(process->image.page_directory);
 	k_vfree(process->context.fp_regs);
 	k_vfree(process->image.kernel_stack_base);
 	k_free(process);

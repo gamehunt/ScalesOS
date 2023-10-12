@@ -150,7 +150,6 @@ K_STATUS k_dev_ps2_init() {
     __k_dev_ps2_write_command(PS2_DISABLE_PORT1);
     __k_dev_ps2_write_command(PS2_DISABLE_PORT2);
 
-    __k_dev_ps2_clear_buffer(0x1000);
 
     __k_dev_ps2_write_command(PS2_READ_CONFIG);
     uint8_t cfg = __k_dev_ps2_read_byte();
@@ -173,6 +172,8 @@ K_STATUS k_dev_ps2_init() {
 
     k_int_irq_setup_handler(1,  __irq1_handler);
     k_int_irq_setup_handler(12, __irq12_handler);
+
+    __k_dev_ps2_clear_buffer(0x1000);
 
     return K_STATUS_OK;
 }

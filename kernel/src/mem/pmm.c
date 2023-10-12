@@ -92,10 +92,6 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
 
 
     if (found) {
-		if(!frame) {
-			k_panic("Found invalid frame? Tf.", 0);
-		}
-
         for (uint32_t i = 0; i < frames; i++) {
             uint32_t target_frame = frame + i * 0x1000;
             bitmap[BITMAP_INDEX(target_frame)] &= ~BITMAP_BIT_MASK(target_frame);
@@ -113,13 +109,21 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
 }
 
 void k_mem_pmm_free(pmm_frame_t frame, uint32_t size) {
+	if(frame % 0x1000) {
+		k_warn("Invalid frame alignment: 0x%.8x", frame);
+		return;
+	}
     for (pmm_frame_t f = frame; f < frame + ((pmm_frame_t)0x1000) * size; f += 0x1000) {
-        uint32_t index = BITMAP_INDEX(frame);
+        uint32_t index = BITMAP_INDEX(f);
         while (index >= bitmap_size) {
             bitmap[bitmap_size] = 0;
             bitmap_size++;
         }
-        bitmap[index] |= BITMAP_BIT_MASK(frame);
+		if(!k_mem_pmm_is_allocated(f)) {
+			k_warn("Trying to free non-allocated frame 0x%.8x", f);
+			return;
+		}
+        bitmap[index] |= BITMAP_BIT_MASK(f);
         if (index < first_free_index) {
             first_free_index = index;
         }

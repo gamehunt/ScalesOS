@@ -136,18 +136,18 @@ void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
 	}
 
     uint32_t pd_index = PDE(vaddr);
+    pte_t*   pt       = PT_PTR(pd_index);
+    uint32_t pt_index = PTE(vaddr);
+
     if (!current_page_directory[pd_index].data.present) {
         pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
         if (!frame) {
             k_panic("Out of memory. Failed to allocate page table.", 0);
-            __builtin_unreachable();
         }
         current_page_directory[pd_index].raw = frame | flags; // TODO if allocated frame is big, then make a 4MB page
-        __k_mem_paging_invlpg((uint32_t) PT_PTR(pd_index));
+        __k_mem_paging_invlpg((uint32_t) pt);
+		memset(pt, 0, 0x1000);
     }
-
-    pte_t*   pt = PT_PTR(pd_index);
-    uint32_t pt_index = PTE(vaddr);
 
 	if(pt[pt_index].data.present) {
 		k_warn("Remapping 0x%.8x", vaddr);
@@ -205,6 +205,7 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
             k_mem_paging_map(PT_TMP_MAP, frame, 0);
             copy[i].raw       = frame | (src[i].raw & 0xFFF);
             pte_t* copy_pt    = (pte_t*) PT_TMP_MAP;
+			memset(copy_pt, 0, 0x1000);
             pte_t* src_pt     = PT_PTR(i);
             for(int j = 0; j < 1024; j++){
                 if(src_pt[j].data.present){
@@ -226,4 +227,24 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
     }
 
     return copy;
+}
+
+
+void k_mem_paging_release_directory(pde_t* src) {
+    pde_t*   prev      = k_mem_paging_get_page_directory(NULL);
+    uint32_t kernel_pd = PDE(VIRTUAL_BASE);
+	k_mem_paging_set_page_directory(src, 0);
+	for(uint32_t i = 0; i < kernel_pd; i++) {
+		if(src[i].data.present) {
+            pte_t* src_pt     = PT_PTR(i);
+            for(int j = 0; j < 1024; j++){
+                if(src_pt[j].data.present){
+					k_mem_pmm_free(src_pt[j].data.page * 0x1000, 1);
+                }
+            }
+			k_mem_pmm_free(src[i].data.page * 0x1000, 1);
+		}
+	}
+	k_mem_paging_set_page_directory(prev, 0);
+	k_vfree(src);
 }
