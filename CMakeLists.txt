@@ -65,7 +65,6 @@ add_custom_target(
 
 add_custom_target(
     ramdisk
-	COMMAND mkdir -p ramdisk/dev
 	COMMAND mkdir -p ramdisk/etc
 	COMMAND cp -r etc/init.d ramdisk/etc/
 	COMMAND cp -r etc/filesystems ramdisk/etc/
@@ -82,4 +81,3 @@ install(DIRECTORY ${SYSROOT_FOLDER}/include           DESTINATION /mnt)
 install(DIRECTORY ${SYSROOT_FOLDER}/lib               DESTINATION /mnt)
 install(DIRECTORY ${SYSROOT_FOLDER}/etc               DESTINATION /mnt)
 install(DIRECTORY ${SYSROOT_FOLDER}/bin               DESTINATION /mnt)
-install(DIRECTORY ${SYSROOT_FOLDER}/dev               DESTINATION /mnt)

@@ -54,6 +54,7 @@ struct fs_node{
     fs_ops_t fs;
 	uint32_t links;
 	const char* path;
+	struct vfs_entry* mountpoint;
 };
 
 typedef struct vfs_entry{

@@ -14,20 +14,6 @@
 const char* pwd  = "";
 const char* user = "";
 
-void dump(const char* path) {
-	DIR* root = opendir(path);
-	if(root) {
-		seekdir(root, 2);
-		struct dirent* dir;
-		while((dir = readdir(root))) {
-			printf("%d %s\r\n", dir->ino, dir->name);
-		}
-		closedir(root);
-	} else {
-		printf("No such dir.\n");
-	}
-}
-
 void calc(const char* expr, FILE* out) {
 	pid_t child = fork();
 	if(!child) {
@@ -66,34 +52,6 @@ int try_builtin_command(const char* op, int argc, char** argv, FILE* out, FILE* 
 			fprintf(out, "%s ", argv[i]);
 		}
 		fprintf(out, "\n");
-		return 0;
-	} else if(!strcmp(op, "ls")) {
-		if(argc < 1) {
-			dump(".");
-		} else {
-			dump(argv[0]);
-		}
-		return 0;
-	} else if(!strcmp(op, "cat")) {
-		if(argc < 1) {
-			fprintf(out, "Usage: cat <file>\n");
-			return 1;
-		}
-		FILE* f = fopen(argv[0], "r");
-		if(!f) {
-			fprintf(out, "No such file.\n");
-			return 1;
-		}
-		fseek(f, 0, SEEK_END);
-		size_t l = ftell(f);
-		fseek(f, 0, SEEK_SET);
-		char* buff = malloc(l);
-		fread(buff, 1, l, f);
-		fclose(f);
-		for(size_t i = 0; i < l; i++) {
-			fputc(buff[i], out);
-		}
-		free(buff);
 		return 0;
 	} else if(!strcmp(op, "cd")) {
 		if(argc < 1) {

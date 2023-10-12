@@ -23,9 +23,11 @@ static uint8_t load_modules(const char* mod_path) {
 	char  path[1024];
 	void* buffer;
 	if(dev) {
-		seekdir(dev, 2);
 		struct dirent* dir;
 		while((dir = readdir(dev))) {
+			if(!strcmp(dir->name, ".") || !strcmp(dir->name, "..")) {
+				continue;
+			}
 			sprintf(path, "%s/%s", mod_path, dir->name);
 			FILE* f = fopen(path, "r");
 			if(!f) {

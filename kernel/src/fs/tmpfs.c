@@ -2,6 +2,7 @@
 #include "dirent.h"
 #include "fs/vfs.h"
 #include "kernel.h"
+#include "kernel/fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "util/path.h"
@@ -194,6 +195,8 @@ static tmpfs_node_t* __k_fs_tmpfs_create_node(char* name, tmpfs_node_t* parent) 
 static fs_node_t* __k_fs_tmpfs_to_fs_node(tmpfs_node_t* node) {
 	fs_node_t* fsnode = k_fs_vfs_create_node(node->name);
 	fsnode->device = node;
+	fsnode->flags = VFS_FILE;
+	fsnode->inode = 12345;
 	fsnode->fs.readdir = &__k_fs_tmpfs_readdir;
 	fsnode->fs.finddir = &__k_fs_tmpfs_finddir;
 	fsnode->fs.read    = &__k_fs_tmpfs_read;

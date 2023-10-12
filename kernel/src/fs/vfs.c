@@ -116,6 +116,7 @@ static fs_node_t* __k_fs_vfs_create_virtual_node(vfs_entry_t* entry) {
 	fs_node_t* node = k_fs_vfs_create_node(entry->name);
 	node->flags = VFS_DIR | VFS_MAPPER;
 	node->device = entry;
+	node->mountpoint = entry;
 	node->fs.readdir = &__k_fs_virtual_readdir;
 	entry->node = node;
 	return node;
@@ -181,6 +182,7 @@ K_STATUS k_fs_vfs_init(){
 
     vfs_entry_t* root = k_fs_vfs_create_entry("[root]", 0);
     tree_node_t* node = tree_create_node(root);
+	root->tree_node = node;
     tree_set_root(vfs_tree, node);
 
     return K_STATUS_OK;
@@ -274,7 +276,25 @@ void k_fs_vfs_close(fs_node_t* node){
 }
 
 
-struct dirent*   k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
+struct dirent* k_fs_vfs_readdir(fs_node_t* node, uint32_t index){
+
+	if(!(node->flags & VFS_MAPPER) && 
+		 node->mountpoint && 
+		 node->mountpoint->tree_node) {
+		if(node->mountpoint->tree_node->children->size > index) {
+			tree_node_t* tnode = node->mountpoint->tree_node->children->data[index];
+			if(tnode && tnode->value) {
+				vfs_entry_t* ent = tnode->value;
+				struct dirent* dent = k_malloc(sizeof(struct dirent));
+				dent->ino = 1;
+				strncpy(dent->name, ent->name, 256);
+				return dent;
+			}
+		} else {
+			index -= node->mountpoint->tree_node->children->size;
+		}
+	}
+
     if(!node->fs.readdir){
         return NULL;
     }
@@ -333,6 +353,7 @@ K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
 			k_fs_vfs_close(mountpoint->node);
 		}
         mountpoint->node = fsroot;
+		fsroot->mountpoint = mountpoint;
         return K_STATUS_OK;
     }
 
@@ -353,6 +374,9 @@ K_STATUS  k_fs_vfs_mount(const char* path, const char* device, const char* type)
 K_STATUS k_fs_vfs_umount(const char* path) {
 	vfs_entry_t* entry = __k_fs_vfs_get_entry(path, 0);
 	if(entry) {
+		if(entry->node) {
+			entry->node->mountpoint = NULL;
+		}
 		__k_fs_vfs_create_virtual_node(entry);
 		return K_STATUS_OK;
 	}
