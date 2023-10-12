@@ -23,6 +23,7 @@
 #include "dev/null.h"
 #include "dev/tty.h"
 #include "dev/vt.h"
+#include "fs/procfs.h"
 #include "fs/tar.h"
 #include "fs/tmpfs.h"
 #include "int/syscall.h"
@@ -89,6 +90,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mod_load_modules(mb);
 
     k_proc_process_init();
+	k_fs_procfs_init();
 	k_dev_vt_init();
     // k_proc_smp_init();
 
