@@ -3,12 +3,12 @@
 #include <dirent.h>
 
 int main(int argc, char** argv) {
-	if(argc < 1) {
+	if(argc < 2) {
 		printf("Usage: cat <file>\n");
 		return 1;
 	}
 	
-	FILE* f = fopen(argv[0], "r");
+	FILE* f = fopen(argv[1], "r");
 	if(!f) {
 		printf("No such file.\n");
 		return 1;
