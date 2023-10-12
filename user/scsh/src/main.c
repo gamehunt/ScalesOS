@@ -216,7 +216,7 @@ int execute_script(char* buffer, int argc, char** argv) {
 		free(lines[i]);
 		if(status) {
 			free(lines);
-			fprintf(stderr, "Error: %s returned non-zero status: %d", lines[i], status);
+			fprintf(stderr, "Error: %s returned non-zero status: %d\n", lines[i], status);
 			return status;
 		}
 	}
