@@ -27,6 +27,23 @@ static fs_node_t* __k_fs_vfs_root_node(){
     return __k_fs_vfs_root_entry()->node;
 }
 
+static fs_node_t* __k_fs_vfs_find_node(const char* path);
+
+static fs_node_t* __k_fs_vfs_follow_symlink(fs_node_t* node) {
+	if(!(node->flags & VFS_SYMLINK)) {
+		return 0;
+	}
+	char buff[4096];
+	k_fs_vfs_readlink(node, buff, 4096);
+	return __k_fs_vfs_find_node(buff);
+}
+
+static void __k_fs_vfs_maybe_free(fs_node_t* node) {
+	if(!node->mountpoint) {
+		k_free(node);
+	}
+}
+
 static fs_node_t* __k_fs_vfs_find_node(const char* path){
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len   = k_util_path_length(path);
@@ -48,23 +65,35 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
         if(!f){
             fs_node_t* fsnode = ((vfs_entry_t*)cur_node->value)->node;
             while(i < len && fsnode){
+				fs_node_t* to_free = fsnode;
                 k_free(part);
                 char* part = k_util_path_segment(path, i);
                 if(!part){
                     break;
                 }
 				if(fsnode->flags & VFS_SYMLINK) {
-					char buff[4096];
-					k_fs_vfs_readlink(fsnode, buff, 4096);
-					fsnode = __k_fs_vfs_find_node(buff);
+					fsnode = __k_fs_vfs_follow_symlink(fsnode);
+					if(!fsnode) {
+						__k_fs_vfs_maybe_free(to_free);
+                		k_free(part);
+            			k_free(filename);
+						return 0;
+					}
 				}
                 fsnode = k_fs_vfs_finddir(fsnode, part);
+				__k_fs_vfs_maybe_free(to_free);
                 i++;
             }
             if(fsnode && strcmp(filename, fsnode->name)){
+				__k_fs_vfs_maybe_free(fsnode);
                 fsnode = 0;
             }
             k_free(filename);
+			if(fsnode && (fsnode->flags & VFS_SYMLINK)) {
+				fs_node_t* to_free = fsnode;
+				fsnode = __k_fs_vfs_follow_symlink(fsnode);
+				__k_fs_vfs_maybe_free(to_free);
+			}
             return fsnode;
         }
         k_free(part);
@@ -246,8 +275,14 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
 		return NULL;
 	}
 
-	fs_node_t* node = (fs_node_t*) k_malloc(sizeof(fs_node_t));
-	memcpy(node, root_node, sizeof(fs_node_t));
+	fs_node_t* node = NULL;
+
+	if(root_node->mountpoint) {
+		node = (fs_node_t*) k_malloc(sizeof(fs_node_t));
+		memcpy(node, root_node, sizeof(fs_node_t));
+	} else {
+		node = root_node;
+	}
 
     if(node->fs.open){
         node->fs.open(node, mode);

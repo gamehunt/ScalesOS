@@ -27,6 +27,8 @@ int main(int argc, char** argv) {
 		fputc(buff[i], stdout);
 	}
 
+	puts("\n");
+
 	return 0;
 }
 
