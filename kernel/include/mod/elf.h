@@ -189,7 +189,24 @@ typedef struct {
     Elf32_Word p_align;
 } Elf32_Phdr; 
 
-uint32_t       k_mod_elf_load_exec(void* file);
-module_info_t* k_mod_elf_load_module(void* file);
+typedef struct {
+        Elf32_Sword d_tag;
+        union {
+                Elf32_Word      d_val;
+                Elf32_Addr      d_ptr;
+                Elf32_Off       d_off;
+        } d_un;
+} Elf32_Dyn;
+
+module_info_t*     k_mod_elf_load_module(void* file);
+
+uint8_t     k_mod_elf_check(Elf32_Ehdr* hdr); 
+Elf32_Shdr* k_mod_elf_sheader(Elf32_Ehdr *hdr);
+Elf32_Shdr* k_mod_elf_section(Elf32_Ehdr *hdr, int idx);
+uint32_t    k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx);
+uint32_t    k_mod_elf_relocate(Elf32_Ehdr *hdr, Elf32_Rel *rel, Elf32_Shdr *reltab);
+char*       k_mod_elf_str_table(Elf32_Ehdr *hdr);
+char*       k_mod_elf_lookup_string(Elf32_Ehdr *hdr, int offset);
+void*       k_mod_elf_get_address(Elf32_Ehdr* hdr, Elf32_Sym* sym);
 
 #endif

@@ -6,7 +6,7 @@
 #include <mod/elf.h>
 #include <string.h>
 
-static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr) {
+uint8_t k_mod_elf_check(Elf32_Ehdr* hdr) {
     return hdr->e_ident[EI_MAG0] == ELFMAG0 &&
            hdr->e_ident[EI_MAG1] == ELFMAG1 &&
            hdr->e_ident[EI_MAG2] == ELFMAG2 &&
@@ -16,48 +16,18 @@ static uint8_t __k_mod_elf_check(Elf32_Ehdr* hdr) {
            hdr->e_version == EV_CURRENT;
 }
 
-uint32_t k_mod_elf_load_exec(void* file) {
-    Elf32_Ehdr* hdr = (Elf32_Ehdr*)file;
 
-    if (!__k_mod_elf_check(hdr)) {
-        return 0;
-    }
-
-    if (hdr->e_type != ET_EXEC) {
-        return 0;
-    }
-
-    if (!hdr->e_phoff) {
-        return 0;
-    }
-
-    Elf32_Phdr* phdr = (Elf32_Phdr*)((uint32_t)hdr + hdr->e_phoff);
-    for (uint32_t i = 0; i < hdr->e_phnum; i++) {
-        if (phdr->p_type == PT_LOAD) {
-            // k_debug("Creating ELF section: 0x%.8x - 0x%.8x", phdr->p_vaddr,phdr->p_vaddr + phdr->p_memsz);
-            k_mem_paging_map_region(phdr->p_vaddr & 0xFFFFF000, 0,
-                                    phdr->p_memsz / 0x1000 + 1, 0x7, 0x0);
-            memset((void*)phdr->p_vaddr, 0, phdr->p_memsz);
-            memcpy((void*)phdr->p_vaddr,
-                   (void*)((uint32_t)hdr + phdr->p_offset), phdr->p_filesz);
-        }
-        phdr = (Elf32_Phdr*)((uint32_t)phdr + hdr->e_phentsize);
-    }
-
-    return hdr->e_entry;
-}
-
-static inline Elf32_Shdr* __k_mod_elf_sheader(Elf32_Ehdr *hdr) {
+Elf32_Shdr* k_mod_elf_sheader(Elf32_Ehdr *hdr) {
 	return (Elf32_Shdr *)((int)hdr + hdr->e_shoff);
 }
  
-static inline Elf32_Shdr* __k_mod_elf_section(Elf32_Ehdr *hdr, int idx) {
-	return &__k_mod_elf_sheader(hdr)[idx];
+Elf32_Shdr* k_mod_elf_section(Elf32_Ehdr *hdr, int idx) {
+	return &k_mod_elf_sheader(hdr)[idx];
 }
 
-static uint32_t __k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx) {
+uint32_t k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx) {
 	if(table == SHN_UNDEF || idx == SHN_UNDEF) return 0;
-	Elf32_Shdr* symtab = __k_mod_elf_section(hdr, table);
+	Elf32_Shdr* symtab = k_mod_elf_section(hdr, table);
  
 	uint32_t symtab_entries = symtab->sh_size / symtab->sh_entsize;
 	if(idx >= symtab_entries) {
@@ -70,7 +40,7 @@ static uint32_t __k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx)
 
 	if(symbol->st_shndx == SHN_UNDEF) {
 		// External symbol, lookup value
-		Elf32_Shdr* strtab = __k_mod_elf_section(hdr, symtab->sh_link);
+		Elf32_Shdr* strtab = k_mod_elf_section(hdr, symtab->sh_link);
 		const char* name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
  
 		void *target = k_mod_symtable_get_symbol(name);
@@ -92,7 +62,7 @@ static uint32_t __k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx)
 		return symbol->st_value;
 	} else {
 		// Internally defined symbol
-		Elf32_Shdr* target = __k_mod_elf_section(hdr, symbol->st_shndx);
+		Elf32_Shdr* target = k_mod_elf_section(hdr, symbol->st_shndx);
 		return (int)hdr + symbol->st_value + target->sh_offset;
 	}
 }
@@ -100,15 +70,15 @@ static uint32_t __k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx)
 #define DO_386_32(S, A)	((S) + (A))
 #define DO_386_PC32(S, A, P)	((S) + (A) - (P))
 
-static uint32_t __k_mod_elf_relocate(Elf32_Ehdr *hdr, Elf32_Rel *rel, Elf32_Shdr *reltab) {
-	Elf32_Shdr* target =  __k_mod_elf_section(hdr, reltab->sh_info);
+uint32_t k_mod_elf_relocate(Elf32_Ehdr *hdr, Elf32_Rel *rel, Elf32_Shdr *reltab) {
+	Elf32_Shdr* target =  k_mod_elf_section(hdr, reltab->sh_info);
 
 	int addr = (int)hdr + target->sh_offset;
 	int *ref = (int *)(addr + rel->r_offset);
 
 	int symval = 0;
 	if(ELF32_R_SYM(rel->r_info) != SHN_UNDEF) {
-		symval = __k_mod_elf_get_symval(hdr, reltab->sh_link, ELF32_R_SYM(rel->r_info));
+		symval = k_mod_elf_get_symval(hdr, reltab->sh_link, ELF32_R_SYM(rel->r_info));
 		if(!symval) return 0;
 	}
 
@@ -133,27 +103,27 @@ static uint32_t __k_mod_elf_relocate(Elf32_Ehdr *hdr, Elf32_Rel *rel, Elf32_Shdr
 	return symval;
 }
 
-static inline char* __k_mod_elf_str_table(Elf32_Ehdr *hdr) {
+char* k_mod_elf_str_table(Elf32_Ehdr *hdr) {
 	if(hdr->e_shstrndx == SHN_UNDEF) return NULL;
-	return (char *)hdr + __k_mod_elf_section(hdr, hdr->e_shstrndx)->sh_offset;
+	return (char *)hdr + k_mod_elf_section(hdr, hdr->e_shstrndx)->sh_offset;
 }
  
-static inline char* __k_mod_elf_lookup_string(Elf32_Ehdr *hdr, int offset) {
-	char *strtab = __k_mod_elf_str_table(hdr);
+char* k_mod_elf_lookup_string(Elf32_Ehdr *hdr, int offset) {
+	char *strtab = k_mod_elf_str_table(hdr);
 	if(strtab == NULL) return NULL;
 	return strtab + offset;
 }
 
-static void* __k_mod_elf_get_address(Elf32_Ehdr* hdr, Elf32_Sym* sym)
+void* k_mod_elf_get_address(Elf32_Ehdr* hdr, Elf32_Sym* sym)
 {
-    Elf32_Shdr* target = __k_mod_elf_section(hdr, sym->st_shndx);
+    Elf32_Shdr* target = k_mod_elf_section(hdr, sym->st_shndx);
     return (void*) ((uint32_t)hdr + target->sh_offset + sym->st_value);
 }
 
 module_info_t* k_mod_elf_load_module(void* file) {
     Elf32_Ehdr* hdr = (Elf32_Ehdr*)file;
 
-    if (!__k_mod_elf_check(hdr)) {
+    if (!k_mod_elf_check(hdr)) {
 		k_err("Not an elf.");
         return 0;
     }
@@ -170,7 +140,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 
 	module_info_t* mod = 0;
 
-    Elf32_Shdr* shdr = __k_mod_elf_sheader(hdr);
+    Elf32_Shdr* shdr = k_mod_elf_sheader(hdr);
     for (uint32_t i = 0; i < hdr->e_shnum; i++) {
 		if(shdr->sh_type == SHT_NOBITS) {
 			if(shdr->sh_size && (shdr->sh_flags & SHF_ALLOC)) {
@@ -183,7 +153,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 		if(shdr->sh_type == SHT_REL) {
 			for(uint32_t idx = 0; idx < shdr->sh_size / shdr->sh_entsize; idx++) {
 				Elf32_Rel *reltab = &((Elf32_Rel *)((int)hdr + shdr->sh_offset))[idx];
-				int result = __k_mod_elf_relocate(hdr, reltab, shdr);
+				int result = k_mod_elf_relocate(hdr, reltab, shdr);
 				if(!result) {
 					k_err("Failed to relocate symbol.");
 					return 0;
@@ -192,13 +162,13 @@ module_info_t* k_mod_elf_load_module(void* file) {
 		}
 		if(shdr->sh_type == SHT_SYMTAB && !mod){
 			Elf32_Sym* symbol = (Elf32_Sym*) ((uint32_t)hdr + shdr->sh_offset);
-			Elf32_Shdr *strtab = __k_mod_elf_section(hdr, shdr->sh_link);
+			Elf32_Shdr *strtab = k_mod_elf_section(hdr, shdr->sh_link);
 			uint32_t offset = 0;
 			while(offset < shdr->sh_size) {
 				if(symbol->st_name) {
 					const char *name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
 					if(!strcmp(name, "__k_module_info")) {
-						mod = (module_info_t*) __k_mod_elf_get_address(hdr, symbol);
+						mod = (module_info_t*) k_mod_elf_get_address(hdr, symbol);
 						break;
 					}
 				}

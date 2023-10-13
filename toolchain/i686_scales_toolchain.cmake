@@ -17,3 +17,5 @@ set(CMAKE_C_COMPILER /usr/local/cross/bin/i686-scales-gcc)
 set(CMAKE_C_COMPILER_TARGET i686-scales)
 
 set(CMAKE_LINKER /usr/local/cross/bin/i686-scales-gcc)
+
+set(CMAKE_EXE_LINKER_FLAGS_INIT -Wl,--dynamic-linker=/lib/ld.so)

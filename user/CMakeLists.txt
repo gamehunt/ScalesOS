@@ -31,6 +31,12 @@ ExternalProject_Add(
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
 )
 
+ExternalProject_Add(
+    ld
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/ld/
+    BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/ld/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+)
 
 add_executable(getty    getty.c)
 add_executable(stty     stty.c)
@@ -42,10 +48,12 @@ add_executable(umount   umount.c)
 add_executable(scfetch  scfetch.c)
 add_executable(reboot   reboot.c)
 add_executable(shutdown shutdown.c)
-add_executable(ls ls.c)
-add_executable(cat cat.c)
-add_executable(echo echo.c)
-add_executable(pwd pwd.c)
+add_executable(ls       ls.c)
+add_executable(cat      cat.c)
+add_executable(echo     echo.c)
+add_executable(pwd      pwd.c)
+
+target_link_libraries(mount -static)
 
 install(TARGETS getty stty mount umount insmod motd login scfetch reboot shutdown ls cat echo pwd DESTINATION bin/)
 install(TARGETS mount DESTINATION ramdisk/bin/)

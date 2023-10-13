@@ -99,7 +99,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     }
 
 	executable_t elf_exec = {
-		.exec_func = &k_proc_process_exec,
+		.exec_func = &k_util_exec_elf,
 		.length    = 4,
 		.signature = {ELFMAG0, ELFMAG1, ELFMAG2, ELFMAG3}
 	};
@@ -114,8 +114,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
 	k_util_add_exec_format(shebang_exec);
 
-
-    k_proc_process_exec("/bin/init", 0, 0);
+    k_util_exec("/bin/init", 0, 0);
 
 	k_err("Failed to launch init, halting...");
 

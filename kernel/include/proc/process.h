@@ -102,7 +102,6 @@ void       k_proc_process_yield();
 void       k_proc_process_switch() __attribute__((noreturn));
 void       k_proc_process_update_timings();
 void       k_proc_process_init();
-int        k_proc_process_exec(const char* path, char** argv, char** envp);
 uint32_t   k_proc_process_fork();
 void       k_proc_process_init_core();
 
