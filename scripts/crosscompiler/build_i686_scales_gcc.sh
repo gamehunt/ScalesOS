@@ -34,7 +34,7 @@ cd ../..
 if [ ! -d "binutils-build" ]; then
 	mkdir binutils-build
 	cd binutils-build
-	../binutils-gdb/configure --target="$TARGET" --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-werror
+	../binutils-gdb/configure --target="$TARGET" --prefix="$PREFIX" --with-sysroot="$SYSROOT" --disable-werror --enable-shared
 	make
 	sudo -u root make install
 	cd ..
@@ -61,7 +61,7 @@ cd ../..
 if [ ! -d "gcc-build" ]; then
 	mkdir gcc-build
 	cd gcc-build
-	../gcc/configure --target="$TARGET" --prefix="$PREFIX" --with-sysroot="$SYSROOT" --enable-languages=c,c++
+	../gcc/configure --target="$TARGET" --prefix="$PREFIX" --with-sysroot="$SYSROOT" --enable-languages=c,c++ --enable-shared
 	make all-gcc all-target-libgcc
 	sudo -u root make install-gcc install-target-libgcc
 else

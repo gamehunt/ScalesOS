@@ -9,10 +9,6 @@
 #define __MATH_ARCH_ATAN2
 #define __MATH_ARCH_POW
 
-int abs(int a) {
-	return a < 0 ? -a : a;
-}
-
 double fabs(double a) {
 	return a < DBL_EPSILON ? a : -a;
 }

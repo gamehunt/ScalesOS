@@ -136,7 +136,7 @@ index ee0c98f65b0..0d81445ca0d 100644
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ehppa64linux.Pc@am__quote@
  @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ei386pep.Pc@am__quote@
 diff --git a/ld/configure.tgt b/ld/configure.tgt
-index 2bae9099b6a..4ff309891c0 100644
+index 2bae9099b6a..61f4022d587 100644
 --- a/ld/configure.tgt
 +++ b/ld/configure.tgt
 @@ -369,6 +369,11 @@ i[3-7]86-*-linux-*)	targ_emul=elf_i386
@@ -162,14 +162,27 @@ index 2bae9099b6a..4ff309891c0 100644
  x86_64-*-solaris2*)	targ_emul=elf_x86_64_sol2
  			targ_extra_emuls="elf_x86_64 elf_i386_sol2 elf_i386_ldso elf_i386 elf_iamcu"
  			targ_extra_libpath=$targ_extra_emuls
+@@ -1103,6 +1112,10 @@ i[3-7]86-*-sysv4*)
+   NATIVE_LIB_DIRS='/usr/local/lib /usr/ccs/lib /lib /usr/lib'
+   ;;
+ 
++*-*-scales*)
++  NATIVE_LIB_DIRS='/lib'
++  ;;
++
+ i[3-7]86-*-solaris*)
+   NATIVE_LIB_DIRS='/usr/local/lib /usr/ccs/lib /lib /usr/lib'
+   ;;
 diff --git a/ld/emulparams/elf_i386_scales.sh b/ld/emulparams/elf_i386_scales.sh
 new file mode 100644
-index 00000000000..06482257cff
+index 00000000000..51786431401
 --- /dev/null
 +++ b/ld/emulparams/elf_i386_scales.sh
-@@ -0,0 +1,2 @@
+@@ -0,0 +1,4 @@
 +source_sh ${srcdir}/emulparams/elf_i386.sh
-+TEXT_START_ADDR=0x08000000
++TEXT_START_ADDR=0x0900000
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
 diff --git a/ld/emulparams/elf_x86_64_scales.sh b/ld/emulparams/elf_x86_64_scales.sh
 new file mode 100644
 index 00000000000..59e7df71afc

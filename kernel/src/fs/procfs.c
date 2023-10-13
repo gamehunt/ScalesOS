@@ -187,6 +187,9 @@ static fs_node_t* __k_fs_procfs_root_finddir(fs_node_t* node UNUSED, const char*
 	if(isdigit(path[0])) {
 		pid_t pid = atoi(path);
 		process_t* proc = k_proc_process_find_by_pid(pid);
+		if(!proc) {
+			return NULL;
+		}
 		return __k_fs_procfs_directory_for_process(proc);
 	}
 
