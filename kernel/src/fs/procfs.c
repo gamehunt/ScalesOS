@@ -32,13 +32,33 @@ static void __k_fs_procfs_write_buffer(char c, void* n) {
 	node->buffer_length++;
 }
 
+static const char* __k_fs_procfs_state(process_t* proc) {
+	switch(proc->state) {
+		case PROCESS_STATE_STARTING:
+			return "R (starting)";
+		case PROCESS_STATE_RUNNING:
+			return "R (running)";
+		case PROCESS_STATE_SLEEPING:
+			return "S (sleeping)";
+		case PROCESS_STATE_FINISHED:
+			return "Z (zombie)";
+		default:
+			return "Unknown";
+	}
+}
+
 static void __k_fs_procfs_process_fill_status(fs_node_t* node) {
 	process_t* process = k_proc_process_find_by_pid(node->inode);
 	proc_fs_node_t* pnode = (proc_fs_node_t*) node;
 	if(process) {
 		pnode->buffer          = malloc(64);
 		pnode->buffer_capacity = 64;
-		fctprintf(__k_fs_procfs_write_buffer, pnode, "Name: %s", process->name);
+		fctprintf(__k_fs_procfs_write_buffer, pnode, 
+		"Name:  %s\n"
+		"State: %s\n"
+		"Pid:   %d"
+		, 
+		process->name, __k_fs_procfs_state(process), process->pid);
 	} else {
 		k_warn("Tried to fetch status for non-existent process %d", node->inode);
 	}
