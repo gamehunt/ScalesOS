@@ -4,6 +4,7 @@
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/memory.h"
+#include "mem/paging.h"
 #include "mod/elf.h"
 #include "proc/process.h"
 #include "util/log.h"
@@ -27,7 +28,7 @@ void k_util_add_exec_format(executable_t exec) {
 }
 
 
-int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
+int k_util_exec(const char* path, int argc, const char* argv[], const char* envp[]) {
 	fs_node_t* node = k_fs_vfs_open(path, O_RDONLY);
 
 	if(!node) {
@@ -42,27 +43,6 @@ int k_util_exec(const char* path, const char* argv[], const char* envp[]) {
 	for(uint32_t i = 0; i < exec_list->size; i++){
 		executable_t* fmt = exec_list->data[i];
 		if(!memcmp(buffer, fmt->signature, fmt->length)) {
-			int argc = 0;
-			if(argv) {
-				char** ptr = argv;
-				while(*ptr) {
-					ptr++;
-					argc++;
-				}
-
-				char** copied_argv = k_malloc(argc * sizeof(char*));
-
-				ptr = argv;
-				char** ptr1 = copied_argv;
-				while(*ptr) {
-					*ptr1 = k_malloc(strlen(*ptr) + 1);
-					strcpy(*ptr1, *ptr);
-					ptr++;
-					ptr1++;
-				}
-
-				argv = copied_argv;
-			} 
 			return fmt->exec_func(path, argc, argv, envp);
 		}
 	}
@@ -119,20 +99,15 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 		}
 
 		int new_argc = argc + 1;
-		char** new_argv = NULL;
-		if(!argv) {
-			new_argv = malloc(sizeof(char*) * 2);
-			new_argv[1] = 0;
-		} else {
-			new_argv = realloc(argv, new_argc * sizeof(char*));
-			memmove(new_argv + 1, new_argv, argc * sizeof(char*));
-		}
-
+		const char* new_argv[new_argc];
 		new_argv[0] = path;
+		for(int i = 0; i < argc; i++) {
+			new_argv[i + 1] = argv[i];
+		}
 
 		k_debug("DYN: Executing: %s %s", interp, path);
 
-		return k_util_exec(interp, new_argv, envp);
+		return k_util_exec(interp, new_argc, new_argv, envp);
 	}
 	
     process_t* proc = k_proc_process_current(); 
@@ -145,12 +120,7 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0); 																
 	k_mem_paging_release_directory(old);
 
-	proc->image.heap       = USER_HEAP_START;
-	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
-	proc->image.user_stack = USER_STACK_START + USER_STACK_SIZE;
-
-    k_mem_paging_map_region(USER_STACK_START, 0, USER_STACK_SIZE / 0x1000, 0x7, 0);
-	k_mem_paging_map_region(USER_HEAP_START,  0, USER_HEAP_INITIAL_SIZE / 0x1000, 0x7, 0);
+	uint32_t executable_end = 0x0;
 
 	phdr = (Elf32_Phdr*)((uint32_t)hdr + hdr->e_phoff);
     for (uint32_t i = 0; i < hdr->e_phnum; i++) {
@@ -160,10 +130,26 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
             memset((void*)phdr->p_vaddr, 0, phdr->p_memsz);
             memcpy((void*)phdr->p_vaddr,
                    (void*)((uint32_t)hdr + phdr->p_offset), phdr->p_filesz);
+			if(executable_end < phdr->p_vaddr + phdr->p_memsz) {
+				executable_end = phdr->p_vaddr + phdr->p_memsz;
+			}
         }
         phdr = (Elf32_Phdr*)((uint32_t)phdr + hdr->e_phentsize);
     }
 
+	executable_end = ALIGN(executable_end, 0x1000);
+	executable_end += 0x1000;
+
+	k_mem_paging_map_region(executable_end, 0, USER_STACK_SIZE / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
+
+	proc->image.user_stack = executable_end + USER_STACK_SIZE;
+
+	executable_end += USER_STACK_SIZE + 0x1000;
+
+	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
+	proc->image.heap = executable_end;
+
+	k_mem_paging_map_region(executable_end, 0, USER_HEAP_INITIAL_SIZE / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
 	uint32_t entry = hdr->e_entry;
 
 	k_free(buffer);
@@ -177,7 +163,7 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 		}
 
 		if(envc) {
-			char** ptrs = k_calloc(envc, sizeof(char*));
+			char* ptrs[envc];
 			int j = 0;
 			for(int env = envc - 1; env >= 0; env--) {
 				PUSH(proc->image.user_stack, char, '\0');
@@ -192,45 +178,33 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 				PUSH(proc->image.user_stack, char*, ptrs[i]);
 			}
 			
-			k_free(ptrs);
-
-			char** _envp = (char**) proc->image.user_stack;
-			envp_stack = (uintptr_t) _envp;
+			envp_stack = (uintptr_t) proc->image.user_stack;
 		} 
 	}		
 
 	uintptr_t argv_stack = 0;
 	argc++;
 
-	if(!argv) {
-		argv = malloc(sizeof(char*));
-	} else {
-		argv = realloc(argv, sizeof(char*) * (argc));
-		memmove(argv + 1, argv, sizeof(char*) * (argc - 1));
+	const char* _argv[argc];
+	_argv[0] = proc->name; 
+	for(int i = 0; i < argc - 1; i++) {
+		_argv[i + 1] = argv[i];
 	}
 
-	argv[0] = malloc(strlen(proc->name) + 1);
-	strcpy(argv[0], proc->name);
-
-	char** ptrs = k_calloc(argc, sizeof(char*)); 
+	char* ptrs[argc];  
 	for(int i = argc - 1; i >= 0; i--) {
 		PUSH(proc->image.user_stack, char, '\0');
-		for(int j = strlen(argv[i]) - 1; j >= 0; j--) {
-			PUSH(proc->image.user_stack, char, argv[i][j])		
+		for(int j = strlen(_argv[i]) - 1; j >= 0; j--) {
+			PUSH(proc->image.user_stack, char, _argv[i][j])		
 		}
 		ptrs[i] = (char*) proc->image.user_stack;
 	}
 
-	k_free(argv);
-    
 	for(int i = argc - 1; i >= 0; i--) {
 		PUSH(proc->image.user_stack, char*, ptrs[i])
 	}
     
-	k_free(ptrs);
-
-	char** _argv = (char**) proc->image.user_stack;
-	argv_stack = (uintptr_t) _argv;
+	argv_stack = proc->image.user_stack;
 
 	while(proc->image.user_stack % 16) {
 		PUSH(proc->image.user_stack, char, '\0');
@@ -279,15 +253,14 @@ int k_util_exec_shebang(const char* path, int argc, const char* argv[], const ch
 
 	k_debug("Interpeter: %s", interp);
 
-	if(!argv) {
-		argv = k_malloc(sizeof(char*));
-		argv[0] = 0;
+	const char* _argv[argc + 1];
+	char _path[strlen(path) + 1];
+	strcpy(_path, path);
+
+	_argv[0] = _path;
+	for(int i = 0; i < argc; i++) {
+		_argv[i + 1] = argv[i];
 	}
 
-	argv = realloc(argv, (argc + 2) * sizeof(char*));
-	argv[argc] = malloc(strlen(path) + 1);
-	strcpy(argv[argc], path);
-	argv[argc + 1] = 0;
-
-	return k_util_exec(interp, argv, envp);
+	return k_util_exec(interp, argc + 1, _argv, envp);
 }

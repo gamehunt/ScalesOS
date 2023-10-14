@@ -6,6 +6,7 @@
 #include "errno.h"
 #include "fs/pipe.h"
 #include "fs/vfs.h"
+#include "kernel/mem/paging.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
@@ -162,13 +163,47 @@ static uint32_t sys_exit(uint32_t code) {
 
 static uint32_t sys_grow(int32_t size) {
 	process_t* current = k_proc_process_current();
-	uint32_t   addr    = current->image.heap + current->image.heap_size;
-	k_proc_process_grow_heap(k_proc_process_current(), size);
+	if(!size) {
+		return current->image.heap;
+	}
+	uint32_t addr = current->image.heap + current->image.heap_size;
+	k_proc_process_grow_heap(current, size);
 	return addr;
 }
 
 static uint32_t sys_exec(const char* path, char** argv, char** envp) {
-	return k_util_exec(path, argv, envp); 
+	if(!IS_VALID_PTR((uint32_t) path)) {
+		return -EINVAL;
+	}
+
+	int envc = 0;
+	if(IS_VALID_PTR((uint32_t) envp)) {
+		while(IS_VALID_PTR((uint32_t) *(envp + envc))) {
+			envc++;	
+		}
+	}
+	int argc = 0;
+	if(IS_VALID_PTR((uint32_t) argv)) {
+		while(IS_VALID_PTR((uint32_t) *(argv + argc))) {
+			argc++;	
+		}
+	}
+	char** _envp = !envc ? 0 : malloc((envc + 1) * sizeof(char*));
+	for(int i = 0; i < envc; i++) {
+		if(IS_VALID_PTR((uint32_t) envp[i])) {
+			_envp[i] = strdup(envp[i]);	
+		}
+	}
+	if(envc) {
+		_envp[envc] = 0;
+	}
+	char** _argv = !argc ? 0 : malloc(argc * sizeof(char*));
+	for(int i = 0; i < argc; i++) {
+		if(IS_VALID_PTR((uint32_t) argv[i])) {
+			_argv[i] = strdup(argv[i]);	
+		}
+	}
+	return k_util_exec(path, argc, _argv, _envp); 
 }
 
 static uint32_t sys_waitpid(pid_t pid, int* status, int options) {

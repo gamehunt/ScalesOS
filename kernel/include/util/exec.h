@@ -11,7 +11,7 @@ typedef struct {
 } executable_t;
 
 void k_util_add_exec_format(executable_t exec);
-int  k_util_exec(const char* path, const char* argv[], const char* envp[]);
+int  k_util_exec(const char* path, int argc, const char* argv[], const char* envp[]);
 int  k_util_exec_shebang(const char* path, int argc, const char* argv[], const char* envp[]);
 int  k_util_exec_elf(const char* path, int argc,  const char* argv[], const char* envp[]);
 #endif

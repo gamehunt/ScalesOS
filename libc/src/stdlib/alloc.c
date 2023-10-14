@@ -31,7 +31,7 @@ mem_block_t* heap            = (mem_block_t*) HEAP_START;
 
 #include "sys/syscall.h"
 
-mem_block_t* heap         = (mem_block_t*) USER_HEAP_START;
+mem_block_t* heap         = NULL;
 static uint32_t heap_size = USER_HEAP_INITIAL_SIZE;
 
 static uint32_t __mem_grow_heap(int32_t size) {
@@ -39,6 +39,7 @@ static uint32_t __mem_grow_heap(int32_t size) {
 }
 
 void __mem_init_heap() {
+	heap = __mem_grow_heap(0);
 	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
 }
 #endif
@@ -53,19 +54,11 @@ static uint32_t __mem_heap_size() {
 }
 
 static uint32_t __mem_heap_start() {
-#ifdef __LIBK
-	return HEAP_START;
-#else
-	return USER_HEAP_START;
-#endif
+	return (uint32_t) heap;
 }
 
 static uint32_t __mem_heap_end() {
-#ifdef __LIBK
-	return HEAP_END;
-#else
 	return ((uint32_t)heap) + __mem_heap_size();
-#endif
 }
 
 uint8_t __mem_heap_is_valid_block(mem_block_t* block){
@@ -159,8 +152,8 @@ void* __attribute__((malloc)) malloc(size_t size){
 #else 
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
-		__mem_heap_init_block(block, grow * 0x1000);
-		heap_size += grow;
+		heap_size += grow * 0x1000;
+		__mem_heap_init_block(block, grow * 0x1000 - sizeof(mem_block_t));
 #endif
     }
 

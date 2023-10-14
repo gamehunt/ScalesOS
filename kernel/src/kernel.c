@@ -66,12 +66,6 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 	k_video_generic_lfb_init(mb);
     _libk_set_print_callback(k_dev_fb_write);
 
-	k_info("Memory ranges:");
-	printf("-- 0x%.8x - 0x%.8x\r\n", USER_STACK_START, USER_STACK_START + USER_STACK_SIZE);
-	printf("-- 0x%.8x - ...   \r\n", USER_HEAP_START);
-	printf("-- 0x%.8x - 0x%.8x\r\n", HEAP_START, HEAP_END);
-	printf("-- 0x%.8x - 0x%.8x\r\n", MMIO_START, MMIO_END);
-
     k_dev_fpu_init();
     k_dev_acpi_init();
 
@@ -114,7 +108,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 
 	k_util_add_exec_format(shebang_exec);
 
-    k_util_exec("/bin/init", 0, 0);
+    k_util_exec("/bin/init", 0, 0, 0);
 
 	k_err("Failed to launch init, halting...");
 

@@ -413,6 +413,7 @@ void k_proc_process_exit(process_t* process, int code) {
 
 void k_proc_process_grow_heap(process_t* process, int32_t size){
 	pde_t* old_pd = k_mem_paging_get_page_directory(NULL);
+	k_mem_paging_set_page_directory(process->image.page_directory, 0);
 	if(size > 0) {
 		k_mem_paging_map_region(process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
 		process->image.heap_size += size * 0x1000;
