@@ -82,7 +82,7 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 	for(uint32_t i = 0; i < hdr->e_phnum; i++) {
 		if(phdr->p_type == PT_INTERP) {
 			interp = malloc(phdr->p_memsz);
-			memcpy(interp, hdr + phdr->p_offset, phdr->p_filesz);
+			memcpy(interp, (void*) (((uint32_t)hdr) + phdr->p_offset), phdr->p_filesz);
 		} else if(phdr->p_type == PT_DYNAMIC) {
 			dynamic = 1;
 			break;
