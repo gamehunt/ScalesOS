@@ -8,7 +8,6 @@
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "mem/memory.h"
-#include "mod/elf.h"
 #include "proc/spinlock.h"
 #include "signal.h"
 #include "util/log.h"
@@ -411,16 +410,27 @@ void k_proc_process_exit(process_t* process, int code) {
 	k_proc_process_switch();
 }
 
-void k_proc_process_grow_heap(process_t* process, int32_t size){
+void* k_proc_process_grow_heap(process_t* process, int32_t size){
+	if(size <= 0) {
+		return NULL;
+	}
+
 	pde_t* old_pd = k_mem_paging_get_page_directory(NULL);
 	k_mem_paging_set_page_directory(process->image.page_directory, 0);
-	if(size > 0) {
-		k_mem_paging_map_region(process->image.heap + process->image.heap_size, 0, size, 0x7, 0);
-		process->image.heap_size += size * 0x1000;
-	} else {
-		//TODO unmap
-	}
+
+	uint32_t mapping_start = process->image.heap + process->image.heap_size;
+	
+	if(size >= BIG_ALLOCATION / 0x1000) {
+		mapping_start = process->image.mmap_start;
+		process->image.mmap_start += size * 0x1000;
+	} 	
+
+	k_mem_paging_map_region(mapping_start, 0, size, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
+	process->image.heap_size += size * 0x1000;
+
 	k_mem_paging_set_page_directory(old_pd, 0);
+
+	return (void*) (mapping_start);
 }
 
 uint8_t __k_proc_process_waitpid_can_pick(process_t* process, process_t* parent, int pid) {

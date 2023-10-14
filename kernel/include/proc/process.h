@@ -33,6 +33,7 @@ typedef struct image{
     pde_t*     page_directory;
 	uint32_t   heap;
 	uint32_t   heap_size;
+	uint32_t   mmap_start;
     uint32_t   kernel_stack;
 	uint32_t*  kernel_stack_base;
 	uint32_t   user_stack;
@@ -114,7 +115,7 @@ list_t*    k_proc_process_list();
 uint32_t   k_proc_process_open_node(process_t* process, fs_node_t* node);
 void       k_proc_process_close_fd(process_t* process, uint32_t fd);
 
-void       k_proc_process_grow_heap(process_t* process, int32_t size);
+void*      k_proc_process_grow_heap(process_t* process, int32_t size);
 
 uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
 void       k_proc_process_sleep_on_queue(process_t* process, list_t* queue);

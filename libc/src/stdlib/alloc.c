@@ -58,7 +58,11 @@ static uint32_t __mem_heap_start() {
 }
 
 static uint32_t __mem_heap_end() {
+#ifndef __LIBK
+	return USER_STACK_END;
+#else
 	return ((uint32_t)heap) + __mem_heap_size();
+#endif
 }
 
 uint8_t __mem_heap_is_valid_block(mem_block_t* block){
@@ -71,6 +75,7 @@ void __mem_heap_init_block(mem_block_t* block, uint32_t size){
 #ifdef __LIBK
         k_panic("Tried to initialize zero-size block. Kmalloc failure.", 0);
 #else
+		fprintf(stderr, "__mem_heap_init_block(): tried to initialize zero-sized block");
 		abort();
 #endif
         __builtin_unreachable();
@@ -78,6 +83,7 @@ void __mem_heap_init_block(mem_block_t* block, uint32_t size){
 
     block->size  = size;
     block->flags = M_BLOCK_FREE;
+	block->next  = 0;
 }
 
 static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint32_t size){
@@ -93,6 +99,8 @@ static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint3
 
     *splitted  = (mem_block_t*) (M_MEMORY(src) + size);
     __mem_heap_init_block(*splitted, diff - sizeof(mem_block_t));
+	(*splitted)->next = src->next;
+	src->next = *splitted;
 
     src->size          = size;
 
@@ -103,10 +111,13 @@ static void __mem_merge(){
     mem_block_t* src = heap;
     while(__mem_heap_is_valid_block(src)){
 		mem_block_t* next = M_NEXT(src);
-        if(src->flags & M_BLOCK_FREE && __mem_heap_is_valid_block(next) && next->flags & M_BLOCK_FREE){
-            src->size += sizeof(mem_block_t) + M_NEXT(src)->size;
+        if((src->flags & M_BLOCK_FREE) && __mem_heap_is_valid_block(next) && (next->flags & M_BLOCK_FREE) &&
+			(((uint32_t)next) == ((uint32_t)M_MEMORY(src)) + src->size))
+		{
+            src->size += sizeof(mem_block_t) + next->size;
+			src->next = next->next;
         }
-        src = next; 
+        src = M_NEXT(src); 
     }
 }
 
@@ -121,7 +132,6 @@ uint32_t __heap_usage() {
 void* __attribute__((malloc)) malloc(size_t size){
 	LOCK(heap_lock);
 
-    __mem_merge();
 
     mem_block_t* block            = heap;
 	mem_block_t* last_valid_block = heap;
@@ -133,27 +143,20 @@ void* __attribute__((malloc)) malloc(size_t size){
     }
 
     if(!__mem_heap_is_valid_block(block)){
-#ifdef __LIBK
-		cli();
-		list_t* list = k_proc_process_list();	
-		for(int i = 0; i < list->size; i++) {
-			process_t* process = list->data[i];
-			k_info("%d: %s %d 0x%.8x 0x%.8x", process->pid, process->name, process->state, process->image.kernel_stack, process->context.esp);
-		}
-		k_d_mem_heap_print();
-		k_err("Last allocation was from 0x%.8x", __last_alloc_address);
-		k_err("Pre-Last block: 0x%.8x %d", last_valid_block, last_valid_block->size);
-		printf("[E] Last block: 0x%.8x", block);
-		if(IS_VALID_PTR((uint32_t) block)) {
-			printf("%d\r\n", block->size);
-		}
-		k_err("Allocation size: %d (used: %d/%d KB)", size, __heap_usage() / 1024, HEAP_SIZE / 1024);
-		k_panic("Out of memory.", 0);
-#else 
+#ifndef __LIBK
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
+		if(!block) {
+			fprintf(stderr, "alloc(): out of memory");
+			abort();
+		}
 		heap_size += grow * 0x1000;
 		__mem_heap_init_block(block, grow * 0x1000 - sizeof(mem_block_t));
+		last_valid_block->next = block;
+#else
+		cli();
+		k_d_mem_heap_print();
+		k_panic("Out of memory.", 0);
 #endif
     }
 
@@ -165,6 +168,7 @@ void* __attribute__((malloc)) malloc(size_t size){
 #ifdef __LIBK
             k_panic("Block split failed. Kmalloc failure.", 0);
 #else
+			fprintf(stderr, "alloc(): block split failed.");
 			abort();
 #endif
             __builtin_unreachable();
@@ -216,6 +220,7 @@ void free(void* ptr){
     }
     header->flags |= M_BLOCK_FREE;
 	__freed += header->size;
+    __mem_merge();
 	UNLOCK(heap_lock);
 }
 

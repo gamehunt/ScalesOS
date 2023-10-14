@@ -140,16 +140,15 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 	executable_end = ALIGN(executable_end, 0x1000);
 	executable_end += 0x1000;
 
-	k_mem_paging_map_region(executable_end, 0, USER_STACK_SIZE / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
+	k_mem_paging_map_region(USER_STACK_END, 0, USER_STACK_SIZE / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
 
-	proc->image.user_stack = executable_end + USER_STACK_SIZE;
+	proc->image.user_stack = USER_STACK_START;
 
-	executable_end += USER_STACK_SIZE + 0x1000;
-
+	proc->image.heap       = executable_end;
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
-	proc->image.heap = executable_end;
+	proc->image.mmap_start = USER_MMAP_START;
 
-	k_mem_paging_map_region(executable_end, 0, USER_HEAP_INITIAL_SIZE / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
+	k_mem_paging_map_region(proc->image.heap, 0, proc->image.heap_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
 	uint32_t entry = hdr->e_entry;
 
 	k_free(buffer);

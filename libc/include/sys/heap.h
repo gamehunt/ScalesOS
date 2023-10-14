@@ -5,8 +5,9 @@
 #include <stdint.h>
 
 struct __attribute__((packed)) mem_block {
-    size_t   size;
-    uint8_t  flags;
+    size_t            size;
+    uint8_t           flags;
+	struct mem_block* next;
 };
 
 typedef struct mem_block mem_block_t;
@@ -19,6 +20,5 @@ typedef struct mem_block mem_block_t;
 //void* M_MEMORY(mem_header_t* addr);     
 #define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
 //mem_block_t* M_NEXT(mem_block_t* addr);
-#define M_NEXT(addr)       ((mem_block_t*)(((uint32_t)addr) + sizeof(mem_block_t) + ((mem_block_t*) addr)->size))
-
+#define M_NEXT(addr)       (addr->next) 
 #endif

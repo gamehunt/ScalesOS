@@ -166,9 +166,7 @@ static uint32_t sys_grow(int32_t size) {
 	if(!size) {
 		return current->image.heap;
 	}
-	uint32_t addr = current->image.heap + current->image.heap_size;
-	k_proc_process_grow_heap(current, size);
-	return addr;
+	return (uint32_t) k_proc_process_grow_heap(current, size);
 }
 
 static uint32_t sys_exec(const char* path, char** argv, char** envp) {
