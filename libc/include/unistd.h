@@ -31,9 +31,12 @@ int dup2(int oldfd, int newfd);
 int chdir(const char *path);
 int fchdir(int fd);  
 
-
 char* getcwd(char buf[], size_t size);
 char* get_current_dir_name(void);
+
+void* mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset);
+int   munmap(void *start, size_t length);
+int   msync(void *start, size_t length, int flags);
 
 #endif
 

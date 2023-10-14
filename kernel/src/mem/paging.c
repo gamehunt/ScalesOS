@@ -180,6 +180,12 @@ void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
     }
 }
 
+void k_mem_paging_unmap_region(vaddr_t vaddr, uint32_t size) {
+	for(int i = 0; i < size; i++) {
+		k_mem_paging_unmap(vaddr + i * 0x1000);
+	}
+}
+
 pde_t* k_mem_paging_clone_root_page_directory(paddr_t* phys) {
 	return k_mem_paging_clone_page_directory(initial_page_directory, phys);
 }

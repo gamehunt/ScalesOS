@@ -3,6 +3,7 @@
 
 #include "fs/vfs.h"
 #include "int/isr.h"
+#include "mem/mmap.h"
 #include "mem/paging.h"
 #include "proc/spinlock.h"
 #include "sys/signal.h"
@@ -30,14 +31,14 @@ typedef struct context {
 } context_t;
 
 typedef struct image{
-    pde_t*     page_directory;
-	uint32_t   heap;
-	uint32_t   heap_size;
-	uint32_t   mmap_start;
-    uint32_t   kernel_stack;
-	uint32_t*  kernel_stack_base;
-	uint32_t   user_stack;
-	uint32_t   entry;
+    pde_t*      page_directory;
+	uint32_t    heap;
+	uint32_t    heap_size;
+    uint32_t    kernel_stack;
+	uint32_t*   kernel_stack_base;
+	uint32_t    user_stack;
+	uint32_t    entry;
+	mmap_info_t mmap_info;
 } image_t;
 
 typedef struct fd {

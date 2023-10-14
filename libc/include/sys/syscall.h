@@ -35,6 +35,8 @@
 #define SYS_GETCWD       29
 #define SYS_GETUID       30
 #define SYS_GETEUID      31
+#define SYS_MMAP         32
+#define SYS_MUNMAP       33
 
 #define SYS_DEBUG        255
 
@@ -80,6 +82,8 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_getcwd(buf, size)                       __syscall(SYS_GETCWD, buf, size, UNUSED3)
 #define __sys_getuid()                                __syscall(SYS_GETUID, UNUSED5)
 #define __sys_geteuid()                               __syscall(SYS_GETEUID, UNUSED5)
+#define __sys_mmap(start, length, prot, flags, file)  __syscall(SYS_MMAP, start, length, prot, flags, file)
+#define __sys_munmap(start, length)                   __syscall(SYS_MUNMAP, start, length, UNUSED3)
 
 #define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 

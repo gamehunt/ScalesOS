@@ -8,6 +8,7 @@ set(SOURCES
 	chdir.c
 	getcwd.c
 	getuid.c
+	mmap.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

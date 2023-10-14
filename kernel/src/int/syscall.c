@@ -24,11 +24,13 @@
 #include "sys/time.h"
 #include "sys/signal.h"
 #include "sys/utsname.h"
+#include "sys/mman.h"
 #include "util/panic.h"
 #include "util/path.h"
 
 #include <proc/process.h>
 #include <scales/reboot.h>
+#include <scales/mmap.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -495,6 +497,51 @@ static uint32_t sys_geteuid() {
 	return sys_getuid(); 
 }
 
+static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_arg_t* arg) {
+	int   fd   = arg->fd;
+	off_t offs = arg->offset; 
+
+	uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
+	uint32_t pages = (length / 0x1000) + 1;
+
+	process_t* proc = k_proc_process_current();
+
+	if(prot & PROT_WRITE) {
+		map_flags |= PAGE_WRITABLE;
+	}
+
+	if(flags == MAP_FIXED) {
+		if((uint32_t) start % 0x1000) {
+			return -EINVAL;
+		}
+		for(size_t i = 0; i < pages; i++) {
+			if((((uint32_t) start + i * 0x1000) >= VIRTUAL_BASE) || k_mem_paging_virt2phys(((uint32_t) start) + i * 0x1000)) {
+				return -EINVAL;
+			}
+		}			
+		k_mem_paging_map_region((uint32_t) start, 0, pages, map_flags, 0);
+		return (uint32_t) start;
+	} else if (flags == MAP_PRIVATE) {
+		uint32_t addr = proc->image.mmap_info.start;
+		proc->image.mmap_info.start += pages * 0x1000;
+		k_mem_paging_map_region((uint32_t) addr, 0, pages, map_flags, 0);
+		return addr;
+	} 
+
+	return -EINVAL;
+}
+
+static uint32_t sys_munmap(void* start, size_t length) {
+	uint32_t pages = (length / 0x1000) + 1;
+	for(size_t i = 0; i < pages; i++) {
+		if((((uint32_t) start + i * 0x1000) >= VIRTUAL_BASE) || !k_mem_paging_virt2phys(((uint32_t) start) + i * 0x1000)) {
+			return -EINVAL;
+		}
+	}			
+	k_mem_paging_unmap_region((uint32_t) start, pages);
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -527,6 +574,8 @@ DEFN_SYSCALL2(sys_getcwd, char*, size_t);
 DEFN_SYSCALL1(sys_chdir, int);
 DEFN_SYSCALL0(sys_getuid);
 DEFN_SYSCALL0(sys_geteuid);
+DEFN_SYSCALL5(sys_mmap, void*, size_t, int, int, file_arg_t*);
+DEFN_SYSCALL2(sys_munmap, void*, size_t);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -564,6 +613,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_GETCWD, REF_SYSCALL(sys_getcwd));
 	k_int_syscall_setup_handler(SYS_GETUID, REF_SYSCALL(sys_getuid));
 	k_int_syscall_setup_handler(SYS_GETEUID, REF_SYSCALL(sys_geteuid));
+	k_int_syscall_setup_handler(SYS_MMAP, REF_SYSCALL(sys_mmap));
+	k_int_syscall_setup_handler(SYS_MUNMAP, REF_SYSCALL(sys_munmap));
     
 	return K_STATUS_OK;
 }

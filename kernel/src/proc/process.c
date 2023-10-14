@@ -421,8 +421,8 @@ void* k_proc_process_grow_heap(process_t* process, int32_t size){
 	uint32_t mapping_start = process->image.heap + process->image.heap_size;
 	
 	if(size >= BIG_ALLOCATION / 0x1000) {
-		mapping_start = process->image.mmap_start;
-		process->image.mmap_start += size * 0x1000;
+		mapping_start = process->image.mmap_info.start;
+		process->image.mmap_info.start += size * 0x1000;
 	} 	
 
 	k_mem_paging_map_region(mapping_start, 0, size, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
