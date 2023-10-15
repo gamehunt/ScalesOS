@@ -74,7 +74,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 mmap_block_t* k_mem_mmap_get_mapping(mmap_info_t* info, uint32_t addr) {
 	for(size_t i = 0; i < info->mmap_blocks->size; i++) {
 		mmap_block_t* block = info->mmap_blocks->data[i];
-		if(block->start <= addr && block->end >= addr) {
+		if(block->start <= addr && block->end > addr) {
 			return block;
 		}
 	}
@@ -175,6 +175,9 @@ uint8_t k_mem_mmap_handle_pagefault(uint32_t address, int code) {
 	uint32_t page_offset = (page - block->start) / 0x1000;
 	uint32_t offset      = block->offset + page_offset * 0x1000;
 	uint32_t length      = 0x1000 - (address - page);
+
+	// k_debug("mmap: fault address = 0x%.8x, page = 0x%.8x, block start = 0x%.8x (+%d pages)", address, page, block->start, page_offset);
+	// k_debug("mmap: reading %d bytes from +%d to 0x%.8x", length, offset, page);
 
 	k_fs_vfs_read(fdt->node, offset, length, (void*) page);
 
