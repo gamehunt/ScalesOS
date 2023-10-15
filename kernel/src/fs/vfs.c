@@ -27,7 +27,7 @@ static fs_node_t* __k_fs_vfs_root_node(){
     return __k_fs_vfs_root_entry()->node;
 }
 
-static fs_node_t* __k_fs_vfs_find_node(const char* path);
+static fs_node_t* __k_fs_vfs_find_node(const char* path, uint8_t flags);
 
 static fs_node_t* __k_fs_vfs_follow_symlink(fs_node_t* node) {
 	if(!(node->flags & VFS_SYMLINK)) {
@@ -35,7 +35,7 @@ static fs_node_t* __k_fs_vfs_follow_symlink(fs_node_t* node) {
 	}
 	char buff[4096];
 	k_fs_vfs_readlink(node, buff, 4096);
-	return __k_fs_vfs_find_node(buff);
+	return __k_fs_vfs_find_node(buff, 0);
 }
 
 static void __k_fs_vfs_maybe_free(fs_node_t* node) {
@@ -44,7 +44,7 @@ static void __k_fs_vfs_maybe_free(fs_node_t* node) {
 	}
 }
 
-static fs_node_t* __k_fs_vfs_find_node(const char* path){
+static fs_node_t* __k_fs_vfs_find_node(const char* path, uint8_t flags){
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len   = k_util_path_length(path);
     char* filename = k_util_path_filename(path);
@@ -71,7 +71,7 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
                 if(!part){
                     break;
                 }
-				if(fsnode->flags & VFS_SYMLINK) {
+				if((fsnode->flags & VFS_SYMLINK) && !(flags & O_NOFOLLOW)) {
 					fsnode = __k_fs_vfs_follow_symlink(fsnode);
 					if(!fsnode) {
 						__k_fs_vfs_maybe_free(to_free);
@@ -89,7 +89,7 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path){
                 fsnode = 0;
             }
             k_free(filename);
-			if(fsnode && (fsnode->flags & VFS_SYMLINK)) {
+			if(fsnode && (fsnode->flags & VFS_SYMLINK) && !(flags & O_NOFOLLOW)) {
 				fs_node_t* to_free = fsnode;
 				fsnode = __k_fs_vfs_follow_symlink(fsnode);
 				__k_fs_vfs_maybe_free(to_free);
@@ -268,7 +268,7 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
 
 	char* canon_path = k_util_path_canonize(path, "");
 
-    fs_node_t* root_node = __k_fs_vfs_find_node(canon_path);
+    fs_node_t* root_node = __k_fs_vfs_find_node(canon_path, mode);
 
 	if(!root_node) {
 		k_free(canon_path);
@@ -421,7 +421,7 @@ K_STATUS k_fs_vfs_umount(const char* path) {
 int32_t k_fs_vfs_link(const char* source, const char* target) {
 	char* path = k_util_path_folder(target);
 	
-	fs_node_t* parent = __k_fs_vfs_find_node(path);
+	fs_node_t* parent = __k_fs_vfs_find_node(path, 0);
 	k_free(path);
 	
 	if(!parent) {
@@ -436,7 +436,7 @@ int32_t k_fs_vfs_link(const char* source, const char* target) {
 }
 
 int32_t k_fs_vfs_unlink(const char* target) {
-	fs_node_t* target_node = __k_fs_vfs_find_node(target);
+	fs_node_t* target_node = __k_fs_vfs_find_node(target, 0);
 	if(target_node) {
 		if(target_node->fs.unlink) {
 			target_node->fs.unlink(target_node);

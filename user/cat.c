@@ -1,6 +1,9 @@
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <dirent.h>
+
+#include <sys/stat.h>
 
 int main(int argc, char** argv) {
 	if(argc < 2) {
@@ -14,10 +17,13 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	fseek(f, 0, SEEK_END);
-	size_t l = ftell(f);
-	
-	fseek(f, 0, SEEK_SET);
+	struct stat sb;
+	if(fstat(fileno(f), &sb) < 0) {
+		printf("stat() failed with code %ld", errno);
+		return 1;
+	}
+
+	size_t l = sb.st_size;
 	char* buff = malloc(l);
 	
 	fread(buff, 1, l, f);

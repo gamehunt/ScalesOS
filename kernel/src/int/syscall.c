@@ -28,6 +28,7 @@
 #include "sys/signal.h"
 #include "sys/utsname.h"
 #include "sys/mman.h"
+#include "sys/stat.h"
 #include "util/panic.h"
 #include "util/path.h"
 #include "util/types/list.h"
@@ -599,6 +600,77 @@ static uint32_t sys_munmap(void* start, size_t length) {
 	return 0;
 }
 
+static void __stat(fs_node_t* node, struct stat* sb) {
+	sb->st_ino  = node->inode;
+	sb->st_size = node->size;
+	sb->st_mode = node->mode;
+}
+
+static uint32_t sys_stat(const char* path, struct stat* sb) {
+	if(!IS_VALID_PTR((uint32_t) path)) {
+		return -EINVAL;
+	}
+
+	if(!IS_VALID_PTR((uint32_t) sb)) {
+		return -EINVAL;
+	}
+
+	fs_node_t* node = k_fs_vfs_open(path, O_NOFOLLOW);
+
+	if(!node) {
+		return -ENOENT;
+	}
+
+	__stat(node, sb);
+
+	k_fs_vfs_close(node);
+
+	return 0;
+}
+
+static uint32_t sys_lstat(const char* path, struct stat* sb) {
+	if(!IS_VALID_PTR((uint32_t) path)) {
+		return -EINVAL;
+	}
+
+	if(!IS_VALID_PTR((uint32_t) sb)) {
+		return -EINVAL;
+	}
+
+	fs_node_t* node = k_fs_vfs_open(path, 0);
+
+	if(!node) {
+		return -ENOENT;
+	}
+
+	__stat(node, sb);
+
+	k_fs_vfs_close(node);
+
+	return 0;
+}
+
+static uint32_t sys_fstat(int fd, struct stat* sb) {
+	if(!IS_VALID_PTR((uint32_t) sb)) {
+		return -EINVAL;
+	}
+
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, fd);
+
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	fs_node_t* node = fdt->node;
+
+	__stat(node, sb);
+
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -634,6 +706,9 @@ DEFN_SYSCALL0(sys_geteuid);
 DEFN_SYSCALL5(sys_mmap, void*, size_t, int, int, file_arg_t*);
 DEFN_SYSCALL2(sys_munmap, void*, size_t);
 DEFN_SYSCALL3(sys_msync, void*, size_t, int);
+DEFN_SYSCALL2(sys_stat,  const char*, struct stat*);
+DEFN_SYSCALL2(sys_lstat, const char*, struct stat*);
+DEFN_SYSCALL2(sys_fstat, int, struct stat*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -674,6 +749,9 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_MMAP, REF_SYSCALL(sys_mmap));
 	k_int_syscall_setup_handler(SYS_MUNMAP, REF_SYSCALL(sys_munmap));
 	k_int_syscall_setup_handler(SYS_MSYNC, REF_SYSCALL(sys_msync));
+	k_int_syscall_setup_handler(SYS_STAT, REF_SYSCALL(sys_stat));
+	k_int_syscall_setup_handler(SYS_LSTAT, REF_SYSCALL(sys_lstat));
+	k_int_syscall_setup_handler(SYS_FSTAT, REF_SYSCALL(sys_fstat));
     
 	return K_STATUS_OK;
 }

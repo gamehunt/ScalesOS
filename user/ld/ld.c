@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 int main(int argc, const char** argv) {
@@ -15,8 +16,14 @@ int main(int argc, const char** argv) {
 		printf("LD: no such file: %s\n", argv[1]);
 		return -1;
 	}
+	
+	struct stat sb;
+	if(fstat(fileno(file), &sb) < 0) {
+		printf("LD: stat() failed with code %ld", errno);
+		return -1;
+	}
 
-	void* mem = mmap(0, fseek(file, 0, SEEK_END), PROT_READ, MAP_PRIVATE, fileno(file), 0);
+	void* mem = mmap(0, sb.st_size, PROT_READ, MAP_PRIVATE, fileno(file), 0);
 
 	if((int32_t) mem == MAP_FAILED) {
 		printf("LD: mmap() failed with code %ld\n", errno);

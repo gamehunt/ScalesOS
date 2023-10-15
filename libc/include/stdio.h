@@ -68,6 +68,8 @@ void   setbuf(FILE *stream, char *buf);
 #define O_TRUNC  (1 << 3)
 #define O_APPEND (1 << 4)
 
+#define O_NOFOLLOW (1 << 5)
+
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2

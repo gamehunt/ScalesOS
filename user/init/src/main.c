@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 #include <sys/mount.h>
 #include <sys/reboot.h>
+#include <sys/stat.h>
 #include <scales/reboot.h>
 
 void init_output() {
@@ -22,6 +23,7 @@ static uint8_t load_modules(const char* mod_path) {
 	DIR*  dev = opendir(mod_path);
 	char  path[1024];
 	void* buffer;
+	struct stat sb;
 	if(dev) {
 		struct dirent* dir;
 		while((dir = readdir(dev))) {
@@ -34,11 +36,15 @@ static uint8_t load_modules(const char* mod_path) {
 				printf("Failed to open module: %s\r\n", path);
 			} else{
 				printf("Loading: %s...\r\n", path);
-				uint32_t size = fseek(f, 0, SEEK_END);
-				fseek(f, 0, SEEK_SET);	
-				buffer = malloc(size);
-				fread(buffer, size, 1, f);
-				if(__sys_insmod((uint32_t) buffer, size)){
+
+				if(fstat(fileno(f), &sb) < 0) {
+					printf("--> Failed. \r\n");
+					continue;
+				}
+
+				buffer = malloc(sb.st_size);
+				fread(buffer, sb.st_size, 1, f);
+				if(__sys_insmod((uint32_t) buffer, sb.st_size)){
 					printf("--> Failed.\r\n");
 				} else {
 					printf("--> Ok.\r\n");
