@@ -532,7 +532,7 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 		return -ENOENT;
 	}
 
-	if(flags == MAP_SHARED && !(fdt->node->mode & O_RDWR)) {
+	if((flags & MAP_SHARED) && !(fdt->node->mode & O_RDWR)) {
 		return -EACCES;
 	}
 
@@ -556,7 +556,7 @@ static uint32_t sys_msync(void* start, size_t length, int flags) {
 	process_t* proc = k_proc_process_current();
 	mmap_block_t* block = k_mem_mmap_get_mapping(&proc->image.mmap_info, (uint32_t) start);
 
-	if(block->type != MAP_SHARED) {
+	if(!(block->type & MAP_SHARED)) {
 		return -EINVAL;
 	}
 

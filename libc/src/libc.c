@@ -11,7 +11,7 @@ extern int  main(int argc, char** argv);
 extern void _init();
 extern void _fini();
 
-char** __envp;
+char** environ;
 int    __envc = 0;
 
 char** __argv;
@@ -28,9 +28,9 @@ static void __parse_env() {
 	while(i < __envc) {
 		struct env_var* var = malloc(sizeof(struct env_var));
 
-		char* name = strtok(__envp[i], "=");
+		char* name = strtok(environ[i], "=");
 		if(!name) {
-			var->name  = __envp[i];
+			var->name  = environ[i];
 			var->value = "\0";
 		} else {
 			var->name  = name;
@@ -47,7 +47,7 @@ void __init_arguments(int argc, char** argv, int envc, char** envp) {
 	__argv = malloc((__argc + 1) * sizeof(char*));
 
 	__envc = envc;
-	__envp = malloc((__envc + 1) * sizeof(char*));
+	environ = malloc((__envc + 1) * sizeof(char*));
 
 	if(__argc) {
 		for(int i = 0; i < __argc; i++) {
@@ -59,11 +59,11 @@ void __init_arguments(int argc, char** argv, int envc, char** envp) {
 
 	if(__envc) {
 		for(int i = 0; i < __envc; i++) {
-			__envp[i] = malloc(strlen(envp[i]) + 1);
-			strcpy(__envp[i], envp[i]);
+			environ[i] = malloc(strlen(envp[i]) + 1);
+			strcpy(environ[i], envp[i]);
 		}
 	}
-	__envp[__envc] = "\0";
+	environ[__envc] = "\0";
 }
 
 void __atexit_flush_streams() {

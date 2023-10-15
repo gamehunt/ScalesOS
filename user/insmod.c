@@ -20,13 +20,13 @@ int main(int argc, char** argv) {
 
 	FILE* mod = fopen(path, "r");
 	if(!mod) {
-		printf("Failed to open module: %s", argv[1]);
+		printf("Failed to open module: %s\n", argv[1]);
 		return 1;
 	}
 
 	struct stat sb;
 	if(fstat(fileno(mod), &sb) < 0) {
-		printf("stat() failed with code %ld", errno);
+		printf("stat() failed with code %ld\n", errno);
 		return 1;
 	}
 

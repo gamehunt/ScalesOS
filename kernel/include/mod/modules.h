@@ -1,8 +1,13 @@
 #ifndef __K_MOD_MODULES_H
 #define __K_MOD_MODULES_H
 
-#include "kernel.h"
-#include "multiboot.h"
+#ifdef __KERNEL
+	#include "kernel.h"
+	#include "multiboot.h"
+#else
+	#include <kernel/kernel.h>
+	#include <kernel/multiboot.h>
+#endif
 
 typedef struct{
     const char* name;

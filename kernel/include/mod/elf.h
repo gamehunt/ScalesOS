@@ -1,7 +1,11 @@
 #ifndef __K_MOD_ELF_H
 #define __K_MOD_ELF_H
 
-#include "mod/modules.h"
+#ifdef __KERNEL
+	#include "mod/modules.h"
+#else
+	#include <kernel/mod/modules.h>
+#endif
 
 #define EI_MAG0    0 // File identification
 #define EI_MAG1    1 // File identification

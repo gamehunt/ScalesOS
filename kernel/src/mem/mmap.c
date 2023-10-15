@@ -22,7 +22,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 
 	k_debug("mmap: allocating %d pages", pages);
 
-	if(flags == MAP_FIXED) {
+	if(flags & MAP_FIXED) {
 		if(!start) {
 			return NULL;
 		}
@@ -31,20 +31,15 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 			return NULL;
 		}
 		
-		for(size_t i = 0; i < pages; i++) {
-			if((((uint32_t) start + i * 0x1000) >= VIRTUAL_BASE) || k_mem_paging_virt2phys(((uint32_t) start) + i * 0x1000)) {
-				return NULL;
-			}
-		}
-		
 		start_addr = (uint32_t) start;
 	} else {
-		if(info->start + pages * 0x1000 >= USER_STACK_END) {
-			return NULL;
-		}
 		start_addr = info->start;
 		info->start += pages * 0x1000;
 		k_debug("mmap: moved start to 0x%.8x", info->start);
+	}
+
+	if(start_addr + pages * 0x1000 >= USER_STACK_END) {
+		return NULL;
 	}
 
 	uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
@@ -52,7 +47,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		map_flags |= PAGE_WRITABLE;
 	}
 
-	if(flags != MAP_PRIVATE) {
+	if(!(flags & MAP_PRIVATE)) {
 		k_debug("mmap: mapping 0x%.8x-0x%.8x", start_addr, start_addr + pages * 0x1000);
 		k_mem_paging_map_region(start_addr, 0, pages, map_flags, 0);
 	}
@@ -66,7 +61,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 
 	list_push_back(info->mmap_blocks, block);
 
-	if(flags == MAP_SHARED) {
+	if(flags & MAP_SHARED) {
 		if(!__shared_mappings) {
 			__shared_mappings = list_create();
 		}
@@ -88,7 +83,7 @@ mmap_block_t* k_mem_mmap_get_mapping(mmap_info_t* info, uint32_t addr) {
 
 void k_mem_mmap_free_block(mmap_info_t* info, mmap_block_t* block) {
 	list_delete_element(info->mmap_blocks, block);
-	if(block->type == MAP_SHARED) {
+	if(block->type & MAP_SHARED) {
 		list_delete_element(__shared_mappings, block);
 	}
 	k_debug("mmap: unmapping 0x%.8x - 0x%.8x (%d pages)", block->start, block->end, (block->end - block->start) / 0x1000);
@@ -112,7 +107,7 @@ void k_mem_mmap_mark_dirty(mmap_block_t* block) {
 }
 
 void k_mem_mmap_sync_block(mmap_block_t* block, int flags UNUSED) {
-	if(block->type != MAP_SHARED) {
+	if(!(block->type & MAP_SHARED)) {
 		return;
 	}
 
@@ -153,11 +148,11 @@ uint8_t k_mem_mmap_handle_pagefault(uint32_t address, int code) {
 		return 4;
 	}
 
-	if(block->type != MAP_PRIVATE && block->type != MAP_SHARED) {
+	if(!(block->type & (MAP_PRIVATE | MAP_SHARED))) {
 		return 5;
 	}
 
-	uint32_t page = (address / 0x1000) * 0x1000;
+	uint32_t page = address & 0xFFFFF000;
 
 	fd_list_t* list = &proc->fds;
 	fd_t*      fdt  = fd2fdt(list, block->fd);
