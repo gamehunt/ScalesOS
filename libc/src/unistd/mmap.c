@@ -16,10 +16,10 @@ void* mmap(void *start, size_t length, int prot, int flags, int fd, off_t offset
 	return (void*) value;
 }
 
-int munmap(void *start, size_t length) {
+int munmap(void* start, size_t length) {
 	__return_errno(__sys_munmap((uint32_t) start, length));
 }
 
-int msync(void *start, size_t length, int flags) {
-	return -1;
+int msync(void* start, size_t length, int flags) {
+	__return_errno(__sys_msync((uint32_t) start, length, flags));
 }

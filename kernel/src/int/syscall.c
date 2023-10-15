@@ -8,9 +8,11 @@
 #include "fs/vfs.h"
 #include "kernel/mem/paging.h"
 #include "mem/heap.h"
+#include "mem/mmap.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
+#include "sys/heap.h"
 #include "sys/syscall.h"
 #include <stdio.h>
 #include "int/idt.h"
@@ -18,6 +20,7 @@
 #include "kernel.h"
 #include "sys/tty.h"
 #include "util/exec.h"
+#include "util/fd.h"
 #include "util/log.h"
 #include "shared.h"
 #include "sys/times.h"
@@ -27,6 +30,7 @@
 #include "sys/mman.h"
 #include "util/panic.h"
 #include "util/path.h"
+#include "util/types/list.h"
 
 #include <proc/process.h>
 #include <scales/reboot.h>
@@ -84,12 +88,11 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 
 static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
-		return 0;
+
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
 	}
-
-	fd_t* fdt = fds->nodes[fd];
-
 	// k_info("sys_read(): %d bytes at +%d in %s", count, fdt->offset, fdt->node->name);
 
 	int32_t read = k_fs_vfs_read(fdt->node, fdt->offset, count, buffer);
@@ -103,11 +106,11 @@ static uint32_t sys_read(uint32_t fd, uint8_t* buffer, uint32_t count) {
 
 static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
-		return 0;
-	}
 
-	fd_t* fdt = fds->nodes[fd];
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
+	}
 
 	int32_t written = k_fs_vfs_write(fdt->node, fdt->offset, count, buffer);
 
@@ -302,10 +305,12 @@ static uint32_t sys_insmod(void* buffer, uint32_t size) {
 
 static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
-		return 0;
+
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
 	}
-	fd_t* fdt = fds->nodes[fd];
+
 	struct dirent* result = k_fs_vfs_readdir(fdt->node, index);
 
 	if(!result) {
@@ -321,10 +326,11 @@ static uint32_t sys_readdir(uint32_t fd, uint32_t index, struct dirent* out) {
 
 static uint32_t sys_seek(uint32_t fd, uint32_t offset, uint8_t origin) {
 	fd_list_t* fds = &k_proc_process_current()->fds;
-	if(!fds || fds->size <= fd || !fds->nodes[fd]) {
-		return 0;
+
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
 	}
-	fd_t* fdt = fds->nodes[fd];
 
 	switch(origin) {
 		case SEEK_CUR:
@@ -429,11 +435,12 @@ static uint32_t sys_ioctl(int fd, uint32_t req, void* args) {
 	
 	fd_list_t* fds = &proc->fds;
 
-	if(fd < 0 || (uint32_t) fd >= fds->size || !fds->nodes[fd]) {
-		return -EINVAL;
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return NULL;
 	}
 
-	fs_node_t* node = fds->nodes[fd]->node;
+	fs_node_t* node = fdt->node;
 
 	return k_fs_vfs_ioctl(node, req, args);
 }
@@ -471,11 +478,12 @@ static uint32_t sys_chdir(int fd) {
 
 	fd_list_t* fds = &cur->fds;
 
-	if(fd < 0 || (uint32_t) fd >= fds->size || !fds->nodes[fd]) {
-		return -EINVAL;
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return NULL;
 	}
 
-	fs_node_t* node = fds->nodes[fd]->node;
+	fs_node_t* node = fdt->node;
 
 	if(!(node->flags & VFS_DIR)) {
 		return -ENOTDIR;
@@ -498,47 +506,96 @@ static uint32_t sys_geteuid() {
 }
 
 static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_arg_t* arg) {
+	process_t* proc = k_proc_process_current();
+
+	if(flags == MAP_ANONYMOUS) {
+		mmap_block_t* block = k_mem_mmap_allocate_block(&proc->image.mmap_info, start, length, prot, flags);
+		if(!block) {
+			return -ENOMEM;
+		}
+		k_debug("mmap: return 0x%.8x for anon mapping", block->start);
+		return block->start;
+	}
+
+	if(!IS_VALID_PTR((uint32_t) arg)) {
+		return -EINVAL;
+	}
+
 	int   fd   = arg->fd;
 	off_t offs = arg->offset; 
 
-	uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
-	uint32_t pages = (length / 0x1000) + 1;
+	fd_list_t* fds = &proc->fds;
 
-	process_t* proc = k_proc_process_current();
-
-	if(prot & PROT_WRITE) {
-		map_flags |= PAGE_WRITABLE;
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
 	}
 
-	if(flags == MAP_FIXED) {
-		if((uint32_t) start % 0x1000) {
-			return -EINVAL;
-		}
-		for(size_t i = 0; i < pages; i++) {
-			if((((uint32_t) start + i * 0x1000) >= VIRTUAL_BASE) || k_mem_paging_virt2phys(((uint32_t) start) + i * 0x1000)) {
-				return -EINVAL;
-			}
-		}			
-		k_mem_paging_map_region((uint32_t) start, 0, pages, map_flags, 0);
-		return (uint32_t) start;
-	} else if (flags == MAP_PRIVATE) {
-		uint32_t addr = proc->image.mmap_info.start;
-		proc->image.mmap_info.start += pages * 0x1000;
-		k_mem_paging_map_region((uint32_t) addr, 0, pages, map_flags, 0);
-		return addr;
-	} 
+	if(flags == MAP_SHARED && !(fdt->node->mode & O_RDWR)) {
+		return -EACCES;
+	}
 
-	return -EINVAL;
+	mmap_block_t* block = k_mem_mmap_allocate_block(&proc->image.mmap_info, start, length, prot, flags);
+	if(!block) {
+		return -ENOMEM;
+	}
+
+	block->offset = offs;
+	block->fd     = fd;
+
+	k_debug("mmap: return 0x%.8x for mapping type %d", block->start, block->type);
+	return block->start;
+}
+
+static uint32_t sys_msync(void* start, size_t length, int flags) {
+	if(flags & (MS_ASYNC | MS_SYNC)) {
+		return -EINVAL;
+	}
+
+	process_t* proc = k_proc_process_current();
+	mmap_block_t* block = k_mem_mmap_get_mapping(&proc->image.mmap_info, (uint32_t) start);
+
+	if(block->type != MAP_SHARED) {
+		return -EINVAL;
+	}
+
+	if(!block || block->end < (uint32_t)start + length) {
+		return -EINVAL;
+	}
+	
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, block->fd);
+
+	if(!fdt) {
+		return -EFAULT;
+	}
+
+	k_mem_mmap_sync_block(block, 0);
+
+	if(flags & MS_INVALIDATE) {
+		list_t* mappings = k_mem_mmap_get_mappings_for_fd(block->fd, block->offset);
+		for(size_t i = 0; i < mappings->size; i++) {
+			mmap_block_t* shared_block = mappings->data[i];
+			k_mem_mmap_mark_dirty(shared_block);
+		}
+		list_free(mappings);
+	}
+	
+	return 0;
 }
 
 static uint32_t sys_munmap(void* start, size_t length) {
-	uint32_t pages = (length / 0x1000) + 1;
-	for(size_t i = 0; i < pages; i++) {
-		if((((uint32_t) start + i * 0x1000) >= VIRTUAL_BASE) || !k_mem_paging_virt2phys(((uint32_t) start) + i * 0x1000)) {
-			return -EINVAL;
-		}
-	}			
-	k_mem_paging_unmap_region((uint32_t) start, pages);
+	process_t* proc = k_proc_process_current();
+	mmap_block_t* block = k_mem_mmap_get_mapping(&proc->image.mmap_info, (uint32_t) start);
+
+	if(!block || block->size < length) {
+		return -EINVAL;
+	}
+
+	k_mem_mmap_sync_block(block, 0);
+
+	k_mem_mmap_free_block(&proc->image.mmap_info, block);
+
 	return 0;
 }
 
@@ -576,6 +633,7 @@ DEFN_SYSCALL0(sys_getuid);
 DEFN_SYSCALL0(sys_geteuid);
 DEFN_SYSCALL5(sys_mmap, void*, size_t, int, int, file_arg_t*);
 DEFN_SYSCALL2(sys_munmap, void*, size_t);
+DEFN_SYSCALL3(sys_msync, void*, size_t, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -615,6 +673,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_GETEUID, REF_SYSCALL(sys_geteuid));
 	k_int_syscall_setup_handler(SYS_MMAP, REF_SYSCALL(sys_mmap));
 	k_int_syscall_setup_handler(SYS_MUNMAP, REF_SYSCALL(sys_munmap));
+	k_int_syscall_setup_handler(SYS_MSYNC, REF_SYSCALL(sys_msync));
     
 	return K_STATUS_OK;
 }

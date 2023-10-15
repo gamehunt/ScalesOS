@@ -6,6 +6,7 @@ set(SOURCES
     path.c
 	exec.c
 	perf.c
+	fd.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

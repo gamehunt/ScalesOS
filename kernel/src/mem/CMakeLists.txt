@@ -6,6 +6,7 @@ set(SOURCES
     pmm.c
     heap.c
 	mmio.c
+	mmap.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

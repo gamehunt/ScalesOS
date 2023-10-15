@@ -4,6 +4,7 @@
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/memory.h"
+#include "mem/mmap.h"
 #include "mem/paging.h"
 #include "mod/elf.h"
 #include "proc/process.h"
@@ -115,6 +116,11 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
     	
 	k_fs_vfs_close(node);
 
+	while(proc->image.mmap_info.mmap_blocks->size > 0) {
+		mmap_block_t* block = list_pop_back(proc->image.mmap_info.mmap_blocks);
+		k_mem_mmap_free_block(&proc->image.mmap_info, block);
+	}
+
 	pde_t* old = proc->image.page_directory;
 	proc->image.page_directory = k_mem_paging_clone_root_page_directory(NULL);
 	k_mem_paging_set_page_directory((pde_t*) proc->image.page_directory, 0); 																
@@ -146,7 +152,13 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 
 	proc->image.heap       = executable_end;
 	proc->image.heap_size  = USER_HEAP_INITIAL_SIZE;
-	proc->image.mmap_start = USER_MMAP_START;
+
+	if(USER_MMAP_START > proc->image.heap + USER_HEAP_INITIAL_SIZE) {
+		proc->image.mmap_info.start = USER_MMAP_START;
+	} else {
+		proc->image.mmap_info.start = proc->image.heap + USER_HEAP_INITIAL_SIZE;
+	}
+
 
 	k_mem_paging_map_region(proc->image.heap, 0, proc->image.heap_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
 	uint32_t entry = hdr->e_entry;

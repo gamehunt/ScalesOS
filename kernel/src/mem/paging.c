@@ -1,6 +1,7 @@
 #include "int/isr.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
+#include "mem/mmap.h"
 #include "mem/pmm.h"
 #include "proc/process.h"
 #include "types.h"
@@ -37,14 +38,18 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 		if(fault_address == 0xDEADBEEF) {
 			k_proc_process_return_from_signal(ctx);
 			return ctx;
-		} else {
-			k_err("Process %s (%d) caused page fault at 0x%x (0x%x). EIP = 0x%.8x ESP = 0x%.8x EBP = 0x%.8x", proc->name, proc->pid, fault_address, ctx->err_code, 
-					ctx->eip, ctx->esp, ctx->ebp);
-			cli();
-			halt();
-			k_proc_process_send_signal(proc, SIGSEGV);
-			return ctx;
-		}
+		} else if(fault_address >= USER_MMAP_START && fault_address < USER_STACK_END) {
+			uint8_t result = k_mem_mmap_handle_pagefault(fault_address, ctx->err_code);
+			if(!result) {
+				return ctx;
+			}
+			k_debug("mmap: COW failed with code %d", result);
+		}	
+
+		k_err("Process %s (%d) caused page fault at 0x%x (0x%x). EIP = 0x%.8x ESP = 0x%.8x EBP = 0x%.8x", proc->name, proc->pid, fault_address, ctx->err_code, 
+		ctx->eip, ctx->esp, ctx->ebp);
+		k_proc_process_send_signal(proc, SIGSEGV);
+		return ctx;
 	}
     char buffer[128];
     sprintf(buffer, "Page fault at 0x%.8x. Error code: 0x%x Directory: 0x%.8x", fault_address, ctx->err_code, current_page_directory);
@@ -132,6 +137,25 @@ void k_mem_paging_unmap(vaddr_t vaddr) {
     __k_mem_paging_invlpg(vaddr);
 }
 
+void k_mem_paging_unmap_and_free(vaddr_t vaddr) {
+    uint32_t pd_index = PDE(vaddr);
+    if (!(current_page_directory[pd_index].data.present)) {
+        return;
+    }
+
+    pte_t* pt         = PT_PTR(pd_index);
+    uint32_t pt_index = PTE(vaddr);
+
+	uint32_t frame = pt[pt_index].data.page * 0x1000;
+    pt[pt_index].raw  = 0;
+
+	if(frame) {
+		k_mem_pmm_free(frame, 1);
+	}
+
+    __k_mem_paging_invlpg(vaddr);
+}
+
 void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
 	if(!flags) {
 		flags = PAGE_PRESENT | PAGE_WRITABLE;
@@ -183,6 +207,12 @@ void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
 void k_mem_paging_unmap_region(vaddr_t vaddr, uint32_t size) {
 	for(int i = 0; i < size; i++) {
 		k_mem_paging_unmap(vaddr + i * 0x1000);
+	}
+}
+
+void k_mem_paging_unmap_and_free_region(vaddr_t vaddr, uint32_t size) {
+	for(int i = 0; i < size; i++) {
+		k_mem_paging_unmap_and_free(vaddr + i * 0x1000);
 	}
 }
 

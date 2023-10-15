@@ -10,6 +10,7 @@
 #include "proc/process.h"
 #include "sys/heap.h"
 #include "proc/spinlock.h"
+#include "sys/mman.h"
 #include "util/asm_wrappers.h"
 
 static spinlock_t heap_lock = 0; //TODO
@@ -35,6 +36,14 @@ mem_block_t* heap         = NULL;
 static uint32_t heap_size = USER_HEAP_INITIAL_SIZE;
 
 static uint32_t __mem_grow_heap(int32_t size) {
+	if(size >= BIG_ALLOCATION / 0x1000) {
+		int32_t r = mmap(NULL, size * 0x1000, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, 0, 0);
+		if(r == MAP_FAILED) {
+			return 0;
+		} else {
+			return r;
+		}
+	}
 	return __sys_grow(size);
 }
 

@@ -6,6 +6,7 @@
 #include "kernel/mem/heap.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
+#include "mem/mmap.h"
 #include "mem/paging.h"
 #include "mem/memory.h"
 #include "proc/spinlock.h"
@@ -109,6 +110,7 @@ static process_t* __k_proc_process_create_init() {
     proc->context.ebp = 0;
     proc->context.eip = 0;
     proc->image.page_directory = k_mem_paging_clone_page_directory(NULL, NULL);
+	proc->image.mmap_info.mmap_blocks = list_create();
 	proc->context.fp_regs = k_valloc(512, 16);
 	memset(proc->context.fp_regs, 0, 512);
 
@@ -214,7 +216,7 @@ void k_proc_process_switch() {
 
     k_mem_gdt_set_stack((uint32_t) new_proc->image.kernel_stack);
 	k_mem_paging_set_page_directory(new_proc->image.page_directory, 0);
-	
+
 	__k_proc_process_load(&new_proc->context);
 }
 
@@ -282,6 +284,14 @@ uint32_t k_proc_process_fork() {
 	new->wait_queue = list_create();
 
     new->image.page_directory = k_mem_paging_clone_page_directory(src->image.page_directory, NULL);
+	new->image.mmap_info.mmap_blocks = list_create();
+
+	for(size_t i = 0; i < src->image.mmap_info.mmap_blocks->size; i++) {
+		mmap_block_t* src_block = src->image.mmap_info.mmap_blocks->data[i];
+		mmap_block_t* block = k_malloc(sizeof(mmap_block_t));
+		memcpy(block, src_block, sizeof(mmap_block_t));
+		list_push_back(new->image.mmap_info.mmap_blocks, block);
+	}
 
     __k_proc_process_create_kernel_stack(new);
 
@@ -364,7 +374,9 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 void k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
 	process->state = PROCESS_STATE_SLEEPING;
 	list_push_back(queue, process);
-	k_proc_process_yield();
+	if(process == k_proc_process_current()) {
+		k_proc_process_yield();
+	}
 }
 
 void k_proc_process_wakeup_queue(list_t* queue) {
@@ -400,6 +412,11 @@ void k_proc_process_exit(process_t* process, int code) {
 	}
 	UNLOCK(process_tree->root->children->lock);
 
+	while(process->image.mmap_info.mmap_blocks->size > 0) {
+		mmap_block_t* block = list_pop_back(process->image.mmap_info.mmap_blocks);
+		k_mem_mmap_free_block(&process->image.mmap_info, block);
+	}
+
 	if(process->node->parent) {
 		process_t* parent = process->node->parent->value;
 		if(parent) {
@@ -419,11 +436,6 @@ void* k_proc_process_grow_heap(process_t* process, int32_t size){
 	k_mem_paging_set_page_directory(process->image.page_directory, 0);
 
 	uint32_t mapping_start = process->image.heap + process->image.heap_size;
-	
-	if(size >= BIG_ALLOCATION / 0x1000) {
-		mapping_start = process->image.mmap_info.start;
-		process->image.mmap_info.start += size * 0x1000;
-	} 	
 
 	k_mem_paging_map_region(mapping_start, 0, size, PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER, 0);
 	process->image.heap_size += size * 0x1000;
@@ -484,6 +496,7 @@ pid_t k_proc_process_waitpid(process_t* process, int pid, int* status, int optio
 
 
 void k_proc_process_destroy(process_t* process) {
+	list_free(process->image.mmap_info.mmap_blocks);
 	list_delete_element(process_list, process);
 	tree_remove_node(process_tree, process->node);
 	tree_free_node(process->node);

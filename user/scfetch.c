@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/utsname.h>
 
 int main(int argc, char** argv) {
@@ -10,6 +11,7 @@ int main(int argc, char** argv) {
 		printf("Failed to get system info.");
 		return -errno;
 	}
+
 	
 	printf("OS: %s\n", info.sysname);
 	printf("Host: %s\n", info.machine);

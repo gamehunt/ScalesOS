@@ -6,9 +6,10 @@
 #define PROT_EXEC  (1 << 2) // Page can be executed.
 #define PROT_NONE  0        // Page cannot be accessed.
 
-#define MAP_SHARED  1 // Share changes.
-#define MAP_PRIVATE 2 // Changes are private.
-#define MAP_FIXED   3 // Interpret addr exactly.
+#define MAP_SHARED    1 // Share changes.
+#define MAP_PRIVATE   2 // Changes are private.
+#define MAP_FIXED     3 // Interpret addr exactly.
+#define MAP_ANONYMOUS 4 // Don't map to any file
 					  
 #define MS_ASYNC      1 // Perform asynchronous writes.
 #define MS_SYNC       2 // Perform synchronous writes.
