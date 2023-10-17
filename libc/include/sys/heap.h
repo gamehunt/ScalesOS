@@ -21,4 +21,7 @@ typedef struct mem_block mem_block_t;
 #define M_MEMORY(addr)     (((uint32_t)addr) + sizeof(mem_block_t))
 //mem_block_t* M_NEXT(mem_block_t* addr);
 #define M_NEXT(addr)       (addr->next) 
+
+int setheap(void* addr);
+
 #endif

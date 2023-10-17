@@ -47,9 +47,15 @@ static uint32_t __mem_grow_heap(int32_t size) {
 	return __sys_grow(size);
 }
 
-void __mem_init_heap() {
-	heap = __mem_grow_heap(0);
+void __mem_place_heap(void* addr) {
+	heap = addr;
+	heap_size = USER_HEAP_INITIAL_SIZE;
+
 	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
+}
+
+void __mem_init_heap() {
+	__mem_place_heap(__mem_grow_heap(0));
 }
 #endif
 
@@ -156,7 +162,7 @@ void* __attribute__((malloc)) malloc(size_t size){
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
 		if(!block) {
-			fprintf(stderr, "alloc(): out of memory");
+			fprintf(stderr, "alloc(): out of memory\n");
 			abort();
 		}
 		heap_size += grow * 0x1000;
@@ -177,7 +183,7 @@ void* __attribute__((malloc)) malloc(size_t size){
 #ifdef __LIBK
             k_panic("Block split failed. Kmalloc failure.", 0);
 #else
-			fprintf(stderr, "alloc(): block split failed.");
+			fprintf(stderr, "alloc(): block split failed.\n");
 			abort();
 #endif
             __builtin_unreachable();

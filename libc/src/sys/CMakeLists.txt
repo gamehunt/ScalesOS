@@ -12,6 +12,7 @@ set(SOURCES
 	mod.c
 	utsname.c
 	reboot.c
+	heap.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

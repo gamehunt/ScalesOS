@@ -1,25 +1,8 @@
 extern libc_init
-extern align_fail
 
 section .text
 global _start
 
 _start:
-	mov ebx, esp
-	and ebx, 0xFFFFFFF0
-	mov ecx, ebx
-	sub ebx, esp
-	jnz no_alignment
+	and  esp, 0xFFFFFFFC
 	call libc_init
-no_alignment:
-	call align_fail
-
-global _debug
-_debug:
-	push ebp
-	mov  ebp, esp
-	mov edi, [ebp + 8]
-	mov eax, 0xFF
-	int 0x80
-	leave
-	ret

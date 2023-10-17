@@ -247,16 +247,17 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 	}
 }
 
+//TODO make it save output of inactive tty to some kind of /dev/vt[n]
 void k_dev_vt_tty_callback(struct tty* tty) {
 	LOCK(vt_lock);
 	tty_t* a = __atty->device;
-	if(tty->id == a->id) {
-		char c = __k_dev_vt_getc(tty);
-		while(c) {
+	char c = __k_dev_vt_getc(tty);
+	while(c) {
+		if(a->id == tty->id) {
 			k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
-			c = __k_dev_vt_getc(tty);
-		} 
-	}
+		}
+		c = __k_dev_vt_getc(tty);
+	} 
 	UNLOCK(vt_lock);
 }
 

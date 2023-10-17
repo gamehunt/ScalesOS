@@ -6,6 +6,7 @@
 #include "errno.h"
 #include "fs/pipe.h"
 #include "fs/vfs.h"
+#include "kernel/mem/memory.h"
 #include "kernel/mem/paging.h"
 #include "mem/heap.h"
 #include "mem/mmap.h"
@@ -671,6 +672,19 @@ static uint32_t sys_fstat(int fd, struct stat* sb) {
 	return 0;
 }
 
+uint32_t sys_setheap(void* addr) {
+	if((uint32_t) addr >= USER_STACK_END) {
+		return -EINVAL;
+	}
+
+	process_t* proc = k_proc_process_current();
+
+	proc->image.heap      = (uint32_t) addr;
+	proc->image.heap_size = USER_HEAP_INITIAL_SIZE;
+
+	return 0;
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -709,6 +723,7 @@ DEFN_SYSCALL3(sys_msync, void*, size_t, int);
 DEFN_SYSCALL2(sys_stat,  const char*, struct stat*);
 DEFN_SYSCALL2(sys_lstat, const char*, struct stat*);
 DEFN_SYSCALL2(sys_fstat, int, struct stat*);
+DEFN_SYSCALL1(sys_setheap, void*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -752,6 +767,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_STAT, REF_SYSCALL(sys_stat));
 	k_int_syscall_setup_handler(SYS_LSTAT, REF_SYSCALL(sys_lstat));
 	k_int_syscall_setup_handler(SYS_FSTAT, REF_SYSCALL(sys_fstat));
+	k_int_syscall_setup_handler(SYS_SETHEAP, REF_SYSCALL(sys_setheap));
     
 	return K_STATUS_OK;
 }

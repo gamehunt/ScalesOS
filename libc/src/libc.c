@@ -51,32 +51,29 @@ void __init_arguments(int argc, char** argv, int envc, char** envp) {
 
 	if(__argc) {
 		for(int i = 0; i < __argc; i++) {
-			__argv[i] = malloc(strlen(argv[i]) + 1);
-			strcpy(__argv[i], argv[i]);
+			__argv[i] = strdup(argv[i]);
 		}
 	}
 	__argv[__argc] = "\0";
 
 	if(__envc) {
 		for(int i = 0; i < __envc; i++) {
-			environ[i] = malloc(strlen(envp[i]) + 1);
-			strcpy(environ[i], envp[i]);
+			environ[i] = strdup(envp[i]);
 		}
 	}
 	environ[__envc] = "\0";
 }
 
-void __atexit_flush_streams() {
+void __flush_streams() {
 	fflush(stderr);
 	fflush(stdout);
 }
 
 void libc_exit(int code) {
 	_fini();
+	__flush_streams();
 	exit(code);
 }
-
-extern void _debug(int mode);
 
 void libc_init(int argc, char** argv, int envc, char** envp) {
 	__mem_init_heap();
@@ -84,12 +81,5 @@ void libc_init(int argc, char** argv, int envc, char** envp) {
 	__init_arguments(argc, argv, envc, envp);
 	__parse_env();
 	_init();
-	atexit(&__atexit_flush_streams);
 	libc_exit(main(__argc, __argv));
 }
-
-void align_fail() {
-	exit(0xEE);	
-}
-
-

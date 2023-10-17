@@ -99,12 +99,13 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 			interp = "/lib/ld.so";
 		}
 
-		int new_argc = argc + 1;
+		int new_argc = argc + 2;
 		const char* new_argv[new_argc];
 		new_argv[0] = path;
 		for(int i = 0; i < argc; i++) {
 			new_argv[i + 1] = argv[i];
 		}
+		new_argv[argc + 1] = path;
 
 		k_debug("DYN: Executing: %s %s", interp, path);
 
@@ -113,6 +114,14 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 	
     process_t* proc = k_proc_process_current(); 
     strcpy(proc->name, node->name);
+
+	argc++;
+
+	const char** _argv = k_calloc(argc, sizeof(char*));
+	_argv[0] = proc->name; 
+	for(int i = 0; i < argc - 1; i++) {
+		_argv[i + 1] = strdup(argv[i]);
+	}
     	
 	k_fs_vfs_close(node);
 
@@ -194,13 +203,6 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 	}		
 
 	uintptr_t argv_stack = 0;
-	argc++;
-
-	const char* _argv[argc];
-	_argv[0] = proc->name; 
-	for(int i = 0; i < argc - 1; i++) {
-		_argv[i + 1] = argv[i];
-	}
 
 	char* ptrs[argc];  
 	for(int i = argc - 1; i >= 0; i--) {
@@ -209,7 +211,12 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 			PUSH(proc->image.user_stack, char, _argv[i][j])		
 		}
 		ptrs[i] = (char*) proc->image.user_stack;
+		if(i) {
+			k_free(_argv[i]);
+		}
 	}
+
+	k_free(_argv);
 
 	for(int i = argc - 1; i >= 0; i--) {
 		PUSH(proc->image.user_stack, char*, ptrs[i])

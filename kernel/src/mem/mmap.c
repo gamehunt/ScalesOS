@@ -1,12 +1,20 @@
 #include "mem/mmap.h"
+#include "kernel/mem/memory.h"
 #include "mem/heap.h"
 #include "mem/memory.h"
 #include "mem/paging.h"
 #include "proc/process.h"
 #include "sys/mman.h"
 #include "util/fd.h"
-#include "util/log.h"
 #include "util/types/list.h"
+
+// #define MMAP_DEBUG
+#ifndef MMAP_DEBUG
+#undef k_debug
+#define k_debug(...)
+#else
+#include "util/log.h"
+#endif
 
 static list_t* __shared_mappings;
 
@@ -32,15 +40,54 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		}
 		
 		start_addr = (uint32_t) start;
+
+		if(start_addr + pages * 0x1000 >= USER_STACK_END) {
+			return NULL;
+		}
+
+		for(uint32_t i = 0 ; i < pages; i++) {
+			if(k_mem_paging_virt2phys(start_addr + i * 0x1000)) {
+				return NULL;
+			}
+		}
 	} else {
 		start_addr = info->start;
-		info->start += pages * 0x1000;
+		uint32_t offset = 0;
+		while(1) {
+			uint32_t i = 0;
+			uint8_t  f = 0;
+			for(i = 0; i < pages; i++) {
+				if(k_mem_paging_virt2phys(start_addr + (i + offset) * 0x1000)) {
+					f = 1;
+					break;
+				}
+			}
+
+			if(f) {
+				while(k_mem_paging_virt2phys(start_addr + (i + offset) * 0x1000) || 
+					  k_mem_mmap_get_mapping(info, start_addr + (i + offset) * 0x1000)) {
+					i++;
+				}
+				offset = i;
+			} else {
+				break;
+			}
+
+			if(start_addr + offset * 0x1000 >= USER_STACK_END) {
+				break;
+			}
+		}
+
+		start_addr += 0x1000 * offset;
+
+		if(start_addr + pages * 0x1000 >= USER_STACK_END) {
+			return NULL;
+		}
+
+		info->start = start_addr + pages * 0x1000;
 		k_debug("mmap: moved start to 0x%.8x", info->start);
 	}
 
-	if(start_addr + pages * 0x1000 >= USER_STACK_END) {
-		return NULL;
-	}
 
 	uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
 	if(prot & PROT_WRITE) {
@@ -88,6 +135,7 @@ void k_mem_mmap_free_block(mmap_info_t* info, mmap_block_t* block) {
 	}
 	k_debug("mmap: unmapping 0x%.8x - 0x%.8x (%d pages)", block->start, block->end, (block->end - block->start) / 0x1000);
 	k_mem_paging_unmap_and_free_region(block->start, (block->end - block->start) / 0x1000);
+	info->start = block->start;
 	k_free(block);
 }
 
@@ -174,12 +222,11 @@ uint8_t k_mem_mmap_handle_pagefault(uint32_t address, int code) {
 	
 	uint32_t page_offset = (page - block->start) / 0x1000;
 	uint32_t offset      = block->offset + page_offset * 0x1000;
-	uint32_t length      = 0x1000 - (address - page);
 
-	// k_debug("mmap: fault address = 0x%.8x, page = 0x%.8x, block start = 0x%.8x (+%d pages)", address, page, block->start, page_offset);
-	// k_debug("mmap: reading %d bytes from +%d to 0x%.8x", length, offset, page);
+	k_debug("mmap: fault address = 0x%.8x, page = 0x%.8x, block start = 0x%.8x (+%d pages)", address, page, block->start, page_offset);
+	k_debug("mmap: reading %d bytes from +%d to 0x%.8x", 0x1000, offset, page);
 
-	k_fs_vfs_read(fdt->node, offset, length, (void*) page);
+	k_fs_vfs_read(fdt->node, offset, 0x1000, (void*) page);
 
 	return 0;
 }

@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-void (*__atexit[__ATEXIT_MAX])(void);
+void (*__atexit[__ATEXIT_MAX])(void) = {NULL};
 int    __atexit_count = 0;
 
 int atexit(void(*func)(void)){

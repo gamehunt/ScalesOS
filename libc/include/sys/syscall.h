@@ -42,6 +42,7 @@
 #define SYS_LSTAT        36
 #define SYS_FSTAT        37
 #define SYS_MKDIR        38
+#define SYS_SETHEAP      39
 
 #define SYS_DEBUG        255
 
@@ -94,6 +95,7 @@ extern uint32_t __syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint
 #define __sys_lstat(path, sb)                         __syscall(SYS_LSTAT, path, sb, UNUSED3)
 #define __sys_fstat(fd, sb)                           __syscall(SYS_FSTAT, fd, sb, UNUSED3)
 #define __sys_mkdir(path, mode)                       __syscall(SYS_MKDIR, path, mode, UNUSED3)
+#define __sys_setheap(addr)                           __syscall(SYS_SETHEAP, addr, UNUSED4)
 
 #define __sys_debug()                           __syscall(SYS_DEBUG, UNUSED5)
 
