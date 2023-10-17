@@ -89,7 +89,7 @@ interrupt_context_t* __k_int_isr_dispatcher(interrupt_context_t* ctx){
 	if(!isr_handlers[ctx->int_no]){
 		process_t* proc = k_proc_process_current();
 		if(proc && from_userspace) {
-			k_info("Process %s (%d) segfaulted. Reason: %s", proc->name, proc->pid, panic_messages[ctx->int_no]);
+			k_info("Process %s (%d) segfaulted. Reason: %s. EIP = 0x%.8x", proc->name, proc->pid, panic_messages[ctx->int_no], ctx->eip);
 			k_proc_process_send_signal(proc, SIGSEGV);
 		} else {
         	char buffer[1024];

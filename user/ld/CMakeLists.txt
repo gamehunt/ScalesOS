@@ -9,3 +9,4 @@ add_executable(ld.so ld.c wrapper.asm)
 target_link_libraries(ld.so -static)
 
 install(TARGETS ld.so DESTINATION lib/)
+install(TARGETS ld.so DESTINATION ramdisk/lib/)

@@ -53,14 +53,6 @@ add_executable(cat      cat.c)
 add_executable(echo     echo.c)
 add_executable(pwd      pwd.c)
 
-target_link_libraries(mount -static)
-target_link_libraries(echo -static)
-target_link_libraries(getty -static)
-target_link_libraries(motd -static)
-target_link_libraries(stty -static)
-target_link_libraries(login -static)
-target_link_libraries(insmod -static)
-
 install(TARGETS getty stty mount umount insmod motd login scfetch reboot shutdown ls cat echo pwd DESTINATION bin/)
 install(TARGETS mount DESTINATION ramdisk/bin/)
 

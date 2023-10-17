@@ -25,9 +25,10 @@ set_target_properties(cso PROPERTIES OUTPUT_NAME c)
 
 add_subdirectory(src)
 
-install(TARGETS k ARCHIVE  DESTINATION lib/)
-install(TARGETS cst ARCHIVE  DESTINATION lib/)
-install(TARGETS cso ARCHIVE  DESTINATION lib/)
+install(TARGETS k   ARCHIVE DESTINATION lib/)
+install(TARGETS cst ARCHIVE DESTINATION lib/)
+install(TARGETS cso LIBRARY DESTINATION lib/)
+install(TARGETS cso LIBRARY DESTINATION ramdisk/lib/)
 install(FILES crt0.o crti.o crtn.o DESTINATION lib/)
 install(DIRECTORY include/ DESTINATION include/)
 

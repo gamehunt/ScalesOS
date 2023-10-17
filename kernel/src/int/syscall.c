@@ -37,6 +37,7 @@
 #include <proc/process.h>
 #include <scales/reboot.h>
 #include <scales/mmap.h>
+#include <scales/prctl.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -515,7 +516,6 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 		if(!block) {
 			return -ENOMEM;
 		}
-		k_debug("mmap: return 0x%.8x for anon mapping", block->start);
 		return block->start;
 	}
 
@@ -545,7 +545,6 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 	block->offset = offs;
 	block->fd     = fd;
 
-	k_debug("mmap: return 0x%.8x for mapping type %d", block->start, block->type);
 	return block->start;
 }
 
@@ -685,6 +684,21 @@ uint32_t sys_setheap(void* addr) {
 	return 0;
 }
 
+uint32_t sys_prctl(int op, void* arg) {
+	process_t* process = k_proc_process_current();
+
+	switch(op) {
+		case PRCTL_SETNAME:
+			if(!IS_VALID_PTR((uint32_t) arg)) {
+				return -EINVAL;
+			}
+			strncpy(process->name, arg, sizeof(process->name));
+			return 0;
+		default:
+			return -EINVAL;
+	}
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -724,6 +738,7 @@ DEFN_SYSCALL2(sys_stat,  const char*, struct stat*);
 DEFN_SYSCALL2(sys_lstat, const char*, struct stat*);
 DEFN_SYSCALL2(sys_fstat, int, struct stat*);
 DEFN_SYSCALL1(sys_setheap, void*);
+DEFN_SYSCALL2(sys_prctl, int, void*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -768,6 +783,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_LSTAT, REF_SYSCALL(sys_lstat));
 	k_int_syscall_setup_handler(SYS_FSTAT, REF_SYSCALL(sys_fstat));
 	k_int_syscall_setup_handler(SYS_SETHEAP, REF_SYSCALL(sys_setheap));
+	k_int_syscall_setup_handler(SYS_PRCTL, REF_SYSCALL(sys_prctl));
     
 	return K_STATUS_OK;
 }

@@ -13,7 +13,7 @@ FILE* stdout = &_stdout;
 FILE* stderr = &_stderr;
 
 void __init_stdio() {
-	stdin->read_buffer  = malloc(BUFSIZE);
+	stdin->read_buffer   = malloc(BUFSIZE);
 
 	stdout->write_buffer = malloc(BUFSIZE);
 

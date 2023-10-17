@@ -53,6 +53,15 @@ void add_loaded_library(object_t* lib) {
 extern void __resolver_wrapper();
 
 uint32_t lookup_symbol(object_t* lib, const char* name) {
+	if(!lib) {
+		for(int i = 0; i < library_count; i++) {
+			uint32_t addr = lookup_symbol(loaded_libraries[i], name);
+			if(addr) {
+				return addr;
+			}
+		}
+		return 0;
+	}
 	for(uint32_t i = 0; i < lib->dyn_symtab_size; i++) {
 		Elf32_Sym sym = lib->dyn_symtab[i];
 		char* sname = (char*) (lib->dyn_str_table + sym.st_name);
@@ -64,17 +73,11 @@ uint32_t lookup_symbol(object_t* lib, const char* name) {
 }
 
 uint32_t resolve_symbol(object_t* object, uint32_t index) {
-	printf("Resolver called: 0x%.8x with index 0x%x\n", (uint32_t) object, index);
-
 	Elf32_Rel* symbol_rel_entry = (Elf32_Rel*) ((uint32_t)object->relplt + index);
-
-	printf("Symbol: 0x%.8x 0x%.8x (index %d)\n", symbol_rel_entry->r_offset, symbol_rel_entry->r_info, ELF32_R_SYM(symbol_rel_entry->r_info));
 
 	Elf32_Sym symbol = object->dyn_symtab[ELF32_R_SYM(symbol_rel_entry->r_info)];
 
 	char* name = (char*) (object->dyn_str_table + symbol.st_name);
-
-	printf("Resolving symbol %s\n", name);
 
 	for(int i = 0; i < library_count; i++) {
 		object_t* lib = loaded_libraries[i];
@@ -83,13 +86,12 @@ uint32_t resolve_symbol(object_t* object, uint32_t index) {
 		}
 		uint32_t addr = lookup_symbol(lib, name);
 		if(addr) {
-			printf("Resolved at 0x%.8x\n", addr);
 			*((uint32_t*) (object->base + symbol_rel_entry->r_offset)) = addr;
 			return addr;
 		}
 	}
 
-	printf("Failed to resolve symbol: %s\n", name);
+	printf("LD: Failed to resolve symbol: %s\n", name);
 
 	exit(-1);
 }
@@ -108,9 +110,38 @@ void try_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
 				case R_386_JMP_SLOT:
 					*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value;
 					break;
+				case R_386_COPY:
+					// Copy relocations are handled separately.
+					break;
 				default:
 					printf("LD: Unknown relocation type: %d\n", ELF32_R_TYPE(data.r_info));
+					exit(-1);
 			}
+		}
+	}
+}
+
+void try_copy_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
+	for(size_t i = 0; i < size; i++) {
+		Elf32_Rel data   = rel[i];	
+		Elf32_Sym symbol = object->dyn_symtab[ELF32_R_SYM(data.r_info)];
+
+		char* name = object->dyn_str_table + symbol.st_name;
+    	
+		if(ELF32_R_TYPE(data.r_info) == R_386_COPY) {
+			uint32_t sym = 0;
+			for(int i = 0; i < library_count; i++) {
+				object_t* lib = loaded_libraries[i];
+				if(lib != object) {
+					sym = lookup_symbol(lib, name);
+					break;
+				}
+			}
+			if(!sym) {
+				printf("LD: failed to resolve symbol for copy: %s\n", name);
+				exit(-1);
+			}
+			memcpy((void*)(object->base + data.r_offset), (void*) sym, symbol.st_size);
 		}
 	}
 }
@@ -122,7 +153,7 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 	    header->e_ident[1] != ELFMAG1 ||
 	    header->e_ident[2] != ELFMAG2 ||
 	    header->e_ident[3] != ELFMAG3) {
-		printf("Not an elf executable. (Got: 0x%.2x %c %c %c)\n",
+		printf("LD: Not an elf executable. (Got: 0x%.2x %c %c %c)\n",
 							header->e_ident[0],
 							header->e_ident[1],
 							header->e_ident[2],
@@ -145,18 +176,20 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 	while(h < header->e_phnum) {
 		Elf32_Phdr* phdr = (Elf32_Phdr*) (((uint32_t) header) + header->e_phoff + h * header->e_phentsize);
 		void* mem = 0;
+		uint32_t start = 0;
 		switch(phdr->p_type) {
 			case PT_LOAD:
-				mem = mmap((void*) (object->base + phdr->p_vaddr & 0xFFFFF000), phdr->p_memsz, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
+				start = object->base + phdr->p_vaddr;
+				mem = mmap((void*) (start & 0xFFFFF000), phdr->p_memsz + (start % 0x1000), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
 				if((int32_t) mem == MAP_FAILED) {
-					printf("mmap(): failed to map section 0x%.8x - 0x%.8x (%ld)\n", base + phdr->p_vaddr, base + phdr->p_vaddr + phdr->p_memsz, errno);
+					printf("LD: mmap() failed with code %ld\n", errno);
+					exit(-1);
 				} else {
-					memset(mem, 0, phdr->p_memsz);
-					printf("mmap(): mapped section 0x%.8x - 0x%.8x\n", base + phdr->p_vaddr, base + phdr->p_vaddr + phdr->p_memsz);
+					memset((void*) start, 0, phdr->p_memsz);
 					if(object->end < base + phdr->p_vaddr + phdr->p_memsz) {
 						object->end = base + phdr->p_vaddr + phdr->p_memsz;
 					}
-					memcpy((void*) (base + phdr->p_vaddr), (void*) (((uint32_t) header) + phdr->p_offset), phdr->p_filesz);
+					memcpy((void*) start, (void*) (((uint32_t) header) + phdr->p_offset), phdr->p_filesz);
 				}
 				break;
 			case PT_DYNAMIC:
@@ -178,9 +211,6 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 			char* name = (char*) (object->str_table + shdr->sh_name);
 			if(!strcmp(name, ".got.plt")) {
 				uint32_t* got = (uint32_t*) (base + shdr->sh_addr);
-				printf("GOT address: 0x%.8x\n", &got[0]);
-				printf("GOT argument address: 0x%.8x\n", &got[1]);
-				printf("GOT resolver address: 0x%.8x\n", &got[2]);
 				got[1] = (uint32_t) object;
 				got[2] = (uint32_t) &__resolver_wrapper;
 				for(int i = 3; i < shdr->sh_size / sizeof(uint32_t); i++) {
@@ -202,34 +232,27 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 		while(table->d_tag) {
 			switch(table->d_tag) {
 				case DT_HASH:
-					printf("DT_HASH\n");
 					break;
 				case DT_STRTAB:
 					object->dyn_str_table = (char *)(base + table->d_un.d_ptr);
-					printf("DT_STRTAB\n");
 					break;
 				case DT_SYMTAB:
-					printf("DT_SYMTAB\n");
 					object->dyn_symtab = (Elf32_Sym*) (base + table->d_un.d_ptr);
 					break;
 				case DT_STRSZ:
 					object->dyn_str_table_size = table->d_un.d_val;
-					printf("DT_STRSZ\n");
 					break;
 				case DT_INIT: 
-					printf("DT_INIT\n");
 					if(table->d_un.d_ptr) {
 						object->init = (void (*)(void))(table->d_un.d_ptr + base);
 					}
 					break;
 				case DT_INIT_ARRAY: 					
-					printf("DT_ARRAY\n");
 					if(table->d_un.d_ptr) {
 						object->init_array = (void (**)(void))(table->d_un.d_ptr + base);
 					}
 					break;
 				case DT_INIT_ARRAYSZ: 	
-					printf("DT_ARRAYSZ\n");
 					object->init_array_size = table->d_un.d_val / sizeof(uintptr_t);
 					break;
 			}
@@ -244,7 +267,6 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 			switch (table->d_tag) {
 				case DT_NEEDED:
 					name = object->dyn_str_table + table->d_un.d_val;
-					printf("Needed: %s\n", name);
 					object->dependencies[object->dependency_count] = strdup(name);
 					object->dependency_count++;
 					object->dependencies = realloc(object->dependencies, sizeof(char*) * (object->dependency_count + 1));
@@ -315,8 +337,6 @@ object_t* load_library(const char* path) {
 		return NULL;
 	}
 
-	printf("Mapped %s to 0x%.8x - 0x%.8x\n", path, object->file, (uint32_t) object->file + object->file_size);
-
 	return load_object(object, 0);
 }
 
@@ -333,8 +353,6 @@ object_t* load_exec(const char* path) {
 		return NULL;
 	}
 
-	printf("Mapped %s to 0x%.8x - 0x%.8x\n", path, object->file, (uint32_t) object->file +object->file_size);
-
 	return load_object(object, 1);
 }
 
@@ -342,7 +360,6 @@ extern char** environ;
 extern void __jump(uint32_t entry, int argc, const char** argv, int envc, char** envp);
 
 int main(int argc, const char** argv) {
-
 	object_t* main = load_exec(argv[1]);
 	if(!main) {
 		return -1;
@@ -351,10 +368,9 @@ int main(int argc, const char** argv) {
 	add_loaded_library(main);
 
 	for(int i = 0; i < main->dependency_count; i++) {
-		printf("Loading: %s\n", main->dependencies[i]);
 		object_t* lib = load_library(main->dependencies[i]);
 		if(!lib) {
-			printf("Failed to load library %s!\n", main->dependencies[i]);
+			printf("LD: Failed to load library %s\n", main->dependencies[i]);
 			exit(-1);
 		}
 		add_loaded_library(lib);
@@ -368,10 +384,12 @@ int main(int argc, const char** argv) {
 		return -1;
 	}
 
-	printf("Moved heap to 0x%.8x\n", heap_start);
-
 	for(int i = 1; i < library_count; i++) {
 		object_t* lib = loaded_libraries[i];
+
+		if(lib->reldyn) {
+			try_copy_relocate(lib, lib->reldyn, lib->reldyn_size);
+		}
 
 		if(lib->init_array) {
 			for(int j = 0; j < lib->init_array_size; j++) {
@@ -380,9 +398,12 @@ int main(int argc, const char** argv) {
 		}
 
 		if(lib->init) {
-			printf("Calling init() at 0x%.8x\n", (uint32_t) lib->init);
 			lib->init();
 		}
+	}
+
+	if(main->reldyn) {
+		try_copy_relocate(main, main->reldyn, main->reldyn_size);
 	}
 
 	if(main->init_array) {
@@ -392,12 +413,8 @@ int main(int argc, const char** argv) {
 	}
 
 	if(main->init) {
-		printf("Calling init() at 0x%.8x\n", (uint32_t) main->init);
 		main->init();
 	}
-
-	printf("Jumping to 0x%.8x\n", main->file->e_entry);
-	fflush(stdout);
 
 	__jump(main->file->e_entry, argc - 2, argv + 2, 0, environ);
 

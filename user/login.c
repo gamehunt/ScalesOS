@@ -20,6 +20,7 @@ int try_login_with_password(struct passwd* pwd, char* pass) {
 		fseek(passwords, SEEK_SET, 0);
 	}
 
+
 	char line[128];
 	while(fgets(line, 128, passwords) != NULL) {
 		char* word = strtok(line, ":");
@@ -32,7 +33,7 @@ int try_login_with_password(struct passwd* pwd, char* pass) {
 			}
 		}
 	}
-
+	
 	system("motd");
 
 	chdir(pwd->pw_dir);
@@ -42,7 +43,6 @@ int try_login_with_password(struct passwd* pwd, char* pass) {
 }
 
 int login(char* name, char* pass) {
-	
 	struct passwd* pwd = getpwnam(name);
 
 	if(!pwd) {

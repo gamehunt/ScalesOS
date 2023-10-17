@@ -1,3 +1,4 @@
+#include "scales/prctl.h"
 #include "unistd.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,5 +82,6 @@ void libc_init(int argc, char** argv, int envc, char** envp) {
 	__init_arguments(argc, argv, envc, envp);
 	__parse_env();
 	_init();
+	prctl(PRCTL_SETNAME, argv[0]);
 	libc_exit(main(__argc, __argv));
 }

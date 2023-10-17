@@ -14,8 +14,8 @@
 
 void init_output() {
 	__sys_open((uint32_t) "/dev/null", O_RDONLY, 0); // stdin
-	__sys_open((uint32_t) "/dev/null", O_WRONLY, 0); // stdout
-	__sys_open((uint32_t) "/dev/null", O_WRONLY, 0); // stderr
+	__sys_open((uint32_t) "/dev/tty0", O_WRONLY, 0); // stdout
+	__sys_open((uint32_t) "/dev/tty0", O_WRONLY, 0); // stderr
 }
 
 static uint8_t load_modules(const char* mod_path) {

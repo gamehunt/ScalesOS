@@ -10,7 +10,7 @@ int main(int argc, char** argv) {
 		printf("Usage: cat <file>\n");
 		return 1;
 	}
-	
+
 	FILE* f = fopen(argv[1], "r");
 	if(!f) {
 		printf("No such file.\n");
@@ -30,7 +30,7 @@ int main(int argc, char** argv) {
 	fclose(f);
 	
 	for(size_t i = 0; i < l; i++) {
-		fputc(buff[i], stdout);
+		putchar(buff[i]);
 	}
 
 	puts("\n");

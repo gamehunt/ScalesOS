@@ -102,10 +102,10 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 		int new_argc = argc + 2;
 		const char* new_argv[new_argc];
 		new_argv[0] = path;
+		new_argv[1] = path;
 		for(int i = 0; i < argc; i++) {
-			new_argv[i + 1] = argv[i];
+			new_argv[i + 2] = argv[i];
 		}
-		new_argv[argc + 1] = path;
 
 		k_debug("DYN: Executing: %s %s", interp, path);
 
