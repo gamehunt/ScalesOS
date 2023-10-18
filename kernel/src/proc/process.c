@@ -11,6 +11,7 @@
 #include "mem/memory.h"
 #include "proc/spinlock.h"
 #include "signal.h"
+#include "util/asm_wrappers.h"
 #include "util/log.h"
 #include "util/panic.h"
 #include "util/types/list.h"
@@ -149,6 +150,8 @@ void k_proc_process_init_core() {
 static void __k_proc_process_timer_callback(interrupt_context_t*);
 
 void k_proc_process_init() {
+	cli();
+
 	process_tree       = tree_create();
     process_list       = list_create();
     ready_queue        = list_create();
@@ -159,6 +162,8 @@ void k_proc_process_init() {
 	tree_set_root(process_tree, current_core->current_process->node);
 
 	k_dev_timer_add_callback(__k_proc_process_timer_callback);
+
+	sti();
 }
 
 extern __attribute__((returns_twice)) uint8_t __k_proc_process_save(context_t* ctx);

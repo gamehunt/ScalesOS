@@ -154,9 +154,6 @@ static void __init_fb_impl(pci_device_t* device) {
 	__impl.buffer_phys = device->bars[0] & 0xFFFFFFF0;
 	__impl.buffer      = (uint8_t*) FRAMEBUFFER_START;
 
-	k_debug("Buffer frames: 0x%.8x - 0x%.8x", __impl.buffer_phys, __impl.buffer_phys + __impl.buffer_size*2);
-	k_debug("Buffer addresses: 0x%.8x - 0x%.8x", __impl.buffer, __impl.buffer + __impl.buffer_size*2);
-
 	__impl.backbuffer = k_malloc(__impl.buffer_size);
 	if(vh >= __impl.height * 2) {
 		__impl.backbuffer_type = BACKBUFFER_HARD;

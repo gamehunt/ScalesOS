@@ -57,6 +57,7 @@ int    feof(FILE *stream);
 int    ferror(FILE *stream);
 int    fileno(FILE *stream);  
 void   setbuf(FILE *stream, char *buf);
+void   rewind(FILE* stream);
 
 #endif
 

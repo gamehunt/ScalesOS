@@ -1,3 +1,4 @@
+#include "sys/mman.h"
 #include "sys/tty.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,34 @@ int main(int argc, char** argv) {
 	if(fb) {
 		uint32_t color = 0x236bb2;
 		ioctl(fileno(fb), FB_IOCTL_CLEAR, &color);
+
+		uint32_t  resolution = 1280 * 800;
+		uint32_t* screen = malloc(resolution * 4);
+		
+		for(int i = 0; i < resolution; i++) {
+			screen[i] = color;
+		}
+
+		for(int i = 0; i < 1280; i++) {
+			screen[50 * 1280 + i] = 0x00ff00;
+		}
+
+		for(int i = 0; i < 1280; i++) {
+			for(int j = 0; j < 800; j++) {
+				if(i == j) {
+					screen[j * 1280 + i] = 0x0000ff;
+				}
+			}
+		}
+
+		for(int i = 0; i < 800; i++) {
+			screen[i * 1280 + 10] = 0xff0000;
+			screen[i * 1280 + 750] = 0xff0000;
+		}
+		
+		fwrite(screen, 4, resolution, fb);
+		fflush(fb);
+		ioctl(fileno(fb), FB_IOCTL_SYNC, NULL);
 	}
 	
 	if(!(console = fopen("/dev/tty0", "w"))) {

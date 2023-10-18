@@ -285,3 +285,11 @@ void  setbuf(FILE* stream, char* buf) {
 		stream->buffer_size  = BUFSIZE;
 	}
 }
+
+void rewind(FILE* stream) {
+	fseek(stream, 0, SEEK_SET);
+	stream->read_buffer_offset = 0;
+	stream->available = 0;
+	stream->eof = 0;
+	stream->ungetc = 0;
+}
