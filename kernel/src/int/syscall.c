@@ -549,7 +549,7 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 }
 
 static uint32_t sys_msync(void* start, size_t length, int flags) {
-	if(flags & (MS_ASYNC | MS_SYNC)) {
+	if((flags & MS_SYNC) && (flags & MS_ASYNC)) {
 		return -EINVAL;
 	}
 

@@ -94,7 +94,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		map_flags |= PAGE_WRITABLE;
 	}
 
-	if(!(flags & MAP_PRIVATE)) {
+	if(flags & MAP_ANONYMOUS) {
 		k_debug("mmap: mapping 0x%.8x-0x%.8x", start_addr, start_addr + pages * 0x1000);
 		k_mem_paging_map_region(start_addr, 0, pages, map_flags, 0);
 	}

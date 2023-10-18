@@ -132,6 +132,26 @@ static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_
 	return size;
 }
 
+static uint32_t __qemu_fb_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!size) {
+		return 0;
+	}
+
+	uint32_t max = __impl.buffer_size;
+	
+	if(offset >= max) {
+		return 0;	
+	}
+
+	if(offset + size >= max) {
+		size = max - offset;
+	}
+
+	memcpy(buffer, __impl.backbuffer + offset, size);
+
+	return size;
+}
+
 static void __init_fb_impl(pci_device_t* device) {
 	if(!__bga_check_version()) {
 		k_err("BGA version is too low!");
@@ -170,6 +190,7 @@ static void __init_fb_impl(pci_device_t* device) {
 	__impl.impl.init     = &__qemu_fb_init;
 
 	__impl.impl.fs.write = &__qemu_fb_write;
+	__impl.impl.fs.read  = &__qemu_fb_read;
 	__impl.impl.fs.ioctl = &k_dev_fb_ioctl;
 
 	k_dev_fb_set_impl(&__impl.impl);

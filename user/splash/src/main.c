@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -29,17 +30,13 @@ int main(int argc, char** argv) {
 	int n = 7;
 	ioctl(fileno(console), VT_ACTIVATE, &n);
 
-	FILE* fb = fopen("/dev/fb", "w");
+	FILE* fb = fopen("/dev/fb", "r+");
 	if(fb) {
 		uint32_t color = 0x236bb2;
 		ioctl(fileno(fb), FB_IOCTL_CLEAR, &color);
 
-		uint32_t  resolution = 1280 * 800;
-		uint32_t* screen = malloc(resolution * 4);
-		
-		for(int i = 0; i < resolution; i++) {
-			screen[i] = color;
-		}
+		uint32_t  resolution = 1280 * 800 * 4;
+		uint32_t* screen = mmap(NULL, resolution, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(fb), 0);
 
 		for(int i = 0; i < 1280; i++) {
 			screen[50 * 1280 + i] = 0x00ff00;
@@ -57,9 +54,8 @@ int main(int argc, char** argv) {
 			screen[i * 1280 + 10] = 0xff0000;
 			screen[i * 1280 + 750] = 0xff0000;
 		}
-		
-		fwrite(screen, 4, resolution, fb);
-		fflush(fb);
+
+		msync(screen, resolution, MS_SYNC);
 		ioctl(fileno(fb), FB_IOCTL_SYNC, NULL);
 	}
 	
