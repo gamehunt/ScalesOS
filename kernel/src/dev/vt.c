@@ -258,6 +258,9 @@ void k_dev_vt_tty_callback(struct tty* tty) {
 		}
 		c = __k_dev_vt_getc(tty);
 	} 
+	if(a->id == tty->id) {
+		k_dev_fb_sync();
+	}
 	UNLOCK(vt_lock);
 }
 

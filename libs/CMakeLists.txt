@@ -3,4 +3,11 @@ include(ExternalProject)
 
 project(Scales-Libs VERSION 1.0.0)
 
+ExternalProject_Add(
+    libfb
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/libfb/
+    BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/libfb/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+)
+
 install(CODE "MESSAGE(\"Libraries installed.\")")

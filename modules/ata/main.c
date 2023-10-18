@@ -431,7 +431,7 @@ K_STATUS load(){
 		uint32_t bar4 = __ide_controller->bars[4];
 		if(bar4 & 1) {
 			busmaster_is_mmio  = 0;
-			busmaster_register = bar4 & 0xFFFFFFFC;
+			busmaster_register = bar4 & 0xFFFFFFF0;
 		} else {
 			busmaster_is_mmio  = 1;
 			busmaster_register = k_mem_mmio_map_register(bar4 & 0xFFFFFFF0);

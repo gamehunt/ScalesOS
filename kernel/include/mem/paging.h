@@ -55,6 +55,7 @@ typedef union page_table_entry     pte_t;
 
 void     k_mem_paging_init();
 pde_t*   k_mem_paging_get_page_directory(paddr_t* phys);
+pde_t*   k_mem_paging_get_root_page_directory(paddr_t* phys);
 void     k_mem_paging_set_page_directory(pde_t* addr, uint8_t flags);
 pde_t*   k_mem_paging_clone_page_directory(pde_t* pd, paddr_t* phys);
 pde_t*   k_mem_paging_clone_root_page_directory(paddr_t* phys);

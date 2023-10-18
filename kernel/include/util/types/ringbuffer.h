@@ -1,8 +1,14 @@
 #ifndef __K_UTIL_RINGBUFFER
 #define __K_UTIL_RINGBUFFER
 
+#ifdef __KERNEL
 #include "proc/spinlock.h"
 #include "util/types/list.h"
+#else
+#include "kernel/proc/spinlock.h"
+#include "kernel/util/types/list.h"
+#endif
+
 #include <stdint.h>
 
 typedef struct ringbuffer {

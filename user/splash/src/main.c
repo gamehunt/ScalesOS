@@ -6,6 +6,8 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
+#include <kernel/dev/fb.h>
+
 static FILE* pipe;
 static FILE* console;
 
@@ -28,14 +30,8 @@ int main(int argc, char** argv) {
 
 	FILE* fb = fopen("/dev/fb", "w");
 	if(fb) {
-		uint32_t  resolution = 1200 * 1080;
-		uint32_t* screen = malloc(resolution * 4);
-		for(int i = 0; i < resolution; i++) {
-			screen[i] = 0x236bb2;
-		}
-		fwrite(screen, 4, resolution, fb);
-		fflush(fb);
-		free(screen);
+		uint32_t color = 0x236bb2;
+		ioctl(fileno(fb), FB_IOCTL_CLEAR, &color);
 	}
 	
 	if(!(console = fopen("/dev/tty0", "w"))) {

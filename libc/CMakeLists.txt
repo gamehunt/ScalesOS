@@ -8,6 +8,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/ ${CMAKE_CURRENT_SOURCE_
 
 set(CMAKE_C_FLAGS "-ffreestanding -nostdlib -O0 -Wall -Wextra -mno-red-zone")
 
+add_library(common INTERFACE)
 add_library(k STATIC)
 
 add_library(c OBJECT)
@@ -16,12 +17,15 @@ set_property(TARGET c PROPERTY POSITION_INDEPENDENT_CODE 1)
 add_library(cst STATIC $<TARGET_OBJECTS:c>)
 add_library(cso SHARED $<TARGET_OBJECTS:c>)
 
-target_compile_definitions(k   PRIVATE __LIBK)
-target_compile_definitions(cst PRIVATE __LIBC)
-target_compile_definitions(cso PRIVATE __LIBC)
+target_compile_definitions(k PRIVATE __LIBK)
+target_compile_definitions(c PRIVATE __LIBC)
 
 set_target_properties(cst PROPERTIES OUTPUT_NAME c)
 set_target_properties(cso PROPERTIES OUTPUT_NAME c)
+
+target_link_libraries(k   PRIVATE common)
+target_link_libraries(cst PRIVATE common)
+target_link_libraries(cso PRIVATE common)
 
 add_subdirectory(src)
 

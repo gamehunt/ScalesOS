@@ -29,8 +29,6 @@
 #include "int/syscall.h"
 #include "kernel.h"
 #include "mem/heap.h"
-#include "mem/memory.h"
-#include "mem/mmio.h"
 #include "mem/pmm.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
@@ -38,7 +36,6 @@
 #include "proc/process.h"
 #include "util/exec.h"
 #include "util/panic.h"
-#include "util/path.h"
 #include "video/lfbgeneric.h"
 
 extern void _libk_set_print_callback(void*);

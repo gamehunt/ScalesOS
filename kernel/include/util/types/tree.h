@@ -1,7 +1,11 @@
 #ifndef __K_UTIL_TYPES_TREE_H
 #define __K_UTIL_TYPES_TREE_H
 
+#ifdef __KERNEL
 #include "util/types/list.h"
+#else
+#include "kernel/util/types/list.h"
+#endif
 #include <stdint.h>
 
 struct tree;

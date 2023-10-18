@@ -3,7 +3,7 @@
 
 #include "shared.h"
 
-#define KERNEL_STACK_SIZE KB(16)
+#define KERNEL_STACK_SIZE KB(32)
 
 #define USER_STACK_SIZE        KB(64)
 #define USER_STACK_START       0xBFFFF000

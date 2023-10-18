@@ -56,6 +56,10 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
     k_debug("Final bitmap size: %d bytes", k_mem_pmm_bitmap_size() * 4);
 }
 
+void k_mem_pmm_set_allocated(pmm_frame_t frame) {
+	bitmap[BITMAP_INDEX(frame)] &= ~BITMAP_BIT_MASK(frame);
+}
+
 pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
 	if(!frames) {
 		k_panic("Tried to allocate invalid amount of frames.", 0);

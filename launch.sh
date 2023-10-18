@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
 
-/bin/bash build.sh
+cd scripts
 /bin/bash launch.sh
 

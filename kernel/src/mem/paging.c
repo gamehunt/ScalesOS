@@ -68,6 +68,20 @@ void k_mem_paging_init() {
 	current_page_directory = initial_page_directory;
 
     pd[1023].raw = phys | PAGE_PRESENT | PAGE_WRITABLE;
+
+	uint32_t kernel_pd = PDE(VIRTUAL_BASE);
+	for(uint32_t i = kernel_pd; i < 1024; i++) {
+    	if (!pd[i].data.present) {
+    	    pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
+    	    if (!frame) {
+    	        k_panic("Out of memory. Failed to allocate page table.", 0);
+    	    }
+    	    pd[i].raw = frame | PAGE_PRESENT | PAGE_WRITABLE; 
+			uint32_t* pt = (uint32_t*) PT_PTR(kernel_pd);
+			__k_mem_paging_invlpg((uint32_t) pt);
+			memset(pt, 0, 0x1000);
+    	}
+	}
 }
 
 paddr_t k_mem_paging_virt2phys(vaddr_t vaddr) {
@@ -191,15 +205,30 @@ void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
 void k_mem_paging_map_region(vaddr_t vaddr, paddr_t paddr, uint32_t size,
                              uint8_t flags, uint8_t contigous) {
     if (contigous) {
-        uint32_t frame = paddr ? paddr : k_mem_pmm_alloc_frames(size);
+        uint32_t frame = 0;
+		if(paddr) {
+			frame = paddr;
+		} else {
+			frame = k_mem_pmm_alloc_frames(size);
+		}
         for (uint32_t i = 0; i < size; i++) {
+			if(!k_mem_pmm_is_allocated(frame + 0x1000 * i)) {
+				k_mem_pmm_set_allocated(frame + 0x1000 * i);
+			}
             k_mem_paging_map(vaddr + 0x1000 * i, frame + 0x1000 * i, flags);
         }
     } else {
         for (uint32_t i = 0; i < size; i++) {
-            k_mem_paging_map(
-                vaddr + 0x1000 * i,
-                paddr ? paddr + 0x1000 * i : k_mem_pmm_alloc_frames(1), flags);
+			uint32_t frame = 0;
+			if(paddr) {
+				frame = paddr + 0x1000 * i;
+			} else {
+				frame = k_mem_pmm_alloc_frames(1);
+			}
+			if(!k_mem_pmm_is_allocated(frame)) {
+				k_mem_pmm_set_allocated(frame);
+			}
+            k_mem_paging_map(vaddr + 0x1000 * i, frame, flags);
         }
     }
 }
@@ -214,6 +243,13 @@ void k_mem_paging_unmap_and_free_region(vaddr_t vaddr, uint32_t size) {
 	for(int i = 0; i < size; i++) {
 		k_mem_paging_unmap_and_free(vaddr + i * 0x1000);
 	}
+}
+
+pde_t* k_mem_paging_get_root_page_directory(paddr_t* phys) {
+	if(phys) {
+		*phys = k_mem_paging_virt2phys((uint32_t) initial_page_directory);
+	}
+	return initial_page_directory;
 }
 
 pde_t* k_mem_paging_clone_root_page_directory(paddr_t* phys) {

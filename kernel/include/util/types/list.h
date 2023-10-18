@@ -1,7 +1,12 @@
 #ifndef __K_UTIL_TYPES_LIST
 #define __K_UTIL_TYPES_LIST
 
+#ifdef __KERNEL
 #include "proc/spinlock.h"
+#else
+#include "kernel/proc/spinlock.h"
+#endif
+
 #include <stdint.h>
 
 typedef struct list{

@@ -1,10 +1,16 @@
 #ifndef __FS_VFS_H
 #define __FS_VFS_H
 
+#ifdef __KERNEL
 #include "util/types/tree.h"
+#include "kernel.h"
+#else
+#include "kernel/util/types/tree.h"
+#include "kernel/kernel.h"
+#endif
+
+#include "shared.h"
 #include <stdint.h>
-#include <kernel.h>
-#include <shared.h>
 
 #define VFS_FILE       (1 << 0)
 #define VFS_DIR        (1 << 1)
