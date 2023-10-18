@@ -5,7 +5,7 @@
 #include <kernel/kernel.h>
 #include <kernel/util/log.h>
 #include <kernel/util/path.h>
-#include <kernel/util/perf.h>
+#include <kernel/dev/timer.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -86,6 +86,8 @@
 #define SINGLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t))
 #define DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * SINGLE_INDIRECT_BLOCK_CAPACITY(superblock)
 #define TRIPLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock)
+
+#define INODES_PER_CACHE 8
 
 typedef struct {
 	uint32_t total_inodes;
@@ -178,10 +180,47 @@ typedef struct {
 } __attribute__((packed)) ext2_dirent_t;
 
 typedef struct {
-	ext2_superblock_t* superblock;
-	fs_node_t*         device;
+	uint32_t      inode_number;
+	ext2_inode_t* inode;
+} cached_inode_t;
+
+typedef struct {
+	ext2_superblock_t*             superblock;
+	fs_node_t*                     device;
+	ext2_block_group_descriptor_t* bgds;
+	size_t                         bgds_amount;
+	list_t*                        inode_cache;
 } ext2_fs_t;
 
+
+ext2_inode_t* __ext2_try_get_cached_inode(ext2_fs_t* fs, uint32_t inode) {
+	for(size_t i = 0; i < fs->inode_cache->size; i++) {
+		cached_inode_t* c_ino = fs->inode_cache->data[i];
+		if(c_ino->inode_number == inode) {
+			c_ino->inode->access_time = now();
+			ext2_inode_t* ino = k_malloc(fs->superblock->inode_size);
+			memcpy(ino, c_ino->inode, fs->superblock->inode_size);
+			list_delete_element(fs->inode_cache, c_ino);
+			list_push_front(fs->inode_cache, c_ino);
+			return ino;
+		}
+	}
+	return NULL;
+}
+
+void __ext2_cache_inode(ext2_fs_t* fs, uint32_t num, ext2_inode_t* inode) {
+	cached_inode_t* copy = k_malloc(sizeof(cached_inode_t));
+	copy->inode_number = num; 
+	copy->inode = k_malloc(fs->superblock->inode_size);
+	memcpy(copy->inode, inode, fs->superblock->inode_size);
+	copy->inode->access_time = now();
+	list_push_front(fs->inode_cache, copy);
+	if(fs->inode_cache->size > INODES_PER_CACHE) {
+		cached_inode_t* last = list_pop_back(fs->inode_cache);
+		k_free(last->inode);
+		k_free(last);
+	} 
+}
 
 static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t block, uint8_t* buffer) {
 	if(block > fs->superblock->total_blocks) {
@@ -263,6 +302,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 		} 
 
 		if(!target_block) {
+			k_free(block_buffer);
 			return buffer_offset;	
 		}
 
@@ -282,7 +322,6 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 	}
 
 	k_free(block_buffer);
-
 	return buffer_offset;
 }
 
@@ -292,14 +331,9 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 		return NULL;
 	}
 
-	static uint32_t      last_inode_number = 0;
-	static ext2_inode_t  last_inode;
-
-	// TODO we can actually make it even more faster if we precache block groups
-	if(inode == last_inode_number) {
-		ext2_inode_t* ino = k_malloc(fs->superblock->inode_size);
-		memcpy(ino, &last_inode, fs->superblock->inode_size);
-		return ino;
+	ext2_inode_t* cached = __ext2_try_get_cached_inode(fs, inode);
+	if(cached) {
+		return cached;
 	}
 
 	uint32_t block_size = BLOCK_SIZE(fs->superblock);
@@ -307,14 +341,9 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	void* buffer = k_malloc(block_size);
 
 	uint32_t group = GROUP_FROM_INODE(fs->superblock, inode);
-	uint32_t table_block_offset = group * sizeof(ext2_block_group_descriptor_t) / block_size;
-	uint32_t table_block = (block_size == 1024 ? 2 : 1) + table_block_offset; 
-	uint32_t shifted_group = group - table_block_offset * block_size / sizeof(ext2_block_group_descriptor_t);
 
-	__ext2_read_block(fs, table_block, buffer);
-
-	ext2_block_group_descriptor_t* block_group_table = buffer;
-	uint32_t inode_table  = block_group_table[shifted_group].inode_table;
+	ext2_block_group_descriptor_t* block_group_table = fs->bgds;
+	uint32_t inode_table  = block_group_table[group].inode_table;
 
 	uint32_t inode_index  = INDEX_FROM_INODE(fs->superblock, inode);
 	uint32_t block_offset = BLOCK_FROM_INDEX(fs->superblock, inode_index);
@@ -327,10 +356,9 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 
 	memcpy(actual_inode, (uint8_t*) (((uintptr_t)buffer) + inner_offset * fs->superblock->inode_size), fs->superblock->inode_size);
 
-	k_free(buffer);
+	__ext2_cache_inode(fs, inode, actual_inode);
 
-	last_inode_number = inode;
-	memcpy(&last_inode, actual_inode, fs->superblock->inode_size);
+	k_free(buffer);
 
 	return actual_inode;
 }
@@ -478,8 +506,26 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 
 	ext2_fs_t* fs = k_malloc(sizeof(ext2_fs_t));
 
-	fs->superblock = superblock;
-	fs->device     = dev;
+	fs->superblock  = superblock;
+	fs->device      = dev;
+	fs->inode_cache = list_create();
+
+	fs->bgds_amount = fs->superblock->total_blocks / fs->superblock->blocks_per_group;
+	while(fs->bgds_amount * fs->superblock->blocks_per_group < fs->superblock->total_blocks) {
+		fs->bgds_amount++;
+	}
+
+	uint32_t block_amount = sizeof(ext2_block_group_descriptor_t) * fs->bgds_amount / fs->superblock->total_blocks + 1;
+	fs->bgds = k_malloc(block_amount * BLOCK_SIZE(fs->superblock));
+
+	uint32_t start = 2;
+	if(BLOCK_SIZE(fs->superblock) > 1024) {
+		start = 1;
+	}
+
+	for(uint32_t i = 0; i < block_amount; i++) {
+		__ext2_read_block(fs, start + i, (void*) ((uint32_t)fs->bgds + BLOCK_SIZE(fs->superblock) * i));
+	}
 
 	char* filename = k_util_path_filename(path);
 

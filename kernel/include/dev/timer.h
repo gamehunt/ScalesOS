@@ -3,6 +3,7 @@
 
 #include "int/isr.h"
 #include "kernel.h"
+#include <time.h>
 
 #define k_sleep k_dev_timer_sleep
 
@@ -16,5 +17,9 @@ uint64_t k_dev_timer_read_tsc();
 uint64_t k_dev_timer_get_core_speed();
 uint64_t k_dev_timer_tsc_base();
 uint64_t k_dev_timer_get_initial_timestamp();
+
+time_t   k_dev_timer_now();
+
+#define now() k_dev_timer_now()
 
 #endif
