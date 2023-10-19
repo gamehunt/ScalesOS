@@ -31,12 +31,19 @@ mem_block_t* heap            = (mem_block_t*) HEAP_START;
 #else
 
 #include "sys/syscall.h"
+#include "sys/heap.h"
 
 mem_block_t* heap         = NULL;
 static uint32_t heap_size = USER_HEAP_INITIAL_SIZE;
 
 static uint32_t __mem_grow_heap(int32_t size) {
-	if(size >= BIG_ALLOCATION / 0x1000) {
+	heap_opts_t opts = getheapopts();
+	if(!opts) { 
+		fprintf(stderr, "Invalid heap options.\n");
+		abort();
+	}
+
+	if(!(opts & HEAP_OPT_USE_GROW) || ((opts & HEAP_OPT_USE_MMAP) &&size >= BIG_ALLOCATION / 0x1000)) {
 		int32_t r = mmap(NULL, size * 0x1000, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, 0, 0);
 		if(r == MAP_FAILED) {
 			return 0;
@@ -44,6 +51,7 @@ static uint32_t __mem_grow_heap(int32_t size) {
 			return r;
 		}
 	}
+
 	return __sys_grow(size);
 }
 
@@ -55,6 +63,7 @@ void __mem_place_heap(void* addr) {
 }
 
 void __mem_init_heap() {
+	setheapopts(HEAP_OPT_DEFAULTS);
 	__mem_place_heap(__mem_grow_heap(0));
 }
 #endif

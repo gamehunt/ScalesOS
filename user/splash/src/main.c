@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <fb.h>
 
 #include <kernel/dev/fb.h>
 
@@ -30,33 +31,12 @@ int main(int argc, char** argv) {
 	int n = 7;
 	ioctl(fileno(console), VT_ACTIVATE, &n);
 
-	FILE* fb = fopen("/dev/fb", "r+");
-	if(fb) {
-		uint32_t color = 0x236bb2;
-		ioctl(fileno(fb), FB_IOCTL_CLEAR, &color);
-
-		uint32_t  resolution = 1280 * 800 * 4;
-		uint32_t* screen = mmap(NULL, resolution, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(fb), 0);
-
-		for(int i = 0; i < 1280; i++) {
-			screen[50 * 1280 + i] = 0x00ff00;
-		}
-
-		for(int i = 0; i < 1280; i++) {
-			for(int j = 0; j < 800; j++) {
-				if(i == j) {
-					screen[j * 1280 + i] = 0x0000ff;
-				}
-			}
-		}
-
-		for(int i = 0; i < 800; i++) {
-			screen[i * 1280 + 10] = 0xff0000;
-			screen[i * 1280 + 750] = 0xff0000;
-		}
-
-		msync(screen, resolution, MS_SYNC);
-		ioctl(fileno(fb), FB_IOCTL_SYNC, NULL);
+	fb_t fb;
+	int r = fb_open("/dev/fb", &fb);
+	if(r > 0) {
+		fb_fill(&fb, 0x0000FF);
+		fb_filled_rect(&fb, 50, 50, 100, 50, 0xFF0000, 0x00FF00);
+		fb_flush(&fb);
 	}
 	
 	if(!(console = fopen("/dev/tty0", "w"))) {

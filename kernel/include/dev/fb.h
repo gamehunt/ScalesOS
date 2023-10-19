@@ -11,10 +11,13 @@
 
 #define FB_IOCTL_SYNC  0
 #define FB_IOCTL_CLEAR 1
+#define FB_IOCTL_STAT  2
 
 typedef struct {
 	uint32_t w;
 	uint32_t h;
+	uint32_t bpp;
+	uint32_t memsz;
 } fb_info_t;
 
 typedef struct {

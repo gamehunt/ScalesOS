@@ -14,6 +14,7 @@
     (((value) + (alignment)) & ~(((typeof(value))(alignment)) - 1))
 
 typedef struct object {
+	char*       name;
 	Elf32_Ehdr* file;
 	uint32_t    file_size;
 	uint32_t    base;
@@ -37,6 +38,15 @@ typedef struct object {
 
 object_t** loaded_libraries;
 uint32_t   library_count = 0;
+
+uint8_t is_library_loaded(char* name) {
+	for(int i = 0; i < library_count; i++) {
+		if(!strcmp(loaded_libraries[i]->name, name)) {
+			return 1;
+		}
+	}
+	return 0;
+}
 
 void add_loaded_library(object_t* lib) {
 	if(!library_count) {
@@ -103,20 +113,33 @@ void try_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
 
 		char* name = object->dyn_str_table + symbol.st_name;
     	
-		if(symbol.st_value) {
-			switch(ELF32_R_TYPE(data.r_info)) {
-				case R_386_GLOB_DAT:
-				case R_386_32:
-				case R_386_JMP_SLOT:
-					*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value;
+		uint32_t addend = 0;
+		switch(ELF32_R_TYPE(data.r_info)) {
+			case R_386_GLOB_DAT:
+			case R_386_JMP_SLOT:
+				if(!symbol.st_value) {
 					break;
-				case R_386_COPY:
-					// Copy relocations are handled separately.
-					break;
-				default:
-					printf("LD: Unknown relocation type: %d\n", ELF32_R_TYPE(data.r_info));
-					exit(-1);
-			}
+				}
+				*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value;
+				break;
+			case R_386_32:
+				addend = *((uint32_t*)(object->base + data.r_offset));
+				*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value + addend;
+				break;
+			case R_386_PC32:
+				addend = *((uint32_t*)(object->base + data.r_offset));
+				*((uint32_t*)(object->base + data.r_offset)) = symbol.st_value - data.r_offset + addend;
+				break;
+			case R_386_RELATIVE:
+				addend = *((uint32_t*)(object->base + data.r_offset));
+				*((uint32_t*)(object->base + data.r_offset)) = object->base + addend;
+				break;
+			case R_386_COPY:
+				// Copy relocations are handled separately.
+				break;
+			default:
+				printf("LD: Unknown relocation type: %d\n", ELF32_R_TYPE(data.r_info));
+				exit(-1);
 		}
 	}
 }
@@ -145,7 +168,7 @@ void try_copy_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
 		}
 	}
 }
-
+object_t* load_library(const char* path);
 object_t* load_object(object_t* object, uint8_t absolute) {
 	Elf32_Ehdr* header = object->file;
 
@@ -292,6 +315,19 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 		try_relocate(object, object->reldyn, object->reldyn_size);
 	}	
 
+	add_loaded_library(object);
+
+	for(int i = 0; i < object->dependency_count; i++) {
+		if(is_library_loaded(object->dependencies[i])) {
+			continue;
+		}
+		object_t* lib = load_library(object->dependencies[i]);
+		if(!lib) {
+			printf("LD: Failed to load library %s\n", object->dependencies[i]);
+			exit(-1);
+		}
+	}
+
 	return object;
 }
 
@@ -337,6 +373,8 @@ object_t* load_library(const char* path) {
 		return NULL;
 	}
 
+	object->name = strdup(path);
+
 	return load_object(object, 0);
 }
 
@@ -353,6 +391,8 @@ object_t* load_exec(const char* path) {
 		return NULL;
 	}
 
+	object->name = strdup(path);
+
 	return load_object(object, 1);
 }
 
@@ -360,22 +400,13 @@ extern char** environ;
 extern void __jump(uint32_t entry, int argc, const char** argv, int envc, char** envp);
 
 int main(int argc, const char** argv) {
+	setheapopts(HEAP_OPT_USE_MMAP);
+
 	object_t* main = load_exec(argv[1]);
 	if(!main) {
 		return -1;
 	}
 	
-	add_loaded_library(main);
-
-	for(int i = 0; i < main->dependency_count; i++) {
-		object_t* lib = load_library(main->dependencies[i]);
-		if(!lib) {
-			printf("LD: Failed to load library %s\n", main->dependencies[i]);
-			exit(-1);
-		}
-		add_loaded_library(lib);
-	}
-
 	uint32_t heap_start = ALIGN(main->end, 0x1000) + 0x1000;
 	void* heap = mmap((void*) heap_start, USER_HEAP_INITIAL_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
 
@@ -386,6 +417,8 @@ int main(int argc, const char** argv) {
 
 	for(int i = 1; i < library_count; i++) {
 		object_t* lib = loaded_libraries[i];
+
+		printf("Lib: %s\n", lib->name);
 
 		if(lib->reldyn) {
 			try_copy_relocate(lib, lib->reldyn, lib->reldyn_size);

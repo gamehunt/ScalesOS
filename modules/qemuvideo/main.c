@@ -105,6 +105,8 @@ static void __qemu_fb_release() {
 static void __qemu_fb_init(fb_info_t* info) {
 	info->w = __impl.width;
 	info->h = __impl.height;
+	info->bpp = __impl.bpp;
+	info->memsz = __impl.buffer_size;
 	if(__impl.backbuffer_type == BACKBUFFER_SOFT) {
 		k_mem_paging_map_region(FRAMEBUFFER_START, __impl.buffer_phys, __impl.buffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE, 1);
 	} else {

@@ -42,8 +42,10 @@ static void __k_video_lfb_putpixel(fb_pos_t pos, uint32_t color) {
 }
 
 static void __k_video_lfb_init(fb_info_t* fb_info) {
-	fb_info->w = info.width; 
-	fb_info->h = info.height;
+	fb_info->w     = info.width; 
+	fb_info->h     = info.height;
+	fb_info->bpp   = info.bpp;
+	fb_info->memsz = framebuffer_size;
     k_mem_paging_map_region((uint32_t)framebuffer, info.phys,
                             framebuffer_size / 0x1000,
                             PAGE_PRESENT | PAGE_WRITABLE, 1);

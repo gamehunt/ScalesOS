@@ -226,6 +226,12 @@ int k_dev_fb_ioctl(fs_node_t* node UNUSED, int request, void* args) {
 			arg = *((uint32_t*) args);
 			k_dev_fb_clear(arg);
 			return 0;
+		case FB_IOCTL_STAT:
+			if(!IS_VALID_PTR((uint32_t) args)) {
+				return -EINVAL;
+			}
+			memcpy(args, &info, sizeof(fb_info_t));
+			return 0;
 		default:
 			k_warn("Unknown fb ioctl: %d", request);
 			return -EINVAL;
