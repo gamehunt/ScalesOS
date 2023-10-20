@@ -40,6 +40,7 @@ int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
 
 	if(clear) {
 		k_dev_fb_clear(0);
+		k_dev_fb_sync();
 	}
 
 	UNLOCK(vt_lock);

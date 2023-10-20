@@ -21,9 +21,7 @@ void k_dev_fb_write(char* buff, uint32_t size) {
     for (uint32_t i = 0; i < size; i++) {
         k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
     }
-	if(impl->sync) {
-		impl->sync();
-	}
+	k_dev_fb_sync();
 }
 
 void k_dev_fb_set_impl(fb_impl_t* i) {
@@ -42,6 +40,7 @@ void k_dev_fb_set_impl(fb_impl_t* i) {
 	}
 	fb->fs = i->fs;
 	k_dev_fb_clear(0);
+	k_dev_fb_sync();
 }
 
 
@@ -204,7 +203,6 @@ void k_dev_fb_clear(uint32_t color) {
 			impl->clear(color);
 		} 
 	}
-	k_dev_fb_sync();
 }
 
 

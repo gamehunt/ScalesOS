@@ -12,12 +12,13 @@ set(TARGET_FILE qemuvideo.scmod)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include/kernel)
 
-add_library(qemuvideo_module_objs OBJECT main.c)
+add_library(qemuvideo_module_objs OBJECT main.c opt.asm)
 
 add_custom_target(
     qemuvideo_module ALL
     COMMAND ${CMAKE_LINKER} -r $<TARGET_OBJECTS:qemuvideo_module_objs> -ffreestanding -O0 -nostdlib -o ${TARGET_FILE} -L${CMAKE_INSTALL_PREFIX}/lib -lk -lgcc
     DEPENDS $<TARGET_OBJECTS:qemuvideo_module_objs>
+	COMMAND_EXPAND_LISTS
     VERBATIM
 )
 

@@ -1,5 +1,6 @@
 #include <kernel.h>
 #include <dev/serial.h>
+#include <string.h>
 #include <util/asm_wrappers.h>
 
 K_STATUS k_dev_serial_init(){
@@ -45,4 +46,8 @@ void k_dev_serial_write(char* buff, uint32_t size){
     for(uint32_t i = 0; i < size; i++){
         k_dev_serial_putchar(buff[i]);
     }
+}
+
+void k_dev_serial_putstr(const char* buff) {
+	k_dev_serial_write(buff, strlen(buff));
 }

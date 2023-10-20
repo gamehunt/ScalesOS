@@ -1,5 +1,6 @@
 #include "dev/pci.h"
 #include "mem/memory.h"
+#include "proc/spinlock.h"
 #include <kernel/mem/heap.h>
 #include <kernel/mem/paging.h>
 #include <kernel/mod/modules.h>
@@ -26,18 +27,22 @@
 #define BACKBUFFER_SOFT 0
 #define BACKBUFFER_HARD 1
 
+extern int __fast_memset(void* dest, uint32_t val, uint32_t amount);
+extern int __fast_memcpy(void* dest, void* src, uint32_t amount);
+
 typedef struct {
-	fb_impl_t impl;
-	uint32_t  buffer_phys;
-	uint32_t  buffer_size;
-	uint8_t*  buffer;
-	uint8_t*  backbuffer;
-	uint8_t   backbuffer_type;
-	uint8_t   offset;
-	uint32_t  width;
-	uint32_t  height;
-	uint32_t  bpp;
-	uint32_t  pitch;
+	fb_impl_t  impl;
+	uint32_t   buffer_phys;
+	uint32_t   buffer_size;
+	uint8_t*   buffer;
+	uint8_t*   backbuffer;
+	uint8_t    backbuffer_type;
+	uint8_t    offset;
+	uint32_t   width;
+	uint32_t   height;
+	uint32_t   bpp;
+	uint32_t   pitch;
+	spinlock_t buffer_lock;
 } qemu_lfb_t;
 
 static qemu_lfb_t __impl;
@@ -61,26 +66,30 @@ static uint8_t __bga_check_version() {
 }
 
 static void __qemu_fb_clear(uint32_t color) {
-	uint32_t* buffer = (uint32_t*) __impl.backbuffer;
-	for(uint32_t i = 0; i < __impl.buffer_size / 4; i++) {
-		buffer[i] = color;
-	} 
+	LOCK(__impl.buffer_lock);
+	__fast_memset(__impl.backbuffer, color, __impl.buffer_size / 4);
+	UNLOCK(__impl.buffer_lock);
 }
 
 static void __qemu_fb_putpixel(fb_pos_t pos, uint32_t color) {
+	LOCK(__impl.buffer_lock);
     uint32_t* fb = (uint32_t*) __impl.backbuffer;
     if (pos.x < __impl.width && pos.y < __impl.height) {
         fb[__impl.width * pos.y + pos.x] = color;
     }
+	UNLOCK(__impl.buffer_lock);
 }
 
 static void __qemu_fb_scroll(uint32_t pixels) {
+	LOCK(__impl.buffer_lock);
     memmove(__impl.backbuffer, __impl.backbuffer + pixels * __impl.pitch, (__impl.height - pixels) * __impl.pitch);
     memset(__impl.backbuffer + (__impl.height - pixels) * __impl.pitch, 0, pixels * __impl.pitch);
+	UNLOCK(__impl.buffer_lock);
 }
 
 static void __qemu_fb_sync() {
-	memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size);
+	LOCK(__impl.buffer_lock);
+	__fast_memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size / 4);
 	if(__impl.backbuffer_type == BACKBUFFER_HARD) {
 		if(__impl.offset) {
 			__impl.buffer = (uint8_t*) (FRAMEBUFFER_START + __impl.buffer_size);
@@ -91,6 +100,7 @@ static void __qemu_fb_sync() {
 		}
 		__impl.offset = !__impl.offset;
 	}
+	UNLOCK(__impl.buffer_lock);
 }
 
 static void __qemu_fb_release() {
@@ -129,7 +139,9 @@ static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_
 		size = max - offset;
 	}
 	
+	LOCK(__impl.buffer_lock);
 	memcpy(__impl.backbuffer + offset, buffer, size);
+	UNLOCK(__impl.buffer_lock);
 
 	return size;
 }
@@ -149,7 +161,9 @@ static uint32_t __qemu_fb_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t
 		size = max - offset;
 	}
 
+	LOCK(__impl.buffer_lock);
 	memcpy(buffer, __impl.backbuffer + offset, size);
+	UNLOCK(__impl.buffer_lock);
 
 	return size;
 }

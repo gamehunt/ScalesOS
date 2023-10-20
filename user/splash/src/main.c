@@ -52,9 +52,10 @@ int main(int argc, char** argv) {
 	char str[256] = {0};
 	int  l = 0;
 
-	fb_fill(&fb, 0x0000CC);
 	int y = 0;
 
+	fb_fill(&fb, 0x0000CC);
+	fb_flush(&fb);
 	while(1) {
 		char c = fgetc(pipe);
 		if(op && c == 'q') {
@@ -67,6 +68,7 @@ int main(int argc, char** argv) {
 		}
 		str[l] = c;
 		if(c == '\n' || l == sizeof(str) - 1) {
+			fb_fill(&fb, 0x0000CC);
 			fb_string(&fb, 0, y + 10, str, font, 0x0, 0xFF0000);
 			y += font->height;
 			l = 0;

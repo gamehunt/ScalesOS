@@ -2,7 +2,6 @@
 #include "sys/mman.h"
 #include "sys/ioctl.h"
 #include "sys/stat.h"
-#include "sys/syscall.h"
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -88,7 +87,6 @@ void fb_close(fb_t* buffer) {
 }
 
 void fb_close_font(fb_font_t* font) {
-
 }
 
 void fb_flush(fb_t* fb) {
