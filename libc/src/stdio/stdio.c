@@ -4,9 +4,9 @@
 #include <sys/syscall.h>
 #include <errno.h>
 
-FILE _stdin  = {.fd = 0};
-FILE _stdout = {.fd = 1};
-FILE _stderr = {.fd = 2};
+static FILE _stdin  = {.fd = 0};
+static FILE _stdout = {.fd = 1};
+static FILE _stderr = {.fd = 2};
 
 FILE* stdin  = &_stdin;
 FILE* stdout = &_stdout;

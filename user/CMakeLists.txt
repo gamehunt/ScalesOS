@@ -52,8 +52,26 @@ add_executable(ls       ls.c)
 add_executable(cat      cat.c)
 add_executable(echo     echo.c)
 add_executable(pwd      pwd.c)
+add_executable(sleep    sleep.c)
 
-install(TARGETS getty stty mount umount insmod motd login scfetch reboot shutdown ls cat echo pwd DESTINATION bin/)
+install(TARGETS 
+	getty 
+	stty 
+	mount 
+	umount 
+	insmod
+	motd 
+	login 
+	scfetch
+	reboot 
+	shutdown 
+	ls 
+	cat 
+	echo 
+	pwd 
+	sleep
+DESTINATION bin/)
+
 install(TARGETS mount DESTINATION ramdisk/bin/)
 
 install(CODE "MESSAGE(\"Userspace installed.\")")

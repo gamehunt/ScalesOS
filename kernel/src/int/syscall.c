@@ -68,12 +68,13 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
     memcpy((void*) &cur->syscall_state, ctx, sizeof(interrupt_context_t));
 
 	if(ctx->eax == 255) {
-		if(ctx->edi == 0) {
+		if(ctx->ebx == 0) {
 			k_panic("Debug syscall.", ctx);
 			__builtin_unreachable();
 		} else {
 			k_debug("Debug syscall.");
 			k_debug("%.08x %.08x %.08x", ctx->eip, ctx->esp, ctx->ebp);
+			k_debug("%.08x %.08x %.08x %.08x %.08x", ctx->ebx, ctx->ecx, ctx->edx, ctx->edi, ctx->esi);
 			return ctx;
 		}
 	}

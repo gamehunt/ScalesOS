@@ -21,3 +21,10 @@ install(TARGETS fb
 install(TARGETS fbst fbso
 	LIBRARY DESTINATION lib/
 )
+
+install(TARGETS fbso
+	LIBRARY DESTINATION ramdisk/lib/
+)
+
+install(DIRECTORY fonts/ DESTINATION res/fonts)
+install(DIRECTORY fonts/ DESTINATION ramdisk/res/fonts)

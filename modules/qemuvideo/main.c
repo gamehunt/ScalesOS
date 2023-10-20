@@ -128,7 +128,7 @@ static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_
 	if(offset + size >= max) {
 		size = max - offset;
 	}
-
+	
 	memcpy(__impl.backbuffer + offset, buffer, size);
 
 	return size;

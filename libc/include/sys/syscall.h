@@ -100,7 +100,7 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_setheap(addr)                           syscall(SYS_SETHEAP, addr, UNUSED4)
 #define __sys_prctl(op, arg)                          syscall(SYS_PRCTL, op, arg, UNUSED3)
 
-#define __sys_debug()                                 syscall(SYS_DEBUG, UNUSED5)
+#define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 
 #endif
 

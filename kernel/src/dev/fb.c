@@ -183,7 +183,7 @@ void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg) {
         }
 	} else if(c == '\b') {
 		__k_dev_fb_move_left();
-		__k_dev_fb_draw_char(pos, fg, bg, c);
+		__k_dev_fb_draw_char(pos, fg, bg, ' ');
 	} else {
 		__k_dev_fb_draw_char(pos, fg, bg, c);
 		__k_dev_fb_move_right();

@@ -1,3 +1,4 @@
+#include "ld_types.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,6 +6,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/heap.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include <kernel/mod/elf.h>
@@ -32,16 +34,33 @@ typedef struct object {
 	void        (*init)(void);
 	void        (**init_array)(void);
 	size_t      init_array_size;
-	char**      dependencies;
-	size_t      dependency_count;
+	list_t*     dependencies;
 } object_t;
 
-object_t** loaded_libraries;
-uint32_t   library_count = 0;
+typedef struct {
+	char*    name;
+	uint32_t addr;
+	uint32_t src;
+} overriden_symbol_t;
+
+static list_t*   loaded_libraries = NULL;
+static list_t*   symbol_overrides = NULL;
+static object_t* __main = NULL;
+
+overriden_symbol_t* get_symbol_override(char* name) {
+	for(int i = 0; i < symbol_overrides->size; i++) {
+		overriden_symbol_t* s = symbol_overrides->data[i];
+		if(!strcmp(name, s->name)) {
+			return s;
+		}
+	}
+	return 0;
+}
 
 uint8_t is_library_loaded(char* name) {
-	for(int i = 0; i < library_count; i++) {
-		if(!strcmp(loaded_libraries[i]->name, name)) {
+	for(int i = 0; i < loaded_libraries->size; i++) {
+		object_t* lib = loaded_libraries->data[i];
+		if(!strcmp(lib->name, name)) {
 			return 1;
 		}
 	}
@@ -49,23 +68,18 @@ uint8_t is_library_loaded(char* name) {
 }
 
 void add_loaded_library(object_t* lib) {
-	if(!library_count) {
-		library_count = 1;
-		loaded_libraries = malloc(sizeof(object_t*));
-	} else {
-		library_count++;
-		loaded_libraries = realloc(loaded_libraries, library_count * sizeof(object_t*));
-	}
-
-	loaded_libraries[library_count - 1] = lib;
+	list_push_back(loaded_libraries, lib);
 }
 
 extern void __resolver_wrapper();
 
-uint32_t lookup_symbol(object_t* lib, const char* name) {
+uint32_t lookup_symbol(object_t* lib, const char* name, object_t* requester) {
 	if(!lib) {
-		for(int i = 0; i < library_count; i++) {
-			uint32_t addr = lookup_symbol(loaded_libraries[i], name);
+		for(int i = 0; i < loaded_libraries->size; i++) {
+			if(loaded_libraries->data[i] == requester) {
+				continue;
+			}
+			uint32_t addr = lookup_symbol(loaded_libraries->data[i], name, requester);
 			if(addr) {
 				return addr;
 			}
@@ -75,7 +89,7 @@ uint32_t lookup_symbol(object_t* lib, const char* name) {
 	for(uint32_t i = 0; i < lib->dyn_symtab_size; i++) {
 		Elf32_Sym sym = lib->dyn_symtab[i];
 		char* sname = (char*) (lib->dyn_str_table + sym.st_name);
-		if(!strcmp(sname, name)) {
+		if(!strcmp(sname, name) && sym.st_value) {
 			return lib->base + sym.st_value;
 		}
 	}
@@ -89,16 +103,11 @@ uint32_t resolve_symbol(object_t* object, uint32_t index) {
 
 	char* name = (char*) (object->dyn_str_table + symbol.st_name);
 
-	for(int i = 0; i < library_count; i++) {
-		object_t* lib = loaded_libraries[i];
-		if(lib == object) {
-			continue;
-		}
-		uint32_t addr = lookup_symbol(lib, name);
-		if(addr) {
-			*((uint32_t*) (object->base + symbol_rel_entry->r_offset)) = addr;
-			return addr;
-		}
+	uint32_t addr = lookup_symbol(NULL, name, object);
+
+	if(addr) {
+		*((uint32_t*) (object->base + symbol_rel_entry->r_offset)) = addr;
+		return addr;
 	}
 
 	printf("LD: Failed to resolve symbol: %s\n", name);
@@ -106,36 +115,54 @@ uint32_t resolve_symbol(object_t* object, uint32_t index) {
 	exit(-1);
 }
 
-void try_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
+void object_relocate_section(object_t* object, Elf32_Rel* rel, size_t size) {
 	for(size_t i = 0; i < size; i++) {
 		Elf32_Rel data   = rel[i];	
 		Elf32_Sym symbol = object->dyn_symtab[ELF32_R_SYM(data.r_info)];
 
 		char* name = object->dyn_str_table + symbol.st_name;
-    	
-		uint32_t addend = 0;
+
+		uint32_t* symbol_location = (uint32_t*)(object->base + data.r_offset);
+		uint32_t  symbol_address  = 0;
+		overriden_symbol_t* ovs   = get_symbol_override(name);
+
+		if(!ovs) {
+			symbol_address = object->base + symbol.st_value;
+		} else {
+			symbol_address = ovs->addr;
+		}
+
 		switch(ELF32_R_TYPE(data.r_info)) {
 			case R_386_GLOB_DAT:
 			case R_386_JMP_SLOT:
-				if(!symbol.st_value) {
+				if(symbol_address == object->base) {
 					break;
 				}
-				*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value;
+				*symbol_location = symbol_address;
 				break;
 			case R_386_32:
-				addend = *((uint32_t*)(object->base + data.r_offset));
-				*((uint32_t*)(object->base + data.r_offset)) = object->base + symbol.st_value + addend;
+				if(symbol_address == object->base) {
+					if(ELF32_ST_BIND(symbol.st_info) & STB_WEAK) {
+						break;
+					} else {
+						printf("Unresolved symbol: %s\n", name);
+						exit(-1);
+					}
+				}
+				(*symbol_location) += symbol_address;
 				break;
 			case R_386_PC32:
-				addend = *((uint32_t*)(object->base + data.r_offset));
-				*((uint32_t*)(object->base + data.r_offset)) = symbol.st_value - data.r_offset + addend;
+				(*symbol_location) += symbol_address - ((uint32_t) symbol_location);
 				break;
 			case R_386_RELATIVE:
-				addend = *((uint32_t*)(object->base + data.r_offset));
-				*((uint32_t*)(object->base + data.r_offset)) = object->base + addend;
+				(*symbol_location) += object->base;
 				break;
 			case R_386_COPY:
-				// Copy relocations are handled separately.
+				if(!ovs) {
+					printf("Copy without source? This should not be.\n");
+					exit(-1);
+				}
+				memcpy(symbol_location, (void*) ovs->src, symbol.st_size);
 				break;
 			default:
 				printf("LD: Unknown relocation type: %d\n", ELF32_R_TYPE(data.r_info));
@@ -144,30 +171,56 @@ void try_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
 	}
 }
 
-void try_copy_relocate(object_t* object, Elf32_Rel* rel, size_t size) {
-	for(size_t i = 0; i < size; i++) {
-		Elf32_Rel data   = rel[i];	
+void object_relocate_copies(object_t* object) {
+	if(!object->reldyn) {
+		return;
+	}
+	for(size_t i = 0; i < object->reldyn_size; i++) {
+		Elf32_Rel data   = object->reldyn[i];	
 		Elf32_Sym symbol = object->dyn_symtab[ELF32_R_SYM(data.r_info)];
 
 		char* name = object->dyn_str_table + symbol.st_name;
-    	
+		
 		if(ELF32_R_TYPE(data.r_info) == R_386_COPY) {
-			uint32_t sym = 0;
-			for(int i = 0; i < library_count; i++) {
-				object_t* lib = loaded_libraries[i];
-				if(lib != object) {
-					sym = lookup_symbol(lib, name);
-					break;
-				}
-			}
+			uint32_t sym = lookup_symbol(NULL, name, object);
 			if(!sym) {
 				printf("LD: failed to resolve symbol for copy: %s\n", name);
 				exit(-1);
 			}
-			memcpy((void*)(object->base + data.r_offset), (void*) sym, symbol.st_size);
+
+			overriden_symbol_t* s = malloc(sizeof(overriden_symbol_t));
+			s->name = name;
+			s->addr = object->base + data.r_offset;
+			s->src  = sym;
+			list_push_back(symbol_overrides, s);
 		}
 	}
 }
+
+void relocate_object(object_t* object) {
+	if(object->reldyn) {
+		object_relocate_section(object, object->reldyn, object->reldyn_size);
+	}
+	
+	if(object->relplt) {
+		object_relocate_section(object, object->relplt, object->relplt_size);
+	}
+}
+
+void relocate_objects() {
+	for(int i = 0; i < loaded_libraries->size; i++) {
+		object_t* lib = loaded_libraries->data[i];
+		object_relocate_copies(lib);
+	}
+
+	for(int i = 1; i < loaded_libraries->size; i++) {
+		object_t* lib = loaded_libraries->data[i];
+		relocate_object(lib);
+	}
+
+	relocate_object(__main);
+}
+
 object_t* load_library(const char* path);
 object_t* load_object(object_t* object, uint8_t absolute) {
 	Elf32_Ehdr* header = object->file;
@@ -283,16 +336,13 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 		}
 
 		table = object->dynamic;
-		object->dependency_count = 0;
-		object->dependencies = malloc(sizeof(char*));
+		object->dependencies = list_create();
 		while (table->d_tag) {
 			char* name;
 			switch (table->d_tag) {
 				case DT_NEEDED:
 					name = object->dyn_str_table + table->d_un.d_val;
-					object->dependencies[object->dependency_count] = strdup(name);
-					object->dependency_count++;
-					object->dependencies = realloc(object->dependencies, sizeof(char*) * (object->dependency_count + 1));
+					list_push_back(object->dependencies, strdup(name));
 					break;
 			}
 			table++;
@@ -300,30 +350,15 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 	}
 
 	// Do relocations
-	
-	// if(object->dyn_symtab) {
-	// 	for(int i = 0; i < object->dyn_symtab_size; i++) {
-	// 		object->dyn_symtab[i].st_value += base;
-	// 	}
-	// }
-
-	if(object->relplt) {
-		try_relocate(object, object->relplt, object->relplt_size);
-	}	
-
-	if(object->reldyn) {
-		try_relocate(object, object->reldyn, object->reldyn_size);
-	}	
-
 	add_loaded_library(object);
 
-	for(int i = 0; i < object->dependency_count; i++) {
-		if(is_library_loaded(object->dependencies[i])) {
+	for(int i = 0; i < object->dependencies->size; i++) {
+		if(is_library_loaded(object->dependencies->data[i])) {
 			continue;
 		}
-		object_t* lib = load_library(object->dependencies[i]);
+		object_t* lib = load_library(object->dependencies->data[i]);
 		if(!lib) {
-			printf("LD: Failed to load library %s\n", object->dependencies[i]);
+			printf("LD: Failed to load library %s\n", object->dependencies->data[i]);
 			exit(-1);
 		}
 	}
@@ -396,33 +431,9 @@ object_t* load_exec(const char* path) {
 	return load_object(object, 1);
 }
 
-extern char** environ;
-extern void __jump(uint32_t entry, int argc, const char** argv, int envc, char** envp);
-
-int main(int argc, const char** argv) {
-	setheapopts(HEAP_OPT_USE_MMAP);
-
-	object_t* main = load_exec(argv[1]);
-	if(!main) {
-		return -1;
-	}
-	
-	uint32_t heap_start = ALIGN(main->end, 0x1000) + 0x1000;
-	void* heap = mmap((void*) heap_start, USER_HEAP_INITIAL_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
-
-	if((int32_t) heap == MAP_FAILED || setheap(heap) < 0) {
-		printf("LD: Failed to allocate heap.\n");
-		return -1;
-	}
-
-	for(int i = 1; i < library_count; i++) {
-		object_t* lib = loaded_libraries[i];
-
-		printf("Lib: %s\n", lib->name);
-
-		if(lib->reldyn) {
-			try_copy_relocate(lib, lib->reldyn, lib->reldyn_size);
-		}
+void init_objects() {
+	for(int i = 1; i < loaded_libraries->size; i++) {
+		object_t* lib = loaded_libraries->data[i];
 
 		if(lib->init_array) {
 			for(int j = 0; j < lib->init_array_size; j++) {
@@ -435,21 +446,45 @@ int main(int argc, const char** argv) {
 		}
 	}
 
-	if(main->reldyn) {
-		try_copy_relocate(main, main->reldyn, main->reldyn_size);
-	}
-
-	if(main->init_array) {
-		for(int j = 0; j < main->init_array_size; j++) {
-			main->init_array[j]();
+	if(__main->init_array) {
+		for(int j = 0; j < __main->init_array_size; j++) {
+			__main->init_array[j]();
 		}
 	}
 
-	if(main->init) {
-		main->init();
+	if(__main->init) {
+		__main->init();
+	}
+}
+
+extern char** environ;
+extern void __jump(uint32_t entry, int argc, const char** argv, int envc, char** envp);
+
+int main(int argc, const char** argv) {
+	setheapopts(HEAP_OPT_USE_MMAP);
+
+	loaded_libraries = list_create();
+	symbol_overrides = list_create();
+
+	__main = load_exec(argv[1]);
+	if(!__main) {
+		return -1;
 	}
 
-	__jump(main->file->e_entry, argc - 2, argv + 2, 0, environ);
+	relocate_objects();
+
+
+	uint32_t heap_start = ALIGN(__main->end, 0x1000) + 0x1000;
+	void* heap = mmap((void*) heap_start, USER_HEAP_INITIAL_SIZE, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
+
+	if((int32_t) heap == MAP_FAILED || setheap(heap) < 0) {
+		printf("LD: Failed to allocate heap.\n");
+		return -1;
+	}
+
+	init_objects();
+
+	__jump(__main->file->e_entry, argc - 2, argv + 2, 0, environ);
 
 	return 0;
 }

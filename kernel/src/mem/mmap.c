@@ -166,7 +166,11 @@ void k_mem_mmap_sync_block(mmap_block_t* block, int flags UNUSED) {
 		return;
 	}
 
-	k_fs_vfs_write(fdt->node, block->offset, block->size, (void*) block->start);
+	for(uint32_t i = 0; i < block->size; i += 0x1000) {
+		if(IS_VALID_PTR(block->start + i)) {
+			k_fs_vfs_write(fdt->node, block->offset + i, 0x1000, (void*) block->start + i);
+		}
+	}
 }
 
 void k_mem_mmap_sync(mmap_info_t* info, int flags) {
