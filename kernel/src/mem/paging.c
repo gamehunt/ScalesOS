@@ -43,7 +43,9 @@ interrupt_context_t* __pf_handler(interrupt_context_t* ctx) {
 			if(!result) {
 				return ctx;
 			}
-			k_debug("mmap: COW failed with code %d", result);
+			k_debug("mmap: COW failed with code %d for %#.8x", result, fault_address);
+			cli();
+			halt();
 		}	
 
 		k_err("Process %s (%d) caused page fault at 0x%x (0x%x). EIP = 0x%.8x ESP = 0x%.8x EBP = 0x%.8x", proc->name, proc->pid, fault_address, ctx->err_code, 
@@ -184,7 +186,11 @@ void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
         if (!frame) {
             k_panic("Out of memory. Failed to allocate page table.", 0);
         }
-        current_page_directory[pd_index].raw = frame | flags; // TODO if allocated frame is big, then make a 4MB page
+		int fl = PAGE_PRESENT | PAGE_WRITABLE;
+		if(flags & PAGE_USER) {
+			fl |= PAGE_USER;
+		}
+        current_page_directory[pd_index].raw = frame | fl; // TODO if allocated frame is big, then make a 4MB page
         __k_mem_paging_invlpg((uint32_t) pt);
 		memset(pt, 0, 0x1000);
     }

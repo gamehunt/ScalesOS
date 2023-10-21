@@ -9,6 +9,7 @@
 #include <kernel/dev/fb.h>
 #include <kernel/util/asm_wrappers.h>
 #include <string.h>
+#include <scales/memory.h>
 
 #define VBE_DISPI_IOPORT_INDEX 0x01CE
 #define VBE_DISPI_IOPORT_DATA  0x01CF
@@ -26,9 +27,6 @@
 
 #define BACKBUFFER_SOFT 0
 #define BACKBUFFER_HARD 1
-
-extern int __fast_memset(void* dest, uint32_t val, uint32_t amount);
-extern int __fast_memcpy(void* dest, void* src, uint32_t amount);
 
 typedef struct {
 	fb_impl_t  impl;
@@ -67,7 +65,7 @@ static uint8_t __bga_check_version() {
 
 static void __qemu_fb_clear(uint32_t color) {
 	LOCK(__impl.buffer_lock);
-	__fast_memset(__impl.backbuffer, color, __impl.buffer_size / 4);
+	memset32(__impl.backbuffer, color, __impl.buffer_size / 4);
 	UNLOCK(__impl.buffer_lock);
 }
 
@@ -89,7 +87,7 @@ static void __qemu_fb_scroll(uint32_t pixels) {
 
 static void __qemu_fb_sync() {
 	LOCK(__impl.buffer_lock);
-	__fast_memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size / 4);
+	memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size);
 	if(__impl.backbuffer_type == BACKBUFFER_HARD) {
 		if(__impl.offset) {
 			__impl.buffer = (uint8_t*) (FRAMEBUFFER_START + __impl.buffer_size);

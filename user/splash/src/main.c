@@ -56,6 +56,7 @@ int main(int argc, char** argv) {
 
 	fb_fill(&fb, 0x0000CC);
 	fb_flush(&fb);
+
 	while(1) {
 		char c = fgetc(pipe);
 		if(op && c == 'q') {
@@ -69,11 +70,12 @@ int main(int argc, char** argv) {
 		str[l] = c;
 		if(c == '\n' || l == sizeof(str) - 1) {
 			fb_fill(&fb, 0x0000CC);
-			fb_string(&fb, 0, y + 10, str, font, 0x0, 0xFF0000);
+			fb_string(&fb, 0, y + 10, str, font, 0x0000CC, 0xFF0000);
+			fb_flush(&fb);
+
 			y += font->height;
 			l = 0;
 			memset(str, 0, sizeof(str));
-			fb_flush(&fb);
 		} else {
 			l++;
 		}

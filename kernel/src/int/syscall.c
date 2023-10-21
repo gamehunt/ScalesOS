@@ -143,7 +143,7 @@ static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
 
 	strncpy(fullpath, canonpath, sizeof(fullpath));
 	k_free(canonpath);
-	
+
 	fs_node_t* node = k_fs_vfs_open(fullpath, flags);
 	if(!node) {
 		return -ENOENT;

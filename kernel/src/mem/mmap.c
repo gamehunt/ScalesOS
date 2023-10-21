@@ -88,21 +88,20 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		k_debug("mmap: moved start to 0x%.8x", info->start);
 	}
 
-
-	uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
-	if(prot & PROT_WRITE) {
-		map_flags |= PAGE_WRITABLE;
-	}
+	k_debug("mmap: mapping 0x%.8x-0x%.8x", start_addr, start_addr + pages * 0x1000);
 
 	if(flags & MAP_ANONYMOUS) {
-		k_debug("mmap: mapping 0x%.8x-0x%.8x", start_addr, start_addr + pages * 0x1000);
+		uint8_t map_flags = PAGE_PRESENT | PAGE_USER;
+		if(prot & PROT_WRITE) {
+			map_flags |= PAGE_WRITABLE;
+		}
 		k_mem_paging_map_region(start_addr, 0, pages, map_flags, 0);
 	}
 
 	mmap_block_t* block = k_calloc(1, sizeof(mmap_block_t));
 	block->start = (uint32_t) start_addr;
 	block->end   = (uint32_t) start_addr + pages * 0x1000;
-	block->size  = size;
+	block->size  = pages * 0x1000;
 	block->type  = flags;
 	block->prot  = prot;
 
@@ -134,7 +133,7 @@ void k_mem_mmap_free_block(mmap_info_t* info, mmap_block_t* block) {
 		list_delete_element(__shared_mappings, block);
 	}
 	k_debug("mmap: unmapping 0x%.8x - 0x%.8x (%d pages)", block->start, block->end, (block->end - block->start) / 0x1000);
-	k_mem_paging_unmap_and_free_region(block->start, (block->end - block->start) / 0x1000);
+	k_mem_paging_unmap_and_free_region(block->start, block->size / 0x1000);
 	info->start = block->start;
 	k_free(block);
 }
@@ -151,7 +150,7 @@ list_t* k_mem_mmap_get_mappings_for_fd(int fd, off_t offset) {
 }
 
 void k_mem_mmap_mark_dirty(mmap_block_t* block) {
-	k_mem_paging_unmap_and_free_region(block->start, (block->end - block->start) / 0x1000);
+	k_mem_paging_unmap_and_free_region(block->start, block->size / 0x1000);
 }
 
 void k_mem_mmap_sync_block(mmap_block_t* block, int flags UNUSED) {

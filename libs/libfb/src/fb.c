@@ -2,6 +2,8 @@
 #include "sys/mman.h"
 #include "sys/ioctl.h"
 #include "sys/stat.h"
+#include "sys/syscall.h"
+#include <scales/memory.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,7 +92,7 @@ void fb_close_font(fb_font_t* font) {
 }
 
 void fb_flush(fb_t* fb) {
-	msync(fb->mem, fb->info.memsz, MS_SYNC);
+	int r = msync(fb->mem, fb->info.memsz, MS_SYNC);
 	ioctl(fileno(fb->file), FB_IOCTL_SYNC, NULL);
 }
 
@@ -166,7 +168,7 @@ void fb_filled_ellipse(fb_t* fb, coord_t x0, coord_t y0, size_t a, size_t b, col
 }
 
 void fb_fill(fb_t* fb, color_t color) {
-	ioctl(fileno(fb->file), FB_IOCTL_CLEAR, &color);
+	memset32(fb->mem, color, fb->info.memsz / 4);
 }
 
 void fb_char(fb_t* fb, coord_t x0, coord_t y0, char c, fb_font_t* font, color_t b, color_t f) {
