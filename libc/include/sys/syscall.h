@@ -44,6 +44,7 @@
 #define SYS_MKDIR        38
 #define SYS_SETHEAP      39
 #define SYS_PRCTL        40
+#define SYS_SIGNAL       41
 
 #define SYS_DEBUG        255
 

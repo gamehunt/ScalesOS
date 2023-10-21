@@ -18,10 +18,22 @@
 #define PROCESS_STATE_FINISHED           0x2
 #define PROCESS_STATE_SLEEPING           0x3
 
+#define IS_READY(state) \
+	(state < PROCESS_STATE_FINISHED)
+
 #define PROCESS_WAITPID_WNOHANG          (1 << 0)
 #define PROCESS_WAITPID_WUNTRACED        (1 << 1)
 
 #define PROCESS_FLAG_TASKLET             (1 << 0)
+
+#define IS_SIGNAL_IGNORED(proc, sig) \
+	(proc->signals_ignored & (1 << sig))
+
+#define SET_SIGNAL_IGNORED(proc, sig) \
+	 proc->signals_ignored |= (1 << sig);
+
+#define SET_SIGNAL_UNIGNORED(proc, sig) \
+	 proc->signals_ignored &= ~(1 << sig);
 
 typedef struct context {
     uint32_t esp;                                     // +0
@@ -60,6 +72,7 @@ typedef struct signal {
 } signal_t;
 
 struct wait_node;
+struct block_node;
 
 typedef struct process {
     char      name[256];
@@ -76,8 +89,10 @@ typedef struct process {
 
 	tree_node_t* node;
 
-	struct wait_node* wait_node;
-	list_t*           wait_queue;
+	struct wait_node*  wait_node;
+	list_t*            wait_queue;
+
+	struct block_node* block_node;
 
 	uint64_t   time_total;
 	uint64_t   time_system;
@@ -87,18 +102,29 @@ typedef struct process {
 
 	signal_t   signals[MAX_SIGNAL];
 	uint64_t   signal_queue;
+	uint64_t   signals_ignored;
 
 	fs_node_t* wd_node;
 	char       wd[256];
 } process_t;
 
-typedef struct wait_node {
+typedef struct {
+	uint8_t    is_valid;
 	process_t* process;
+	uint8_t    interrupted;
+} generic_sleep_node_t;
+
+typedef struct wait_node {
+	generic_sleep_node_t data;
 	uint64_t   seconds;
 	uint64_t   microseconds;
-
 	struct wait_node* next;
 } wait_node_t;
+
+typedef struct block_node {
+	generic_sleep_node_t data;
+	uint32_t   links;
+} block_node_t;
 
 void       k_proc_process_yield();
 void       k_proc_process_switch() __attribute__((noreturn));
@@ -119,9 +145,10 @@ void       k_proc_process_close_fd(process_t* process, uint32_t fd);
 void*      k_proc_process_grow_heap(process_t* process, int32_t size);
 
 uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
-void       k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
+uint8_t    k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 void       k_proc_process_wakeup_queue(list_t* queue);
+void       k_proc_process_wakeup_on_signal(process_t* process); 
 
 void       k_proc_process_exit(process_t* process, int code) __attribute__((noreturn));
 void       k_proc_process_destroy(process_t* process);

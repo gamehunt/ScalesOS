@@ -1,4 +1,5 @@
 #include "util/types/ringbuffer.h"
+#include "errno.h"
 #include "mem/heap.h"
 #include "proc/process.h"
 #include "util/types/list.h"
@@ -70,7 +71,9 @@ uint32_t ringbuffer_write(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 		}
 		k_proc_process_wakeup_queue(rb->read_wait_queue);
 		if(!written) {
-			k_proc_process_sleep_on_queue(k_proc_process_current(), rb->write_wait_queue);
+			if(k_proc_process_sleep_on_queue(k_proc_process_current(), rb->write_wait_queue)) {
+				return -ERESTARTSYS;
+			}
 		}
 	}
 	k_proc_process_wakeup_queue(rb->read_wait_queue);
@@ -88,7 +91,9 @@ uint32_t ringbuffer_read(ringbuffer_t* rb, uint32_t size, uint8_t* buffer) {
 		}
 		k_proc_process_wakeup_queue(rb->write_wait_queue);
 		if(!read) {
-			k_proc_process_sleep_on_queue(k_proc_process_current(), rb->read_wait_queue);
+			if(k_proc_process_sleep_on_queue(k_proc_process_current(), rb->read_wait_queue)) {
+				return -ERESTARTSYS;
+			}
 		}
 	}
 	k_proc_process_wakeup_queue(rb->write_wait_queue);

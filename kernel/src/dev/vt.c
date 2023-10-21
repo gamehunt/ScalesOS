@@ -4,11 +4,9 @@
 #include "errno.h"
 #include "fs/vfs.h"
 #include "mem/paging.h"
-#include "proc/process.h"
 #include "proc/spinlock.h"
 #include "stdio.h"
 #include "util/log.h"
-#include "util/panic.h"
 #include "util/types/ringbuffer.h"
 #include <ctype.h>
 #include <stddef.h>

@@ -40,10 +40,10 @@ static uint8_t sig_defaults[] = {
 	[SIGSEGV] = SIG_TERMINATE
 };
 
-static tree_t* process_tree    = 0;
-static list_t* process_list    = 0;
-static list_t* ready_queue     = 0;
-static wait_node_t* sleep_queue     = 0;
+static tree_t* 		process_tree = 0;
+static list_t* 		process_list = 0;
+static list_t* 		ready_queue  = 0;
+static wait_node_t* sleep_queue  = 0;
 
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
     return proc->image.kernel_stack_base[0] == GUARD_MAGIC;
@@ -69,6 +69,7 @@ static void __k_proc_process_idle() {
 
 void k_proc_process_mark_ready(process_t* process) {
     LOCK(ready_queue->lock)
+	process->state = PROCESS_STATE_RUNNING;
     list_push_back(ready_queue, process);
     UNLOCK(ready_queue->lock)
 }
@@ -97,6 +98,15 @@ static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
     UNLOCK(process_list->lock)
 }
 
+static block_node_t* __k_proc_process_init_block_node(process_t* proc) {
+	proc->block_node = k_malloc(sizeof(block_node_t));
+	proc->block_node->data.is_valid    = 1;
+	proc->block_node->data.interrupted = 0;
+	proc->block_node->data.process = proc;
+	proc->block_node->links = 0;
+	return proc->block_node;
+}
+
 static process_t* __k_proc_process_create_init() {
     process_t* proc = k_calloc(1, sizeof(process_t));
 
@@ -116,6 +126,8 @@ static process_t* __k_proc_process_create_init() {
 	memset(proc->context.fp_regs, 0, 512);
 
 	proc->wait_queue = list_create();
+
+	__k_proc_process_init_block_node(proc);
 
 	proc->wd_node = k_fs_vfs_open("/", O_RDONLY);
 	strncpy(proc->wd, "/", 255);
@@ -190,7 +202,7 @@ void k_proc_process_switch() {
 
 	do {
 		new_proc = k_proc_process_next();
-	}while(new_proc->state == PROCESS_STATE_FINISHED);
+	}while(!IS_READY(new_proc->state));
 
     current_core->current_process = new_proc;
 
@@ -259,7 +271,7 @@ process_t* k_proc_process_current() {
     return current_core->current_process;
 }
 
-list_t*    k_proc_process_list() {
+list_t* k_proc_process_list() {
 	return process_list;
 }
 
@@ -283,10 +295,19 @@ uint32_t k_proc_process_fork() {
 
     memcpy(new, src, sizeof(process_t));
 
-	new->pid      = __k_proc_process_allocate_pid();
-    new->state    = PROCESS_STATE_STARTING;
+	new->pid   = __k_proc_process_allocate_pid();
+    new->state = PROCESS_STATE_STARTING;
 
+	new->signals_ignored = 0;
+	new->signal_queue    = 0;
+	memset(new->signals, 0, sizeof(new->signals));
+
+	if(new->wait_node) {
+		new->wait_node = NULL;
+	}
 	new->wait_queue = list_create();
+
+	__k_proc_process_init_block_node(new);
 
     new->image.page_directory = k_mem_paging_clone_page_directory(src->image.page_directory, NULL);
 	new->image.mmap_info.mmap_blocks = list_create();
@@ -376,17 +397,33 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	UNLOCK(process->fds.lock);
 }
 
-void k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
+uint8_t k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
 	process->state = PROCESS_STATE_SLEEPING;
-	list_push_back(queue, process);
+	process->block_node->data.interrupted = 0;
+	process->block_node->links++;
+	list_push_back(queue, process->block_node);
 	if(process == k_proc_process_current()) {
 		k_proc_process_yield();
 	}
+	return process->block_node->data.interrupted;
 }
 
 void k_proc_process_wakeup_queue(list_t* queue) {
 	while(queue->size > 0) {
-		process_t* process = list_pop_back(queue);
+		block_node_t* node = list_pop_back(queue);
+		if(node->links) {
+			node->links--;
+		}
+		if(!node->data.is_valid) {
+			if(!node->links) {
+				k_free(node);
+			}
+			continue;
+		}
+		if(node->data.interrupted) {
+			continue;
+		}
+		process_t* process = node->data.process;
 		if(process->state != PROCESS_STATE_FINISHED) {
 			process->state = PROCESS_STATE_RUNNING;
 			k_proc_process_mark_ready(process);
@@ -428,6 +465,12 @@ void k_proc_process_exit(process_t* process, int code) {
 			k_proc_process_wakeup_queue(parent->wait_queue);
 		}
 	}
+
+	if(process->wait_node) {
+		process->wait_node->data.is_valid = 0;
+	}
+
+	process->block_node->data.is_valid = 0;
 
 	k_proc_process_switch();
 }
@@ -524,12 +567,14 @@ static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microsecon
 	wait_node_t* node = sleep_queue; 
 	while(node && (node->seconds < seconds || (node->seconds == seconds && node->microseconds <= microseconds))) {
 		sleep_queue = node->next;
-		process_t* process = node->process;
-		if(process->state != PROCESS_STATE_FINISHED) {
-			process->state = PROCESS_STATE_RUNNING;
-			k_proc_process_mark_ready(process);
+		if(node->data.is_valid && !node->data.interrupted) {
+			process_t* process = node->data.process;
+			if(process->state != PROCESS_STATE_FINISHED) {
+				process->state = PROCESS_STATE_RUNNING;
+				k_proc_process_mark_ready(process);
+			}
+			node->data.process->wait_node = 0;
 		}
-		node->process->wait_node = 0;
 		k_free(node);
 		node = sleep_queue;
 	}
@@ -563,7 +608,7 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 	}
 
 	wait_node_t* new_node  = malloc(sizeof(wait_node_t));
-	new_node->process      = process;
+	new_node->data.process = process;
 	new_node->seconds      = cur_seconds;
 	new_node->microseconds = cur_microseconds;
 	process->wait_node 	   = new_node;
@@ -608,7 +653,19 @@ void k_proc_process_update_timings() {
 
 
 uint8_t k_proc_process_is_ready(process_t* process) {
-	return process->state == PROCESS_STATE_RUNNING || process->state == PROCESS_STATE_STARTING;
+	return IS_READY(process->state);
+}
+
+void k_proc_process_wakeup_on_signal(process_t* process) {
+	if(process != current_core->current_process && !k_proc_process_is_ready(process)) {
+		if(process->block_node->links > 0) {
+			process->block_node->data.interrupted = 1;
+		}
+		if(process->wait_node) {
+			process->wait_node->data.interrupted = 1;
+		}
+		k_proc_process_mark_ready(process);
+	}
 }
 
 void k_proc_process_send_signal(process_t* process, int sig) {
@@ -618,13 +675,15 @@ void k_proc_process_send_signal(process_t* process, int sig) {
 
 	process->signal_queue |= (1 << sig);
 
-	if(process != current_core->current_process && !k_proc_process_is_ready(process)) {
-		k_proc_process_mark_ready(process);
-	}
+	k_proc_process_wakeup_on_signal(process);
 }
 
 static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt_context_t* ctx) {
 	if(sig < 0 || sig >= MAX_SIGNAL) {
+		return 1;
+	}
+
+	if(IS_SIGNAL_IGNORED(process, sig)) {
 		return 1;
 	}
 
@@ -651,6 +710,8 @@ static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt
 		PUSH(esp, interrupt_context_t, *ctx);
 		PUSH(esp, int, sig);
 		PUSH(esp, uintptr_t, 0xDEADBEEF);
+
+		k_debug("Jumping to %d sig handler at %#.8x", sig, cfg.handler);
 
 		__k_proc_process_enter_usermode((uint32_t) cfg.handler, esp);
 		__builtin_unreachable();

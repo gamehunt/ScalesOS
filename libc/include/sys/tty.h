@@ -129,9 +129,11 @@
 #define TCSADRAIN 1
 #define TCSAFLUSH 2
 
-#define TCIFLUSH  0
-#define TCOFLUSH  1
-#define TCIOFLUSH 2
+#define TCIFLUSH  0x4000
+#define TCOFLUSH  0x4001
+#define TCIOFLUSH 0x4006
+#define TCIOGPGRP 0x400A
+#define TCIOSPGRP 0x400B
 
 #define TCOOFF    0
 #define TCOON     1
@@ -183,6 +185,8 @@ speed_t cfgetospeed(struct termios *termios_p);
 int cfsetispeed(struct termios *termios_p, speed_t speed);
 int cfsetospeed(struct termios *termios_p, speed_t speed);  
 
+pid_t tcgetpgrp(int fd);
+int tcsetpgrp(int fd, pid_t pgrp);
 #endif
 
 #endif

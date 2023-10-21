@@ -1,11 +1,13 @@
 #include "errno.h"
 #include <ctype.h>
 #include <math.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/tty.h>
 #include <dirent.h>
 #include <pwd.h>
 
@@ -13,6 +15,16 @@
 
 const char* pwd  = "";
 const char* user = "";
+
+uint8_t is_interactive = 0;
+pid_t   my_pid = 0;
+
+uint8_t interrupted = 0;
+
+void sigint_handler(int sig) {
+	fprintf(stderr, "\nSIGINT\n");
+	interrupted = 1;
+}
 
 void calc(const char* expr, FILE* out) {
 	pid_t child = fork();
@@ -159,7 +171,11 @@ int execute_line(char* line) {
 			fprintf(stderr, "Failed to execute: %s\n", path);
 			exit(1);
 		}
+		if(is_interactive) {
+			tcsetpgrp(STDIN_FILENO, child);
+		}
 		waitpid(child, &status, 0);
+		tcsetpgrp(STDIN_FILENO, my_pid);
 	} else {
 		status = try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe);
 		if(status < 0){
@@ -187,6 +203,8 @@ int execute_line(char* line) {
 }
 
 int execute_script(char* buffer, int argc, char** argv) {
+	interrupted = 0;
+
 	char*  line  = strtok(buffer, "\n;");
 	char** lines = malloc(sizeof(char*));
 	int lc = 0;
@@ -212,11 +230,15 @@ int execute_script(char* buffer, int argc, char** argv) {
 	}
 
 	for(int i = 0; i < lc; i++) {
-		int status = execute_line(lines[i]);
-		free(lines[i]);
-		if(status) {
+		int status = execute_line(lines[i]);;
+		if(status || interrupted) {
+			for(int j = i + 1; j < lc; j++) {
+				free(lines[j]);
+			}
 			free(lines);
-			fprintf(stderr, "Error: %s returned non-zero status: %d\n", lines[i], status);
+			if(status) {
+				fprintf(stderr, "Error: %s returned non-zero status: %d\n", lines[i], status);
+			}
 			return status;
 		}
 	}
@@ -248,11 +270,19 @@ void usage() {
 }
 
 int interactive() {
+	is_interactive = 1;
+	tcsetpgrp(STDIN_FILENO, my_pid);
+	signal(SIGINT, &sigint_handler);
 	while(1) {
 		printf("%s:%s > ", user, pwd);
 		fflush(stdout);
 		char line[MAX_LINE_LENGTH];
 		fgets(line, MAX_LINE_LENGTH, stdin);
+		if(interrupted) {
+			interrupted = 0;
+			printf("\n");
+			continue;
+		}
 		if(line[0] == '\n') {
 			continue;
 		}
@@ -270,6 +300,8 @@ int main(int argc, char** argv) {
 	if(usr) {
 		user = strdup(usr->pw_name);
 	}
+
+	my_pid = getpid();
 
 	if(argc < 2) {
 		return interactive();

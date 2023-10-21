@@ -59,3 +59,20 @@ int cfsetispeed(struct termios *termios_p, speed_t speed) {
 int cfsetospeed(struct termios *termios_p, speed_t speed) {
 	return 0;
 }
+
+pid_t tcgetpgrp(int fd) {
+	pid_t pid;
+	int r = ioctl(fd, TCIOGPGRP, &pid);
+	if(r < 0) {
+		return r;
+	}
+	return pid;
+}
+
+int tcsetpgrp(int fd, pid_t pgrp) {
+	int r = ioctl(fd, TCIOSPGRP, &pgrp);
+	if(r < 0) {
+		return r;
+	}
+	return 0;
+}

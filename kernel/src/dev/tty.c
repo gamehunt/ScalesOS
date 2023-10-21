@@ -9,6 +9,7 @@
 #include "mem/paging.h"
 #include "proc/process.h"
 #include "sys/tty.h"
+#include "util/log.h"
 #include "util/types/list.h"
 #include "util/types/ringbuffer.h"
 #include <ctype.h>
@@ -128,7 +129,9 @@ static void __k_dev_tty_pty_process_input_char(tty_t* pty, char c) {
 			}
 			if (pty->process > 0) {
 				process_t* process = k_proc_process_find_by_pid(pty->process);
-				k_proc_process_send_signal(process, sig);
+				if(process) {
+					k_proc_process_send_signal(process, sig);
+				}
 			}
 			return;
 		}
@@ -318,6 +321,18 @@ static int __k_dev_tty_ioctl(fs_node_t* node, uint32_t req, void* args) {
 				__k_dev_tty_line_flush(pty);
 			}
 			memcpy(&pty->ts, args, sizeof(struct termios));
+			return 0;
+		case TCIOGPGRP:
+			if(!IS_VALID_PTR((uint32_t) args)) {
+				return -EINVAL;
+			}
+			*((pid_t*)args) = pty->process;
+			return 0;
+		case TCIOSPGRP:
+			if(!IS_VALID_PTR((uint32_t) args)) {
+				return -EINVAL;
+			}
+			pty->process = *((pid_t*)args);
 			return 0;
 		default:
 			return -EINVAL;

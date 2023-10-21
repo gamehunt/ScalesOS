@@ -15,6 +15,7 @@
 #include "mod/modules.h"
 #include "sys/heap.h"
 #include "sys/syscall.h"
+#include <signal.h>
 #include <stdio.h>
 #include "int/idt.h"
 #include "int/isr.h"
@@ -269,10 +270,20 @@ static uint32_t sys_signal(int sig, signal_handler_t handler) {
 	}
 
 	process_t* proc = k_proc_process_current();
-	
-	signal_handler_t* old = proc->signals[sig].handler;
 
-	proc->signals[sig].handler = handler;
+	signal_handler_t old = proc->signals[sig].handler;
+
+	if(handler == SIG_DFL) {
+		proc->signals[sig].handler = 0;
+		SET_SIGNAL_UNIGNORED(proc, sig);
+	} else if(handler == SIG_IGN) {
+		SET_SIGNAL_IGNORED(proc, sig);
+	} else {
+		SET_SIGNAL_UNIGNORED(proc, sig);
+		if(IS_VALID_PTR((uint32_t) handler)) {
+			proc->signals[sig].handler = handler;
+		}
+	}
 
 	return (uint32_t) old;
 }
