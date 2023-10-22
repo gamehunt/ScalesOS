@@ -53,6 +53,7 @@ add_executable(cat      cat.c)
 add_executable(echo     echo.c)
 add_executable(pwd      pwd.c)
 add_executable(sleep    sleep.c)
+add_executable(chvt     chvt.c)
 
 install(TARGETS 
 	getty 
@@ -70,6 +71,7 @@ install(TARGETS
 	echo 
 	pwd 
 	sleep
+	chvt
 DESTINATION bin/)
 
 install(TARGETS mount DESTINATION ramdisk/bin/)

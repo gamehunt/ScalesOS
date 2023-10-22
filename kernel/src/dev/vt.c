@@ -3,6 +3,7 @@
 #include "dev/tty.h"
 #include "errno.h"
 #include "fs/vfs.h"
+#include "mem/heap.h"
 #include "mem/paging.h"
 #include "proc/spinlock.h"
 #include "stdio.h"
@@ -14,30 +15,39 @@
 
 static fs_node_t* __tty0  = 0;
 static fs_node_t* __atty  = 0;
+static fs_node_t* __ttys[TTY_AMOUNT];
+static fs_node_t* __vts[TTY_AMOUNT];
 static spinlock_t vt_lock = 0;
+
+typedef struct {
+	char*    data;
+	uint32_t occupied_size;
+} vt_buffer_t;
 
 extern void _libk_set_print_callback(void (*pk)(char* a, uint32_t size));
 
 int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
 	LOCK(vt_lock);
 
-	char path[32];
-	snprintf(path, 32, "/dev/tty%d", number);
-
-	fs_node_t* tty = k_fs_vfs_open(path, O_RDWR);
-	if(!tty) {
+	if(number >= TTY_AMOUNT) {
 		UNLOCK(vt_lock);
 		return -EINVAL;
 	}
 
-	if(__atty) {
-		k_fs_vfs_close(__atty);
-	}
+	fs_node_t* tty = __ttys[number];
 
 	__atty = tty;
 
 	if(clear) {
 		k_dev_fb_clear(0);
+
+		fs_node_t*   vt   = __vts[number];
+		vt_buffer_t* buff = vt->device;
+
+		for(uint32_t i = 0; i < buff->occupied_size; i++) {
+			k_dev_fb_putchar(buff->data[i], 0xFFFFFFFF, 0x0);
+		}
+
 		k_dev_fb_sync();
 	}
 
@@ -213,6 +223,9 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 				}
 				break;
 		}
+		if((mods & MOD_ALT) && (mods & MOD_CTRL) && (v >= 0x3B && v <= 0x44)) {
+			k_dev_vt_change(v - 0x3B, 1);
+		}
 		return;
 	} else {
 		if(is_up) {
@@ -246,12 +259,12 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 	}
 }
 
-//TODO make it save output of inactive tty to some kind of /dev/vt[n]
 void k_dev_vt_tty_callback(struct tty* tty) {
 	LOCK(vt_lock);
 	tty_t* a = __atty->device;
 	char c = __k_dev_vt_getc(tty);
 	while(c) {
+		k_fs_vfs_write(__vts[tty->id], 0, 1, &c);
 		if(a->id == tty->id) {
 			k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
 		}
@@ -271,7 +284,7 @@ static void __k_dev_vt_klog_write(char* buff, uint32_t size) {
 }
 
 static uint32_t __k_dev_vt_console_readlink(fs_node_t* node UNUSED, uint8_t* buf, uint32_t size) {
-	strncpy("/dev/tty0", buf, size);
+	strncpy(buf, "/dev/tty0", size);
 	return strlen(buf) + 1;
 }
 
@@ -295,13 +308,84 @@ static fs_node_t* __k_dev_vt_create_console() {
 	return node;
 }
 
-int k_dev_vt_init() {
-	__tty0 = k_fs_vfs_open("/dev/tty0", O_RDWR);
-	if(!__tty0) {
-		k_err("Failed to open tty0.");
-		return 1;
+static uint32_t __k_dev_vt_read(fs_node_t* node, uint32_t offs, uint32_t size, uint8_t* buffer) {
+	if(!node->device) {
+		return 0;
 	}
+
+	vt_buffer_t* buff = node->device;
+
+	if(offs >= buff->occupied_size) {
+		return 0;
+	}
+
+	if(offs + size >= buff->occupied_size) {
+		size = buff->occupied_size - offs;
+	}
+
+	if(!size) {
+		return 0;
+	}
+
+	memcpy(buffer, buff->data + offs, size);
+
+	return 0;
+}
+
+static uint32_t __k_dev_vt_write(fs_node_t* node, uint32_t offs, uint32_t size, uint8_t* buffer) {
+	vt_buffer_t* buff = node->device;
+
+	offs = buff->occupied_size;
+
+	uint32_t free_size = node->size - offs;
+
+	if(free_size <= size) {
+		buff->data = k_realloc(buff->data, node->size * 2);
+		node->size *= 2;
+	}
+
+	memcpy(buff->data + offs, buffer, size);
+
+	buff->occupied_size += size;
+
+	return size;
+}
+
+static fs_node_t* __k_dev_vt_create(uint8_t number) {
+	char buffer[5];
+	snprintf(buffer, 5, "vt%d", number);
+	fs_node_t* vt = k_fs_vfs_create_node(buffer);
+	vt->inode = number;
+	vt->flags = VFS_CHARDEV;
+	
+	vt_buffer_t* b   = k_malloc(sizeof(vt_buffer_t));
+	b->occupied_size = 0;
+	b->data          = malloc(32);
+
+	vt->device = b;
+	vt->size   = 32;
+
+	vt->fs.read  = __k_dev_vt_read;
+	vt->fs.write = __k_dev_vt_write;
+
+	return vt;
+}
+
+int k_dev_vt_init() {
 	k_fs_vfs_mount_node("/dev/console", __k_dev_vt_create_console());
+	for(int i = 0; i < TTY_AMOUNT; i++) {
+		char path[32];
+
+		snprintf(path, 32, "/dev/vt%d", i);
+		__vts[i] =  __k_dev_vt_create(i);
+		k_fs_vfs_mount_node(path, __vts[i]);
+		__vts[i] = k_fs_vfs_dup(__vts[i]);
+		__vts[i]->mode = O_RDWR;
+
+		snprintf(path, 32, "/dev/tty%d", i);
+		__ttys[i] = k_fs_vfs_open(path, O_RDWR);
+	}
+	__tty0 = __ttys[0];
 	k_dev_vt_change(0, 0);
     _libk_set_print_callback(&__k_dev_vt_klog_write);
 	return 0;

@@ -409,7 +409,19 @@ uint8_t k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
 	return process->block_node->data.interrupted;
 }
 
-void k_proc_process_wakeup_queue(list_t* queue) {
+uint8_t k_proc_process_sleep_and_unlock(process_t* process, list_t* queue, spinlock_t* lock) {
+	process->state = PROCESS_STATE_SLEEPING;
+	process->block_node->data.interrupted = 0;
+	process->block_node->links++;
+	list_push_back(queue, process->block_node);
+	UNLOCK(*lock)
+	if(process == k_proc_process_current()) {
+		k_proc_process_yield();
+	}
+	return process->block_node->data.interrupted;
+}
+
+void k_proc_process_wakeup_queue_single(list_t* queue) {
 	while(queue->size > 0) {
 		block_node_t* node = list_pop_back(queue);
 		if(node->links) {
@@ -428,7 +440,14 @@ void k_proc_process_wakeup_queue(list_t* queue) {
 		if(process->state != PROCESS_STATE_FINISHED) {
 			process->state = PROCESS_STATE_RUNNING;
 			k_proc_process_mark_ready(process);
+			return;
 		}
+	}
+}
+
+void k_proc_process_wakeup_queue(list_t* queue) {
+	while(queue->size > 0) {
+		k_proc_process_wakeup_queue_single(queue);
 	}
 }
 

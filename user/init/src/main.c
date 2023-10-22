@@ -134,9 +134,6 @@ int main(int argc, char** argv){
 				printf("--> Fail!\r\n");
 			}
 		}
-	} else {
-		printf("No init scripts found, falling back to getty.");
-		execute("/bin/getty", NULL, NULL);
 	}
 
 	while(1);

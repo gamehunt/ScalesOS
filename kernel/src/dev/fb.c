@@ -243,3 +243,10 @@ void k_dev_fb_init() {
 	fb =  __k_dev_fb_create_device();
 	k_fs_vfs_mount_node("/dev/fb", fb);
 }
+
+void k_dev_fb_terminfo(fb_term_info_t* inf) {
+	inf->cw = cw;
+	inf->ch = ch;
+	inf->rows = info.w / cw;
+	inf->columns = info.h / ch;
+}

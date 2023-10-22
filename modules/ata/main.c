@@ -1,3 +1,4 @@
+#include <kernel/proc/mutex.h>
 #include <kernel/mod/modules.h>
 #include <kernel/proc/process.h>
 #include <kernel/kernel.h>
@@ -108,6 +109,8 @@ typedef struct {
 	list_t*  blocked_processes;
 
 	uint64_t read_start;
+
+	mutex_t lock;
 } drive_t;
 
 char device_letter = 'a';
@@ -259,6 +262,8 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	drive_t* device = (drive_t*) node->inode;
 
+	mutex_lock(&device->lock);
+
 	uint32_t lba_offset  = offset / 512;
 	uint32_t part_offset = offset % 512;
 
@@ -271,6 +276,7 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	if(device->last_read_sector == lba_offset && device->last_read_size >= dma_size) {
 		memcpy(buffer, &device->buffer[part_offset], size);
+		mutex_unlock(&device->lock);
 		return size;
 	} else if(device->last_read_sector < lba_offset && device->last_read_sector + device->last_read_size > lba_offset) {
 		target_offset = (lba_offset - device->last_read_sector) * 512 + part_offset;
@@ -284,6 +290,7 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 		dma_size  -= target_offset / 512;
 		lba_offset = device->last_read_sector + device->last_read_size;
 		if(read_size == size) {
+			mutex_unlock(&device->lock);
 			return size;
 		}
 	}
@@ -322,6 +329,8 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	memcpy(&buffer[target_offset], &device->buffer[part_offset], size);
 
+	mutex_unlock(&device->lock);
+
 	return size;
 }
 
@@ -332,7 +341,7 @@ static void detect_drives() {
 			uint8_t drive  = !j ? ATA_MASTER : ATA_SLAVE;
 			uint16_t* drive_info = ata_identify(bus, drive);
 			if(drive_info) {
-				drive_t* device = k_malloc(sizeof(drive_t));	
+				drive_t* device = k_calloc(1, sizeof(drive_t));	
 				device->drive = drive;
 				device->bus   = bus;
 				device->lba48 = drive_info[83] & (1 << 10);
@@ -340,6 +349,8 @@ static void detect_drives() {
 				device->udma_active     = (drive_info[88] & 0xFF00) >> 8;
 				device->lba28_sectors = *((uint32_t*)&drive_info[60]);
 				device->lba48_sectors = *((uint64_t*)&drive_info[100]);
+
+				mutex_init(&device->lock);
 
 				k_info("Drive found: %s", drivestr(bus, drive));
 				k_info("LBA48: %d", device->lba48);

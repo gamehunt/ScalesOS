@@ -102,6 +102,8 @@ int execute_line(char* line) {
 	FILE*  in_pipe    = 0;
 	int    parse_pipe = 0;
 
+	int run_in_bg = 0;
+
 	word = strtok(NULL, " ");
 
 	while(word) {
@@ -129,6 +131,15 @@ int execute_line(char* line) {
 			continue;
 		}
 
+		char* next_word = strtok(NULL, " ");
+
+		if(!next_word) {
+			if(!strcmp(word, "&")) {
+				run_in_bg = 1;
+				break;
+			}
+		} 
+
 		_op_argc++;
 
 		if(!_op_argv) {
@@ -142,7 +153,7 @@ int execute_line(char* line) {
 
 		_op_argv[_op_argc] = 0;
 
-		word = strtok(NULL, " ");
+		word = next_word;
 	}
 
 	char path[255];
@@ -171,11 +182,13 @@ int execute_line(char* line) {
 			fprintf(stderr, "Failed to execute: %s\n", path);
 			exit(1);
 		}
-		if(is_interactive) {
-			tcsetpgrp(STDIN_FILENO, child);
+		if(!run_in_bg) {
+			if(is_interactive) {
+				tcsetpgrp(STDIN_FILENO, child);
+			}
+			waitpid(child, &status, 0);
+			tcsetpgrp(STDIN_FILENO, my_pid);
 		}
-		waitpid(child, &status, 0);
-		tcsetpgrp(STDIN_FILENO, my_pid);
 	} else {
 		status = try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe);
 		if(status < 0){

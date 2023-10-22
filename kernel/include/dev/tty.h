@@ -8,6 +8,7 @@
 #include <stddef.h>
 
 #define TTY_FLAG_NEXTL (1 << 0)
+#define TTY_AMOUNT 8
 
 typedef struct tty {
 	uint32_t id;

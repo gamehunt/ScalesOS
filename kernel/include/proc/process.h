@@ -148,8 +148,10 @@ void*      k_proc_process_grow_heap(process_t* process, int32_t size);
 
 uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
 uint8_t    k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
+uint8_t    k_proc_process_sleep_and_unlock(process_t* process, list_t* queue, spinlock_t* lock);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 void       k_proc_process_wakeup_queue(list_t* queue);
+void       k_proc_process_wakeup_queue_single(list_t* queue);
 void       k_proc_process_wakeup_on_signal(process_t* process); 
 
 void       k_proc_process_exit(process_t* process, int code) __attribute__((noreturn));

@@ -25,6 +25,13 @@ typedef struct {
 	uint32_t y;
 } fb_pos_t;
 
+typedef struct {
+	uint32_t cw;
+	uint32_t ch;
+	uint32_t rows;
+	uint32_t columns;
+} fb_term_info_t;
+
 typedef void(*fb_clear)(uint32_t color);
 typedef void(*fb_putpixel)(fb_pos_t pos, uint32_t color);
 typedef void(*fb_scroll)(uint32_t pixels);
@@ -55,5 +62,7 @@ void k_dev_fb_clear(uint32_t color);
 void k_dev_fb_sync();
 
 int  k_dev_fb_ioctl(fs_node_t*, int op, void* arg);
+
+void k_dev_fb_terminfo(fb_term_info_t* info);
 
 #endif

@@ -18,18 +18,10 @@ int main(int argc, char** argv) {
 	char path[32];
 	snprintf(path, 32, "/dev/tty%d", number);
 
-	FILE* console = fopen("/dev/console", "r");
-	if(!console) {
-		return 1;
-	}
-
 	FILE* tty = fopen(path, "r+");
 	if(!tty) {
 		return 2;
 	}
-
-	ioctl(fileno(console), VT_ACTIVATE, &number);
-	fclose(console);
 
 	dup2(fileno(tty), STDIN_FILENO);
 	dup2(fileno(tty), STDOUT_FILENO);
@@ -37,7 +29,7 @@ int main(int argc, char** argv) {
 
 	system("stty sane");
 
-	printf("ScalesOS V1.0.0\n\n");
+	printf("ScalesOS V1.0.0 | %s\n\n", path);
 
 	execve("/bin/login", NULL, NULL);
 	return 1;

@@ -1,9 +1,11 @@
 #include "dev/tty.h"
+#include "dev/fb.h"
 #include "dev/vt.h"
 #include "dirent.h"
 #include "errno.h"
 #include "fs/vfs.h"
 #include "kernel.h"
+#include "kernel/dev/fb.h"
 #include "kernel/fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
@@ -486,6 +488,13 @@ static fs_node_t* __k_dev_tty_create_tty(uint32_t id) {
 	pty->out_buffer = ringbuffer_create(PTY_BUFFER_SIZE);
 	pty->master     = __k_dev_tty_create_tty_master(pty);
 	pty->slave      = __k_dev_tty_create_tty_slave(pty);
+
+	fb_term_info_t fbinfo;
+	k_dev_fb_terminfo(&fbinfo);
+
+	pty->ws.ws_rows = fbinfo.rows;
+	pty->ws.ws_cols = fbinfo.columns;
+
 	__k_dev_tty_sane_ts(pty);
 	return pty->slave;
 }
@@ -499,7 +508,7 @@ K_STATUS k_dev_tty_init() {
 	__ptys = list_create();
 	k_fs_vfs_mount_node("/dev/pts", __k_dev_tty_create_pty_root());
 	k_fs_vfs_mount_node("/dev/tty", __k_dev_tty_create_tty_link());
-	for(int i = 0; i < 8; i++) {
+	for(int i = 0; i < TTY_AMOUNT; i++) {
 		char path[32];
 		snprintf(path, 32, "/dev/tty%d", i);
 		k_fs_vfs_mount_node(path, __k_dev_tty_create_tty(i));
