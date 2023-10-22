@@ -100,15 +100,9 @@ typedef struct {
 	uint64_t lba48_sectors;
 
 	prdt_t*  prdt;
-	uint8_t* buffer;
 	uint32_t prdt_phys;
 
-	uint32_t last_read_sector;
-	uint32_t last_read_size;
-
 	list_t*  blocked_processes;
-
-	uint64_t read_start;
 
 	mutex_t lock;
 } drive_t;
@@ -235,16 +229,62 @@ static const char* drivestr(uint8_t bus, uint8_t drive) {
 
 static void ata_initialize(drive_t* device) {
 	device->prdt   = k_vallocp(KB(64), 0x1000, &device->prdt_phys);
-	device->buffer = k_vallocp(KB(64), 0x1000, &device->prdt[0].address);
 
-	k_info("PRDT: 0x%.8x (0x%.8x)", device->prdt, device->prdt_phys);
-	k_info("Buffer: 0x%.8x (0x%.8x)", device->buffer, device->prdt[0].address);
-
-	memset(device->buffer, 0x0, KB(64));
-	device->prdt[0].size = 0;
-	device->prdt[0].last = 0x8000;
 	device->blocked_processes = list_create();
+
 	list_push_back(ata_device_list, device);
+}
+
+static void __ata_prepare_prdt(drive_t* device, uint8_t* buffer, uint32_t dma_size) {
+	uint32_t prdt_entries = dma_size * 512 / KB(64) + 1;
+	for(uint32_t i = 0; i < prdt_entries; i++) {
+		uint32_t left = dma_size * 512 - i * KB(64);
+		device->prdt[i].address = k_mem_paging_virt2phys((uint32_t) buffer + i * KB(64));
+		if(left > KB(64)) {
+			device->prdt[i].size = 0;
+			device->prdt[i].last = 0;
+		} else {
+			device->prdt[i].size = left;
+			device->prdt[i].last = 0x8000;
+		}
+	}
+}
+
+static uint32_t __ata_read_internal(drive_t* device, uint32_t lba, uint32_t dma_size, uint8_t* buffer) {
+	mutex_lock(&device->lock);
+
+	__ata_prepare_prdt(device, buffer, dma_size);
+
+	ata_write_busmaster_command(device->bus, 0x0);
+
+	ata_write_busmaster_prdt_address(device->bus, device->prdt_phys);
+	
+	ata_write_busmaster_status(device->bus, 0x4 | 0x2);
+	ata_write_busmaster_command(device->bus, 0x8);
+
+	outb(ATA_DEV_CTRL(device->bus), 0);
+	outb(ATA_DRIVE(device->bus), device->drive == ATA_MASTER ? 0xe0 : 0xf0);
+
+	ata_wait(device);
+
+	outb(ATA_FEAT(device->bus), 0);
+
+	outb(ATA_SECCOUNT(device->bus), dma_size);
+	outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba & 0xFF));
+	outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba & 0xFF00) >> 8));
+	outb(ATA_LBA_HI(device->bus),  (uint8_t) ((lba & 0xFF0000) >> 16));
+	
+	ata_wait(device);
+
+	outb(ATA_COMMAND(device->bus), 0xC8);
+
+	ata_write_busmaster_command(device->bus, 0x8 | 0x1);
+
+	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
+
+	mutex_unlock(&device->lock);
+	
+	return 0;
 }
 
 static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
@@ -262,8 +302,6 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	drive_t* device = (drive_t*) node->inode;
 
-	mutex_lock(&device->lock);
-
 	uint32_t lba_offset  = offset / 512;
 	uint32_t part_offset = offset % 512;
 
@@ -272,64 +310,13 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
 
-	uint32_t target_offset = 0;
+	void* internal_buffer = k_valloc(dma_size * 512, 0x1000);
 
-	if(device->last_read_sector == lba_offset && device->last_read_size >= dma_size) {
-		memcpy(buffer, &device->buffer[part_offset], size);
-		mutex_unlock(&device->lock);
-		return size;
-	} else if(device->last_read_sector < lba_offset && device->last_read_sector + device->last_read_size > lba_offset) {
-		target_offset = (lba_offset - device->last_read_sector) * 512 + part_offset;
-		uint32_t read_size = (device->last_read_sector + device->last_read_size - lba_offset) * 512 - part_offset;
-		if(read_size > size) {
-			read_size = size;
-		}
-		part_offset = 0;
-		memcpy(buffer, &device->buffer[target_offset], read_size);
-		target_offset = read_size;
-		dma_size  -= target_offset / 512;
-		lba_offset = device->last_read_sector + device->last_read_size;
-		if(read_size == size) {
-			mutex_unlock(&device->lock);
-			return size;
-		}
-	}
+	__ata_read_internal(device, lba_offset, dma_size, internal_buffer);
 
-	device->last_read_sector = lba_offset;
-	device->last_read_size   = dma_size;
+	memcpy(buffer, &internal_buffer[part_offset], size);
 
-	device->prdt[0].size = size;
-
-	ata_write_busmaster_command(device->bus, 0x0);
-
-	ata_write_busmaster_prdt_address(device->bus, device->prdt_phys);
-	
-	ata_write_busmaster_status(device->bus, 0x4 | 0x2);
-	ata_write_busmaster_command(device->bus, 0x8);
-
-	outb(ATA_DEV_CTRL(device->bus), 0);
-	outb(ATA_DRIVE(device->bus), device->drive == ATA_MASTER ? 0xe0 : 0xf0);
-
-	ata_wait(device);
-
-	outb(ATA_FEAT(device->bus), 0);
-
-	outb(ATA_SECCOUNT(device->bus), dma_size);
-	outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba_offset & 0xFF));
-	outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba_offset & 0xFF00) >> 8));
-	outb(ATA_LBA_HI(device->bus),  (uint8_t) ((lba_offset & 0xFF0000) >> 16));
-	
-	ata_wait(device);
-
-	outb(ATA_COMMAND(device->bus), 0xC8);
-
-	ata_write_busmaster_command(device->bus, 0x8 | 0x1);
-
-	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
-
-	memcpy(&buffer[target_offset], &device->buffer[part_offset], size);
-
-	mutex_unlock(&device->lock);
+	k_vfree(internal_buffer);
 
 	return size;
 }
@@ -393,6 +380,8 @@ static interrupt_context_t* ata_handle_irq(uint8_t bus, interrupt_context_t* ctx
 		return ctx;
 	}
 
+	uint8_t transfer_done = !(status & 1);
+
 	do {
 		status = inb(ATA_STATUS(bus));
 	} while(status & ATA_STATUS_BSY);
@@ -402,9 +391,11 @@ static interrupt_context_t* ata_handle_irq(uint8_t bus, interrupt_context_t* ctx
 
 	uint8_t drive_selected = inb(ATA_DRIVE(bus)) & (1 << 4);
 
-	drive_t* drive = ata_get_device(bus, drive_selected ? ATA_SLAVE : ATA_MASTER);
-	if(drive) {
-		k_proc_process_wakeup_queue(drive->blocked_processes);
+	if(transfer_done) {
+		drive_t* drive = ata_get_device(bus, drive_selected ? ATA_SLAVE : ATA_MASTER);
+		if(drive) {
+			k_proc_process_wakeup_queue(drive->blocked_processes);
+		}
 	}
 
 	return ctx;
