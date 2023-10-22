@@ -19,7 +19,7 @@
 #define SYS_GETTIMEOFDAY 13
 #define SYS_SETTIMEOFDAY 14
 #define SYS_KILL         15
-#define SYS_SIGNAL       16
+#define SYS_SIGACT       16
 #define SYS_YIELD        17
 #define SYS_INSMOD       18
 #define SYS_READDIR      19
@@ -44,7 +44,6 @@
 #define SYS_MKDIR        38
 #define SYS_SETHEAP      39
 #define SYS_PRCTL        40
-#define SYS_SIGNAL       41
 
 #define SYS_DEBUG        255
 
@@ -75,7 +74,7 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_gettimeofday(tv, tz)              	  syscall(SYS_GETTIMEOFDAY, tv, tz, UNUSED3)
 #define __sys_settimeofday(tv, tz)              	  syscall(SYS_SETTIMEOFDAY, tv, tz, UNUSED3)
 #define __sys_kill(pid,sig)  					      syscall(SYS_KILL, pid, sig, UNUSED3)
-#define __sys_signal(sig, handler)              	  syscall(SYS_SIGNAL, sig, handler, UNUSED3)
+#define __sys_sigact(sig, handler, old)               syscall(SYS_SIGACT, sig, handler, old, UNUSED2)
 #define __sys_yield()                           	  syscall(SYS_YIELD, UNUSED5)
 #define __sys_insmod(addr, size)                	  syscall(SYS_INSMOD, addr, size, UNUSED3)
 #define __sys_readdir(dir, index, out)          	  syscall(SYS_READDIR, dir, index, out, UNUSED2)

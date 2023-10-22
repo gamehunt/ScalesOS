@@ -2,6 +2,7 @@
 #include "dev/timer.h"
 #include "fs/vfs.h"
 #include "int/isr.h"
+#include "int/syscall.h"
 #include "kernel.h"
 #include "kernel/mem/heap.h"
 #include "mem/gdt.h"
@@ -678,6 +679,25 @@ void k_proc_process_send_signal(process_t* process, int sig) {
 	k_proc_process_wakeup_on_signal(process);
 }
 
+extern interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t*);
+
+static void __k_proc_process_try_restart_syscalls(process_t* process, int sig, interrupt_context_t* ctx) {
+	if(sig < 0 || sig >= MAX_SYSCALL) {
+		return;
+	}
+
+	if(process->interrupted_syscall && (int32_t) ctx->eax == -ERESTARTSYS) {
+		if(process->signals[sig].flags & SA_RESTART) {
+			ctx->eax = process->interrupted_syscall;
+			process->interrupted_syscall = 0;
+			__k_int_syscall_dispatcher(ctx);
+		} else {
+			process->interrupted_syscall = 0;
+			ctx->eax = -EINTR;
+		}
+	}
+}
+
 static int __k_proc_process_handle_signal(process_t* process, int sig, interrupt_context_t* ctx) {
 	if(sig < 0 || sig >= MAX_SIGNAL) {
 		return 1;
@@ -746,8 +766,6 @@ process_t* k_proc_process_find_by_pid(pid_t pid) {
 }
 
 void k_proc_process_return_from_signal(interrupt_context_t* ctx) {
-	k_debug("Returning from signal handler...");
-
 	process_t* proc = k_proc_process_current();
 
 	int sig;

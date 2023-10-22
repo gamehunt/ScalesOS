@@ -80,11 +80,19 @@ interrupt_context_t* __k_int_syscall_dispatcher(interrupt_context_t* ctx){
 		}
 	}
 
+	long result = 0;
+
 	if(syscalls[ctx->eax]) {
-		ctx->eax = syscalls[ctx->eax](ctx->ebx, ctx->ecx, ctx->edx, ctx->edi, ctx->esi);
+		result = syscalls[ctx->eax](ctx->ebx, ctx->ecx, ctx->edx, ctx->edi, ctx->esi);
 	} else {
 		k_warn("Unknown syscall: %d!", ctx->eax);
 	}
+
+	if(result == -ERESTARTSYS) {
+		cur->interrupted_syscall = ctx->eax;
+	}
+
+	ctx->eax = result;
 
 	POST_INTERRUPT
 
@@ -264,28 +272,34 @@ static uint32_t sys_settimeofday(struct timeval* tv, struct timezone* tz) {
 	return 0;
 }
 
-static uint32_t sys_signal(int sig, signal_handler_t handler) {
+static uint32_t sys_sigact(int sig, const struct sigaction* handler, struct sigaction* prev) {
 	if(sig < 0 || sig >= MAX_SIGNAL) {
 		return 1;
 	}
 
+	if(!IS_VALID_PTR((uint32_t) handler)) {
+		return -EINVAL;
+	}
+
 	process_t* proc = k_proc_process_current();
 
-	signal_handler_t old = proc->signals[sig].handler;
+	if(IS_VALID_PTR((uint32_t) prev)) {
+		signal_handler_t old = proc->signals[sig].handler;
+		prev->sa_handler = old;
+	}
 
-	if(handler == SIG_DFL) {
+	if(handler->sa_handler == SIG_DFL) {
 		proc->signals[sig].handler = 0;
 		SET_SIGNAL_UNIGNORED(proc, sig);
-	} else if(handler == SIG_IGN) {
+	} else if(handler->sa_handler == SIG_IGN) {
 		SET_SIGNAL_IGNORED(proc, sig);
 	} else {
 		SET_SIGNAL_UNIGNORED(proc, sig);
-		if(IS_VALID_PTR((uint32_t) handler)) {
-			proc->signals[sig].handler = handler;
-		}
+		proc->signals[sig].handler = handler->sa_handler;
+		proc->signals[sig].flags   = handler->sa_flags;
 	}
 
-	return (uint32_t) old;
+	return 0;
 }
 
 static uint32_t sys_kill(pid_t pid, int sig) {
@@ -726,7 +740,7 @@ DEFN_SYSCALL1(sys_reboot, int);
 DEFN_SYSCALL1(sys_times, struct tms*);
 DEFN_SYSCALL2(sys_gettimeofday, struct timeval*, struct timezone*);
 DEFN_SYSCALL2(sys_settimeofday, struct timeval*, struct timezone*);
-DEFN_SYSCALL2(sys_signal, int, signal_handler_t);
+DEFN_SYSCALL3(sys_sigact, int, const struct sigaction*, struct sigaction*);
 DEFN_SYSCALL2(sys_kill, pid_t, int);
 DEFN_SYSCALL0(sys_yield);
 DEFN_SYSCALL2(sys_insmod, void*, uint32_t);
@@ -771,7 +785,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_TIMES, REF_SYSCALL(sys_times));
 	k_int_syscall_setup_handler(SYS_GETTIMEOFDAY, REF_SYSCALL(sys_gettimeofday));
 	k_int_syscall_setup_handler(SYS_SETTIMEOFDAY, REF_SYSCALL(sys_settimeofday));
-	k_int_syscall_setup_handler(SYS_SIGNAL, REF_SYSCALL(sys_signal));
+	k_int_syscall_setup_handler(SYS_SIGACT, REF_SYSCALL(sys_sigact));
 	k_int_syscall_setup_handler(SYS_KILL, REF_SYSCALL(sys_kill));
 	k_int_syscall_setup_handler(SYS_YIELD, REF_SYSCALL(sys_yield));
 	k_int_syscall_setup_handler(SYS_INSMOD, REF_SYSCALL(sys_insmod));

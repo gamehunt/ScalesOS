@@ -1,8 +1,9 @@
 #include "fb.h"
+#include "fb_colors.h"
 #include "sys/mman.h"
 #include "sys/ioctl.h"
 #include "sys/stat.h"
-#include "sys/syscall.h"
+#include <math.h>
 #include <scales/memory.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -15,14 +16,47 @@
 		return; \
 	} 
 
+double fb_brightness(color_t color){
+	double res = 0;
+
+	color_t r = RED(color);
+	color_t g = GREEN(color);
+	color_t b = BLUE(color);
+
+	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+color_t fb_blend(color_t a, color_t b) {
+	double ba = fb_brightness(a);
+	double bb = fb_brightness(b);
+
+	double a_normalized = 1.0 / 0xFF * ALPHA(a);
+
+	return (color_t) (b + (ba - bb) * a_normalized);
+}
+
 static void __fb_swap(coord_t* a, coord_t* b) {
 	coord_t tmp = *a;
 	*b = *a;
 	*a = tmp;
 }
 
-color_t fb_color(char r, char g, char b) {
-	return (r << 24) | (g << 16) | (b << 8);
+color_t fb_color(char r, char g, char b, char a) {
+	return (a << 24) | (r << 16) | (g << 8) | (b);
+}
+
+uint32_t black;
+uint32_t white;
+uint32_t red;
+uint32_t green;
+uint32_t blue;
+
+static void fb_init_colors() {
+	black = fb_color(0x00, 0x00, 0x00, 0xFF);
+	white = fb_color(0xFF, 0xFF, 0xFF, 0xFF);
+	red   = fb_color(0xFF, 0x00, 0x00, 0xFF);
+	green = fb_color(0x00, 0xFF, 0x00, 0xFF);
+	blue  = fb_color(0x00, 0x00, 0xFF, 0xFF);
 }
 
 int fb_open(const char* path, fb_t* buf) {
@@ -50,6 +84,9 @@ int fb_open(const char* path, fb_t* buf) {
 	memcpy(dst, &info, sizeof(fb_info_t));
 
 	(*buf).mem = (void*) r;
+
+	fb_init_colors();
+
 	return 0;
 }
 
@@ -99,9 +136,20 @@ void fb_flush(fb_t* fb) {
 void fb_pixel(fb_t* fb, coord_t x0, coord_t y0, color_t color) {
 	VERIFY_POINT(fb, x0, y0)
 
+	uint32_t alpha = ALPHA(color);
+
+	if(!alpha) {
+		return;
+	}
+
 	uint32_t* buf = fb->mem;
 
-	buf[y0 * fb->info.w + x0] = color;
+	if(alpha == 0xFF) {
+		buf[y0 * fb->info.w + x0] = color;
+	} else {
+		color_t old_color = buf[y0 * fb->info.w + x0];
+		buf[y0 * fb->info.w + x0] = fb_blend(color, old_color);
+	}
 }
 
 void fb_line(fb_t* fb, coord_t x0, coord_t y0, coord_t x1, coord_t y1, color_t color) {
@@ -168,7 +216,15 @@ void fb_filled_ellipse(fb_t* fb, coord_t x0, coord_t y0, size_t a, size_t b, col
 }
 
 void fb_fill(fb_t* fb, color_t color) {
-	memset32(fb->mem, color, fb->info.memsz / 4);
+	color_t alpha = ALPHA(color);
+	if(!alpha) {
+		return;
+	}
+	if(alpha != 0xFF) {
+		fb_filled_rect(fb, 0, 0, fb->info.w, fb->info.h, color, color);
+	} else {
+		memset32(fb->mem, color, fb->info.memsz / 4);
+	}
 }
 
 void fb_char(fb_t* fb, coord_t x0, coord_t y0, char c, fb_font_t* font, color_t b, color_t f) {

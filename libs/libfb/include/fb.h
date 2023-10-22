@@ -27,7 +27,14 @@ typedef struct {
 	fb_info_t info;
 } fb_t;
 
-color_t fb_color(char r, char g, char b);
+#define ALPHA(color) (color >> 24)
+#define RED(color)   (color >> 16 & 0xFF)
+#define BLUE(color)  (color >> 8  & 0xFF)
+#define GREEN(color) (color & 0xFF)
+
+color_t fb_color(char r, char g, char b, char a);
+double  fb_brightness(color_t);
+color_t fb_blend(color_t a, color_t b);
 int  	fb_open(const char* path, fb_t* buf);
 int  	fb_open_font(const char* path, fb_font_t** font);
 void 	fb_close(fb_t* buffer);

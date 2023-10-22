@@ -104,6 +104,8 @@ typedef struct process {
 	uint64_t   signal_queue;
 	uint64_t   signals_ignored;
 
+	uint32_t   interrupted_syscall;
+
 	fs_node_t* wd_node;
 	char       wd[256];
 } process_t;

@@ -240,7 +240,7 @@ static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t poi
 	}
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
-	uint32_t target_block = ((uint32_t*) block_buffer) [block_offset - (DIRECT_BLOCK_CAPACITY + 1)]; 
+	uint32_t target_block = ((uint32_t*) block_buffer) [block_offset - (DIRECT_BLOCK_CAPACITY)]; 
 	k_free(block_buffer);
 	return target_block;
 }
@@ -249,7 +249,7 @@ static uint32_t __ext2_resolve_double_indirect_block(ext2_fs_t* fs, uint32_t poi
 	if(!pointer) {
 		return 0;
 	}
-	uint32_t extra_offset = block_offset - (SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) + 1);
+	uint32_t extra_offset = block_offset - (SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 
@@ -261,7 +261,7 @@ static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t poi
 	if(!pointer) {
 		return 0;
 	}
-	uint32_t extra_offset = block_offset - (DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) + 1);
+	uint32_t extra_offset = block_offset - (DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
 	__ext2_read_block(fs, pointer, block_buffer);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 

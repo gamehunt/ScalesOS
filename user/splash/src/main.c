@@ -8,6 +8,8 @@
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <fb.h>
+#include <fb_colors.h>
+#include <tga.h>
 
 #include <kernel/dev/fb.h>
 
@@ -44,6 +46,9 @@ int main(int argc, char** argv) {
 		return -3;
 	}	
 
+	fb_fill(&fb, 0xFF0000CC);
+	fb_flush(&fb);
+
 	if(fork()) {
 		return 0;
 	}
@@ -53,9 +58,6 @@ int main(int argc, char** argv) {
 	int  l = 0;
 
 	int y = 0;
-
-	fb_fill(&fb, 0x0000CC);
-	fb_flush(&fb);
 
 	while(1) {
 		char c = fgetc(pipe);
@@ -69,8 +71,8 @@ int main(int argc, char** argv) {
 		}
 		str[l] = c;
 		if(c == '\n' || l == sizeof(str) - 1) {
-			fb_fill(&fb, 0x0000CC);
-			fb_string(&fb, 0, y + 10, str, font, 0x0000CC, 0xFF0000);
+			// fb_fill(&fb, 0xFF0000CC);
+			fb_string(&fb, 0, y + 10, str, font, 0x00, red);
 			fb_flush(&fb);
 
 			y += font->height;
