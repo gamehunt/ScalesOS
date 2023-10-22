@@ -58,6 +58,9 @@ int    ferror(FILE *stream);
 int    fileno(FILE *stream);  
 void   setbuf(FILE *stream, char *buf);
 void   rewind(FILE* stream);
+int    remove(const char* path);
+int    unlink(const char* path);
+int    rmdir(const char* path);
 
 #endif
 

@@ -239,6 +239,12 @@ fs_node_t* k_fs_vfs_create_node(const char* name){
     return node;
 }
 
+fs_node_t* k_fs_vfs_dup(fs_node_t* node) {
+	fs_node_t* nnode = k_malloc(sizeof(fs_node_t));
+	memcpy(nnode, node, sizeof(fs_node_t));
+	return nnode;
+}
+
 int32_t k_fs_vfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer){
     if(!node->fs.read){
         return -EPERM;
@@ -379,6 +385,10 @@ int k_fs_vfs_ioctl(fs_node_t *node, uint32_t req, void *args) {
 	return node->fs.ioctl(node, req, args);
 }
 
+vfs_entry_t* k_fs_vfs_get_mountpoint(const char* path) {
+	return __k_fs_vfs_get_entry(path, 0);
+}
+
 K_STATUS k_fs_vfs_mount_node(const char* path, fs_node_t* fsroot){
     if(!vfs_tree){
         return K_STATUS_ERR_GENERIC;
@@ -414,7 +424,10 @@ K_STATUS k_fs_vfs_umount(const char* path) {
 		if(entry->node) {
 			entry->node->mountpoint = NULL;
 		}
-		__k_fs_vfs_create_virtual_node(entry);
+		if(entry != __k_fs_vfs_root_entry()) {
+			tree_remove_node(vfs_tree, entry->tree_node);
+			k_free(entry);
+		}
 		return K_STATUS_OK;
 	}
 	return K_STATUS_ERR_GENERIC;
@@ -437,17 +450,36 @@ int32_t k_fs_vfs_link(const char* source, const char* target) {
 	return parent->fs.link(parent, source, target);
 }
 
-int32_t k_fs_vfs_unlink(const char* target) {
-	fs_node_t* target_node = __k_fs_vfs_find_node(target, 0);
-	if(target_node) {
-		if(target_node->fs.unlink) {
-			target_node->fs.unlink(target_node);
-		}
-		k_fs_vfs_close(target_node);
-		return 0;
-	} else {
-		return -ENOENT;
+int32_t k_fs_vfs_rm(fs_node_t* node) {
+	if(node->flags & VFS_DIR) {
+		return -EISDIR;
 	}
+	if(node->fs.rm) {
+		node->fs.rm(node);
+	}
+	if(node->mountpoint) {
+		k_free(node->mountpoint->node);
+		tree_remove_node(vfs_tree, node->mountpoint->tree_node);
+		k_free(node->mountpoint);
+	}
+	k_fs_vfs_close(node);
+	return 0;
+}
+
+int32_t k_fs_vfs_rmdir(fs_node_t* node) {
+	if(!(node->flags & VFS_DIR)) {
+		return -ENOTDIR;
+	}
+	if(node->fs.rmdir) {
+		node->fs.rmdir(node);
+	}
+	if(node->mountpoint) {
+		k_free(node->mountpoint->node);
+		tree_remove_node(vfs_tree, node->mountpoint->tree_node);
+		k_free(node->mountpoint);
+	}
+	k_fs_vfs_close(node);
+	return 0;
 }
 
 void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){

@@ -71,7 +71,6 @@ int main(int argc, char** argv) {
 		}
 		str[l] = c;
 		if(c == '\n' || l == sizeof(str) - 1) {
-			// fb_fill(&fb, 0xFF0000CC);
 			fb_string(&fb, 0, y + 10, str, font, 0x00, red);
 			fb_flush(&fb);
 
@@ -82,6 +81,9 @@ int main(int argc, char** argv) {
 			l++;
 		}
 	}
+
+	fclose(pipe);
+	remove("/tmp/splash");
 
 	return 0;
 }

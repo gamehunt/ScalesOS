@@ -44,6 +44,8 @@
 #define SYS_MKDIR        38
 #define SYS_SETHEAP      39
 #define SYS_PRCTL        40
+#define SYS_RM           41
+#define SYS_RMDIR        42
 
 #define SYS_DEBUG        255
 
@@ -99,6 +101,8 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_mkdir(path, mode)                       syscall(SYS_MKDIR, path, mode, UNUSED3)
 #define __sys_setheap(addr)                           syscall(SYS_SETHEAP, addr, UNUSED4)
 #define __sys_prctl(op, arg)                          syscall(SYS_PRCTL, op, arg, UNUSED3)
+#define __sys_rm(path)                                syscall(SYS_RM, path, UNUSED4)
+#define __sys_rmdir(path)                             syscall(SYS_RMDIR, path, UNUSED4)
 
 #define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 

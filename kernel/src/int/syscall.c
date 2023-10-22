@@ -391,7 +391,8 @@ uint32_t sys_mkfifo(const char* path, int mode UNUSED) {
 	fs_node_t* node = k_fs_pipe_create(4096);
 	node->mode = O_RDWR;
 	k_fs_vfs_mount_node(path, node);
-	return k_proc_process_open_node(k_proc_process_current(), node);
+	fs_node_t* copy = k_fs_vfs_dup(node);
+	return k_proc_process_open_node(k_proc_process_current(), copy);
 }
 
 uint32_t sys_dup2(int fd1, int fd2) {
@@ -725,6 +726,26 @@ uint32_t sys_prctl(int op, void* arg) {
 	}
 }
 
+uint32_t sys_rm(const char* path) {
+	fs_node_t* node = k_fs_vfs_open(path, 0);	
+
+	if(!node) {
+		return -ENOENT;
+	}
+
+	return k_fs_vfs_rm(node);
+}
+
+uint32_t sys_rmdir(const char* path) {
+	fs_node_t* node = k_fs_vfs_open(path, 0);	
+
+	if(!node) {
+		return -ENOENT;
+	}
+
+	return k_fs_vfs_rmdir(node);
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -765,6 +786,8 @@ DEFN_SYSCALL2(sys_lstat, const char*, struct stat*);
 DEFN_SYSCALL2(sys_fstat, int, struct stat*);
 DEFN_SYSCALL1(sys_setheap, void*);
 DEFN_SYSCALL2(sys_prctl, int, void*);
+DEFN_SYSCALL1(sys_rm, const char*);
+DEFN_SYSCALL1(sys_rmdir, const char*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -810,6 +833,8 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_FSTAT, REF_SYSCALL(sys_fstat));
 	k_int_syscall_setup_handler(SYS_SETHEAP, REF_SYSCALL(sys_setheap));
 	k_int_syscall_setup_handler(SYS_PRCTL, REF_SYSCALL(sys_prctl));
+	k_int_syscall_setup_handler(SYS_RM, REF_SYSCALL(sys_rm));
+	k_int_syscall_setup_handler(SYS_RMDIR, REF_SYSCALL(sys_rmdir));
     
 	return K_STATUS_OK;
 }
