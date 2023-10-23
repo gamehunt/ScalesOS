@@ -2,6 +2,7 @@
 #include <mem/heap.h>
 #include <string.h>
 
+#include "dev/serial.h"
 #include "fs/vfs.h"
 #include "kernel.h"
 #include "kernel/fs/vfs.h"

@@ -8,13 +8,16 @@
 #include "util/log.h"
 #include "util/panic.h"
 #include <dev/acpi.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <shared.h>
 
 #include <mem/memory.h>
 
-#define FROM_PHYS(addr) (ACPI_MAPPING_START + ((addr) & 0xFFFF))
+static uint32_t acpi_start = 0;
+
+#define FROM_PHYS(addr) (acpi_start + ((addr) & 0xFFFF))
 
 typedef struct rsdp_descriptor{
  char     signature[8];
@@ -285,7 +288,7 @@ K_STATUS k_dev_acpi_init() {
     k_info("OEM ID: %s", descriptor->oemid);
     k_info("RSDT: 0x%.8x", descriptor->rsdt_address);
 
-    k_mem_paging_map_region(ACPI_MAPPING_START, descriptor->rsdt_address & 0xFFFF0000, 16, 0x3, 1);
+	acpi_start = k_map(descriptor->rsdt_address & 0xFFFF0000, 16, PAGE_PRESENT | PAGE_WRITABLE);
 
     rsdt = (rsdt_t*) FROM_PHYS(descriptor->rsdt_address);
 

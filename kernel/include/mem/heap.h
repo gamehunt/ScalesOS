@@ -13,7 +13,7 @@
 #define k_free    free
 #define k_vfree   vfree
 
-void*   k_vallocp(uint32_t size, uint32_t alignment, paddr_t* physical);
+void*    k_vallocp(uint32_t size, uint32_t alignment, paddr_t* physical);
 
 K_STATUS k_mem_heap_init();
 void     k_d_mem_heap_print();

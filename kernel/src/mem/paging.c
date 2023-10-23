@@ -1,4 +1,6 @@
+#include "dev/serial.h"
 #include "int/isr.h"
+#include "kernel/mem/paging.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/mmap.h"
@@ -139,6 +141,7 @@ void k_mem_paging_set_page_directory(pde_t* addr, uint8_t flags) {
 
 void k_mem_paging_unmap(vaddr_t vaddr) {
     uint32_t pd_index = PDE(vaddr);
+
     if (!(current_page_directory[pd_index].data.present)) {
         return;
     }
@@ -280,21 +283,20 @@ pde_t* k_mem_paging_clone_page_directory(pde_t* src, paddr_t* phys) {
     for(uint32_t i = 0; i < kernel_pd; i++){
         if(src[i].data.present){
             uint32_t frame = k_mem_pmm_alloc_frames(1);
-            k_mem_paging_map(PT_TMP_MAP, frame, 0);
+			pte_t* copy_pt = k_map(frame, 1, PAGE_PRESENT | PAGE_WRITABLE);
             copy[i].raw       = frame | (src[i].raw & 0xFFF);
-            pte_t* copy_pt    = (pte_t*) PT_TMP_MAP;
 			memset(copy_pt, 0, 0x1000);
             pte_t* src_pt     = PT_PTR(i);
             for(int j = 0; j < 1024; j++){
                 if(src_pt[j].data.present){
                     frame = k_mem_pmm_alloc_frames(1);
-                    k_mem_paging_map(PG_TMP_MAP, frame, 0);
+					void* page = k_map(frame, 1, PAGE_PRESENT | PAGE_WRITABLE);
                     copy_pt[j].raw       = frame | (src_pt[j].raw & 0xFFF);
-                    memcpy((void*) PG_TMP_MAP, (void*) ADDR(i, j), 0x1000);
-                    k_mem_paging_unmap(PG_TMP_MAP);
+                    memcpy(page, (void*) ADDR(i, j), 0x1000);
+					k_unmap(page, 1);
                 }
             }
-            k_mem_paging_unmap(PT_TMP_MAP);
+            k_unmap(copy_pt, 1);
         }
     }
 

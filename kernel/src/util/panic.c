@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <util/asm_wrappers.h>
 #include <util/panic.h>
+#include "dev/serial.h"
 #include "mem/paging.h"
 #include "mod/symtable.h"
 #include "proc/process.h"
@@ -34,6 +35,9 @@ static void __k_panic_pseudo_stacktrace() {
 
 void k_panic(const char* reason, interrupt_context_t* ctx){
     cli(); 
+	char buff[1024];
+	sprintf(buff, "\r\n%s EIP: 0x%.8x\r\n", reason, ctx->eip);
+	k_dev_serial_putstr(buff);
     printf("!!!!!!!!!!!!! Kernel panic !!!!!!!!!!!!!\r\n");
     printf("Reason: %s\r\n", reason);
     printf("Dump:\r\n");

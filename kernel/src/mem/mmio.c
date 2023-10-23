@@ -2,18 +2,34 @@
 #include "kernel/mem/paging.h"
 #include "mem/memory.h"
 #include "mem/paging.h"
+#include "util/types/list.h"
+
+#include <stddef.h>
+
+static list_t* mappings = NULL;
+
+static void* __k_mem_mmio_get_mapping(uint32_t frame) {
+	for(uint32_t i = 0; i < mappings->size; i++) {
+		if(k_mem_paging_virt2phys((uint32_t) mappings->data[i]) == frame) {
+			return mappings->data[i];
+		}
+	}
+	return NULL;
+}
 
 uint32_t k_mem_mmio_map_register(uint32_t address) {
+	if(!mappings) {
+		mappings = list_create();
+	} 
+
 	uint32_t page = address / 0x1000;
-	uint32_t register_base = MMIO_START + page * 0x1000;
 
-	if(register_base > MMIO_END) {
-		return 0;
+	void* map = __k_mem_mmio_get_mapping(page);
+
+	if(!map) {
+		map = k_map(page, 1, PAGE_PRESENT | PAGE_WRITABLE);
+		list_push_back(mappings, map);
 	}
 
-	if(!IS_VALID_PTR(register_base)) {
-		k_mem_paging_map(register_base, address, PAGE_PRESENT | PAGE_WRITABLE);
-	}
-
-	return register_base + address % 0x1000;
+	return (uint32_t) map + address % 0x1000;
 }

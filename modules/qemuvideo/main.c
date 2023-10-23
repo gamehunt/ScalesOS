@@ -41,6 +41,7 @@ typedef struct {
 	uint32_t   bpp;
 	uint32_t   pitch;
 	spinlock_t buffer_lock;
+	uint8_t    initialized;
 } qemu_lfb_t;
 
 static qemu_lfb_t __impl;
@@ -64,12 +65,18 @@ static uint8_t __bga_check_version() {
 }
 
 static void __qemu_fb_clear(uint32_t color) {
+	if(!__impl.initialized) {
+		return;
+	}
 	LOCK(__impl.buffer_lock);
 	memset32(__impl.backbuffer, color, __impl.buffer_size / 4);
 	UNLOCK(__impl.buffer_lock);
 }
 
 static void __qemu_fb_putpixel(fb_pos_t pos, uint32_t color) {
+	if(!__impl.initialized) {
+		return;
+	}
 	LOCK(__impl.buffer_lock);
     uint32_t* fb = (uint32_t*) __impl.backbuffer;
     if (pos.x < __impl.width && pos.y < __impl.height) {
@@ -79,6 +86,9 @@ static void __qemu_fb_putpixel(fb_pos_t pos, uint32_t color) {
 }
 
 static void __qemu_fb_scroll(uint32_t pixels) {
+	if(!__impl.initialized) {
+		return;
+	}
 	LOCK(__impl.buffer_lock);
     memmove(__impl.backbuffer, __impl.backbuffer + pixels * __impl.pitch, (__impl.height - pixels) * __impl.pitch);
     memset(__impl.backbuffer + (__impl.height - pixels) * __impl.pitch, 0, pixels * __impl.pitch);
@@ -86,14 +96,17 @@ static void __qemu_fb_scroll(uint32_t pixels) {
 }
 
 static void __qemu_fb_sync() {
+	if(!__impl.initialized) {
+		return;
+	}
 	LOCK(__impl.buffer_lock);
 	memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size);
 	if(__impl.backbuffer_type == BACKBUFFER_HARD) {
 		if(__impl.offset) {
-			__impl.buffer = (uint8_t*) (FRAMEBUFFER_START + __impl.buffer_size);
+			__impl.buffer = (uint8_t*) (__impl.buffer + __impl.buffer_size);
 			__bga_write(VBE_DISPI_INDEX_Y_OFFSET, 0);
 		} else {
-			__impl.buffer = (uint8_t*) (FRAMEBUFFER_START);
+			__impl.buffer = (uint8_t*) (__impl.buffer - __impl.buffer_size);
 			__bga_write(VBE_DISPI_INDEX_Y_OFFSET, __impl.height);
 		}
 		__impl.offset = !__impl.offset;
@@ -102,27 +115,36 @@ static void __qemu_fb_sync() {
 }
 
 static void __qemu_fb_release() {
+	if(!__impl.initialized) {
+		return;
+	}
 	k_free(__impl.backbuffer);
 	if(__impl.backbuffer_type == BACKBUFFER_SOFT) {
-		k_mem_paging_unmap_region(FRAMEBUFFER_START, __impl.buffer_size / 0x1000);
+		k_unmap(__impl.buffer, __impl.buffer_size / 0x1000);
 	} else {
-		k_mem_paging_unmap_region(FRAMEBUFFER_START, (__impl.buffer_size * 2) / 0x1000);
+		k_unmap(__impl.buffer, __impl.buffer_size * 2 / 0x1000);
 	}
 }
 
 static void __qemu_fb_init(fb_info_t* info) {
-	info->w = __impl.width;
-	info->h = __impl.height;
-	info->bpp = __impl.bpp;
+	info->w     = __impl.width;
+	info->h     = __impl.height;
+	info->bpp   = __impl.bpp;
 	info->memsz = __impl.buffer_size;
 	if(__impl.backbuffer_type == BACKBUFFER_SOFT) {
-		k_mem_paging_map_region(FRAMEBUFFER_START, __impl.buffer_phys, __impl.buffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE, 1);
+		__impl.buffer = k_map(__impl.buffer_phys, __impl.buffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
 	} else {
-		k_mem_paging_map_region(FRAMEBUFFER_START, __impl.buffer_phys, (__impl.buffer_size * 2) / 0x1000, PAGE_PRESENT | PAGE_WRITABLE, 1);
+		__impl.buffer = k_map(__impl.buffer_phys, __impl.buffer_size * 2 / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
+		__impl.buffer += __impl.buffer_size;
 	}
+	__impl.initialized = 1;
 }
 
 static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!__impl.initialized) {
+		return 0;
+	}
+
 	if(!size) {
 		return 0;
 	}
@@ -145,6 +167,10 @@ static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_
 }
 
 static uint32_t __qemu_fb_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!__impl.initialized) {
+		return 0;
+	}
+
 	if(!size) {
 		return 0;
 	}
@@ -186,12 +212,10 @@ static void __init_fb_impl(pci_device_t* device) {
 
 	__impl.buffer_size = w * h * bpp / 8;
 	__impl.buffer_phys = device->bars[0] & 0xFFFFFFF0;
-	__impl.buffer      = (uint8_t*) FRAMEBUFFER_START;
 
 	__impl.backbuffer = k_malloc(__impl.buffer_size);
 	if(vh >= __impl.height * 2) {
 		__impl.backbuffer_type = BACKBUFFER_HARD;
-		__impl.buffer += __impl.buffer_size;
 	} else {
 		__impl.backbuffer_type = BACKBUFFER_SOFT;
 	}

@@ -1,11 +1,12 @@
 #include "video/lfbgeneric.h"
 #include "dev/fb.h"
-#include "dev/serial.h"
-#include "kernel.h"
-#include "kernel/mem/memory.h"
+#include "kernel/mem/paging.h"
+#include "mem/memory.h"
 #include "mem/heap.h"
 #include "mem/memory.h"
 #include "mem/paging.h"
+#include "scales/memory.h"
+#include "util/asm_wrappers.h"
 #include "util/log.h"
 #include <stddef.h>
 #include <string.h>
@@ -21,7 +22,8 @@ typedef struct lfb_info{
 
 static lfb_info_t info;
 static uint32_t framebuffer_size = 0;
-static uint8_t* framebuffer = (uint8_t*) FRAMEBUFFER_START;
+static uint32_t framebuffer_frame = 0;
+static uint8_t* framebuffer = NULL;
 static uint8_t* backbuffer  = NULL;
 
 static void __k_video_lfb_scroll(uint32_t pixels) {
@@ -46,16 +48,11 @@ static void __k_video_lfb_init(fb_info_t* fb_info) {
 	fb_info->h     = info.height;
 	fb_info->bpp   = info.bpp;
 	fb_info->memsz = framebuffer_size;
-    k_mem_paging_map_region((uint32_t)framebuffer, info.phys,
-                            framebuffer_size / 0x1000,
-                            PAGE_PRESENT | PAGE_WRITABLE, 1);
+	framebuffer    = k_map(framebuffer_frame, framebuffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
 }
 
 static void __k_video_lfb_clear(uint32_t color) {
-	uint32_t* buffer = (uint32_t*) backbuffer;
-	for(uint32_t i = 0; i < framebuffer_size / 4; i++) {
-		buffer[i] = color;
-	} 
+	memset32(backbuffer, color, framebuffer_size / 4);
 }
 
 static uint32_t __k_video_lfb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
@@ -83,7 +80,7 @@ static void __k_video_lfb_sync() {
 }
 
 static void __k_video_lfb_release() {
-	k_mem_paging_unmap_region((uint32_t) framebuffer, framebuffer_size / 0x1000);
+	k_unmap(framebuffer, framebuffer_size / 0x1000);
 	k_free(backbuffer);
 }
 
@@ -105,8 +102,8 @@ void k_video_generic_lfb_init(multiboot_info_t* mb) {
 		return;
     }
 
-	framebuffer_size = info.width * info.height * info.bpp / 8;
-
+	framebuffer_frame = mb->framebuffer_addr;
+	framebuffer_size  = info.width * info.height * info.bpp / 8;
 
 	backbuffer = k_malloc(framebuffer_size);
 
