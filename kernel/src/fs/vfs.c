@@ -269,7 +269,7 @@ int32_t k_fs_vfs_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t*
     return node->fs.write(node, offset, size, buffer);
 }
 
-fs_node_t*  k_fs_vfs_open(const char* path, uint8_t mode){
+fs_node_t*  k_fs_vfs_open(const char* path, uint16_t mode){
     if(!vfs_tree){
         return NULL;
     }

@@ -55,7 +55,7 @@ typedef struct fs_ops{
 struct fs_node{
     char     name[256];
     void*    device;
-	uint8_t  mode;
+	uint16_t mode;
     uint32_t flags;
     uint64_t inode;
     uint32_t size;
@@ -87,7 +87,7 @@ int32_t          k_fs_vfs_link           (const char* source, const char* target
 K_STATUS         k_fs_vfs_mount_node     (const char* path, fs_node_t* root);
 K_STATUS         k_fs_vfs_mount          (const char* path, const char* device, const char* type);
 K_STATUS         k_fs_vfs_umount         (const char* path);
-fs_node_t*       k_fs_vfs_open           (const char* path, uint8_t mode);
+fs_node_t*       k_fs_vfs_open           (const char* path, uint16_t mode);
 void             k_fs_vfs_close          (fs_node_t* node);
 int32_t          k_fs_vfs_rm             (fs_node_t* node);
 int32_t          k_fs_vfs_rmdir          (fs_node_t* node);

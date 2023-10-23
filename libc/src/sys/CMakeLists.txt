@@ -13,6 +13,7 @@ set(SOURCES
 	utsname.c
 	reboot.c
 	heap.c
+	socket.c
 )
 
 target_sources(c PRIVATE ${SOURCES})
