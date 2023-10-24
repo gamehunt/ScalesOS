@@ -134,6 +134,14 @@ static uint32_t sys_write(uint32_t fd, uint8_t* buffer, uint32_t count) {
 	return written;
 }
 
+static char* __sys_to_fullpath(const char* path, process_t* process) {
+	if(path[0] != '/') {
+		return k_util_path_canonize(process->wd, path);
+	} else {
+		return k_util_path_canonize(path, "");
+	}
+}
+
 static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
 	if(!IS_VALID_PTR((uint32_t) path) || !strlen(path)) {
 		return -EINVAL;
@@ -141,19 +149,11 @@ static uint32_t sys_open(const char* path, uint16_t flags, uint8_t mode) {
 
 	process_t* cur = k_proc_process_current();
 
-	char  fullpath[255];
-	char* canonpath = NULL;
-	
-	if(path[0] != '/') {
-		canonpath = k_util_path_canonize(cur->wd, path);
-	} else {
-		canonpath = k_util_path_canonize(path, "");
-	}
-
-	strncpy(fullpath, canonpath, sizeof(fullpath));
-	k_free(canonpath);
+	char* fullpath = __sys_to_fullpath(path, cur);
 
 	fs_node_t* node = k_fs_vfs_open(fullpath, flags);
+	k_free(fullpath);
+
 	if(!node) {
 		return -ENOENT;
 	}
@@ -698,6 +698,32 @@ static uint32_t sys_fstat(int fd, struct stat* sb) {
 	return 0;
 }
 
+uint32_t sys_mkdir(const char* path, mode_t mode) {
+	process_t* cur = k_proc_process_current();
+
+	char* fullpath = __sys_to_fullpath(path, cur);
+
+	char* name   = k_util_path_filename(fullpath);
+	char* parent = k_util_path_folder(fullpath);
+
+	fs_node_t* par_node = k_fs_vfs_open(parent, mode);
+
+	k_free(parent);
+	k_free(fullpath);
+
+	if(!par_node) {
+		return -ENOENT;
+	}
+
+	k_fs_vfs_mkdir(par_node, name, mode);
+
+	k_free(name);
+
+	k_fs_vfs_close(par_node);
+
+	return 0;
+}
+
 uint32_t sys_setheap(void* addr) {
 	if((uint32_t) addr >= USER_STACK_END) {
 		return -EINVAL;
@@ -727,7 +753,12 @@ uint32_t sys_prctl(int op, void* arg) {
 }
 
 uint32_t sys_rm(const char* path) {
+	process_t* cur = k_proc_process_current();
+
+	char* fullpath = __sys_to_fullpath(path, cur);
 	fs_node_t* node = k_fs_vfs_open(path, 0);	
+
+	k_free(fullpath);
 
 	if(!node) {
 		return -ENOENT;
@@ -737,7 +768,12 @@ uint32_t sys_rm(const char* path) {
 }
 
 uint32_t sys_rmdir(const char* path) {
-	fs_node_t* node = k_fs_vfs_open(path, 0);	
+	process_t* cur = k_proc_process_current();
+
+	char* fullpath = __sys_to_fullpath(path, cur);
+	fs_node_t* node = k_fs_vfs_open(fullpath, 0);	
+
+	k_free(fullpath);
 
 	if(!node) {
 		return -ENOENT;
@@ -784,6 +820,7 @@ DEFN_SYSCALL3(sys_msync, void*, size_t, int);
 DEFN_SYSCALL2(sys_stat,  const char*, struct stat*);
 DEFN_SYSCALL2(sys_lstat, const char*, struct stat*);
 DEFN_SYSCALL2(sys_fstat, int, struct stat*);
+DEFN_SYSCALL2(sys_mkdir, const char*, mode_t);
 DEFN_SYSCALL1(sys_setheap, void*);
 DEFN_SYSCALL2(sys_prctl, int, void*);
 DEFN_SYSCALL1(sys_rm, const char*);
@@ -831,6 +868,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_STAT, REF_SYSCALL(sys_stat));
 	k_int_syscall_setup_handler(SYS_LSTAT, REF_SYSCALL(sys_lstat));
 	k_int_syscall_setup_handler(SYS_FSTAT, REF_SYSCALL(sys_fstat));
+	k_int_syscall_setup_handler(SYS_MKDIR, REF_SYSCALL(sys_mkdir));
 	k_int_syscall_setup_handler(SYS_SETHEAP, REF_SYSCALL(sys_setheap));
 	k_int_syscall_setup_handler(SYS_PRCTL, REF_SYSCALL(sys_prctl));
 	k_int_syscall_setup_handler(SYS_RM, REF_SYSCALL(sys_rm));

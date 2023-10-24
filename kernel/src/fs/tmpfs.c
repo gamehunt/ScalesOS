@@ -5,6 +5,7 @@
 #include "kernel/fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
+#include "util/log.h"
 #include "util/path.h"
 #include "util/types/list.h"
 #include <string.h>
@@ -163,7 +164,7 @@ static struct dirent* __k_fs_tmpfs_readdir(fs_node_t* root, uint32_t index) {
 
 	tmpfs_node_t* dev = root->device;
 
-	if(dev->children->size < index) {
+	if(dev->children->size > index) {
 		tmpfs_node_t* child = dev->children->data[index];
 		strcpy(dir->name, child->name);
 		dir->ino = index;
@@ -195,8 +196,12 @@ static tmpfs_node_t* __k_fs_tmpfs_create_node(char* name, tmpfs_node_t* parent) 
 static fs_node_t* __k_fs_tmpfs_to_fs_node(tmpfs_node_t* node) {
 	fs_node_t* fsnode = k_fs_vfs_create_node(node->name);
 	fsnode->device = node;
-	fsnode->flags = VFS_FILE;
-	fsnode->inode = 12345;
+	if(node->type & TMPFS_TYPE_FILE) {
+		fsnode->flags = VFS_FILE;
+	} else if(node->type & TMPFS_TYPE_DIR) {
+		fsnode->flags = VFS_DIR;
+	}
+	fsnode->inode      = 12345;
 	fsnode->fs.readdir = &__k_fs_tmpfs_readdir;
 	fsnode->fs.finddir = &__k_fs_tmpfs_finddir;
 	fsnode->fs.read    = &__k_fs_tmpfs_read;

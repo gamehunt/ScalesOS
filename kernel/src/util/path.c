@@ -140,10 +140,16 @@ char* k_util_path_filename(const char* path){
 }
 
 char* k_util_path_folder(const char* path){
-    char* file = k_util_path_filename(path);
-    char* p    = k_util_path_strip(path);
-    k_free(file);
-    return p;
+	char* fold = strdup(path);
+	size_t l = strlen(fold) - 1;
+	while(l >= 0) {
+		if(fold[l] == '/') {
+			fold[l] = '\0';
+			break;
+		}
+		l--;
+	}
+    return fold;
 }
 
 char* k_util_path_join(const char* base, const char* append){
