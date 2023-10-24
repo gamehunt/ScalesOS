@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-void* k_mem_dma_alloc(uint32_t pages);
+void* k_mem_dma_alloc(uint32_t pages, uint32_t* phys);
 void  k_mem_dma_free(void* ptr, uint32_t pages);
 
 #endif

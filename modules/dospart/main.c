@@ -30,8 +30,26 @@ static uint32_t __dospart_read(fs_node_t* node, uint32_t offset, uint32_t size, 
 	uint32_t patr_offset = patrition_info->lba_start * 512;
 	uint32_t patr_size   = patrition_info->size * 512;
 
-	// k_info("DOS read: +%ld, size=%ld", offset, size);
-	// k_info("Patrition: +%ld, size=%ld", patr_offset, patr_size);
+	if(offset >= patr_offset + patr_size) {
+		return 0;
+	}
+
+	if(offset + size >= patr_offset + patr_size) {
+		size = patr_offset + patr_size - offset;
+		if(!size) {
+			return 0;
+		}
+	}
+
+	return k_fs_vfs_read(drive, patr_offset + offset, size, buffer);
+}
+
+static uint32_t __dospart_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	fs_node_t* drive = node->device;
+	mbr_patrition_t* patrition_info = (mbr_patrition_t*) node->inode;
+
+	uint32_t patr_offset = patrition_info->lba_start * 512;
+	uint32_t patr_size   = patrition_info->size * 512;
 
 	if(offset >= patr_offset + patr_size) {
 		return 0;
@@ -44,9 +62,7 @@ static uint32_t __dospart_read(fs_node_t* node, uint32_t offset, uint32_t size, 
 		}
 	}
 
-	// k_info("Proceeding to actual read at +%ld, size=%ld", patr_offset + offset, size);
-
-	return k_fs_vfs_read(drive, patr_offset + offset, size, buffer);
+	return k_fs_vfs_write(drive, patr_offset + offset, size, buffer);
 }
 
 static fs_node_t* __dospart_create_device(fs_node_t* device, mbr_patrition_t* patr, int i) {
@@ -60,7 +76,8 @@ static fs_node_t* __dospart_create_device(fs_node_t* device, mbr_patrition_t* pa
 	node->inode = (uint32_t) patr_copy;
 	node->device = device;
 	node->size = patr->size;
-	node->fs.read = &__dospart_read;
+	node->fs.read  = &__dospart_read;
+	node->fs.write = &__dospart_write;
 
 	return node;
 }

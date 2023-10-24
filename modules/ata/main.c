@@ -4,6 +4,7 @@
 #include <kernel/kernel.h>
 #include <kernel/mem/heap.h>
 #include <kernel/mem/mmio.h>
+#include <kernel/mem/dma.h>
 #include <kernel/mem/pmm.h>
 #include <kernel/mem/paging.h>
 #include <kernel/util/log.h>
@@ -228,7 +229,7 @@ static const char* drivestr(uint8_t bus, uint8_t drive) {
 }
 
 static void ata_initialize(drive_t* device) {
-	device->prdt   = k_vallocp(KB(64), 0x1000, &device->prdt_phys);
+	device->prdt   = k_mem_dma_alloc(16, &device->prdt_phys);
 
 	device->blocked_processes = list_create();
 
@@ -310,17 +311,91 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
 
-	void* internal_buffer = k_valloc(dma_size * 512, 0x1000);
+	void* internal_buffer = k_mem_dma_alloc(dma_size * 512 / 0x1000 + 1, NULL);
 
 	__ata_read_internal(device, lba_offset, dma_size, internal_buffer);
 
 	memcpy(buffer, &internal_buffer[part_offset], size);
 
-	k_vfree(internal_buffer);
+	k_mem_dma_free(internal_buffer, dma_size * 512 / 0x1000 + 1);
 
 	return size;
 }
 
+static uint32_t __ata_write_internal(drive_t* device, uint32_t lba, uint32_t dma_size, uint8_t* buffer) {
+	mutex_lock(&device->lock);
+
+	__ata_prepare_prdt(device, buffer, dma_size);
+
+	ata_write_busmaster_command(device->bus, 0x0);
+
+	ata_write_busmaster_prdt_address(device->bus, device->prdt_phys);
+	
+	ata_write_busmaster_status(device->bus, 0x4 | 0x2);
+	ata_write_busmaster_command(device->bus, 0x8);
+
+	outb(ATA_DEV_CTRL(device->bus), 0);
+	outb(ATA_DRIVE(device->bus), device->drive == ATA_MASTER ? 0xe0 : 0xf0);
+
+	ata_wait(device);
+
+	outb(ATA_FEAT(device->bus), 0);
+
+	outb(ATA_SECCOUNT(device->bus), dma_size);
+	outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba & 0xFF));
+	outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba & 0xFF00) >> 8));
+	outb(ATA_LBA_HI(device->bus),  (uint8_t) ((lba & 0xFF0000) >> 16));
+	
+	ata_wait(device);
+
+	outb(ATA_COMMAND(device->bus), 0xCA);
+
+	ata_write_busmaster_command(device->bus, 0x8 | 0x1);
+
+	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
+
+	mutex_unlock(&device->lock);
+	
+	return 0;
+}
+
+static uint32_t ata_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(!size) {
+		return 0;
+	}
+
+	if(offset > node->size) {
+		return 0;
+	}
+
+	drive_t* device = (drive_t*) node->inode;
+
+	uint32_t lba_offset  = offset / 512;
+	uint32_t part_offset = offset % 512;
+
+	uint32_t full_sectors = size / 512;
+	uint32_t last_sector  = size % 512 - part_offset;
+
+	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
+
+	void* internal_buffer = k_mem_dma_alloc(dma_size * 512 / 0x1000 + 1, NULL);
+
+	memcpy(internal_buffer + part_offset, buffer, size);
+
+	if(part_offset) {
+		__ata_read_internal(device, lba_offset, 512, internal_buffer);
+	}
+	memcpy(buffer, &internal_buffer[part_offset], size);
+	if(last_sector) {
+		__ata_read_internal(device, lba_offset + dma_size - 1, 512, internal_buffer + (dma_size - 1) * 512);
+	}
+
+	__ata_write_internal(device, lba_offset, dma_size, internal_buffer);
+
+	k_mem_dma_free(internal_buffer, dma_size * 512 / 0x1000 + 1);
+
+	return size;
+}
 static void detect_drives() {
 	for(int i = 0; i <= 1; i++) {
 		for(int j = 0; j <= 1; j++) {
@@ -358,7 +433,8 @@ static void detect_drives() {
 
 				node->inode = (uint32_t) device;
 				node->size = device->lba28_sectors * 512;
-				node->fs.read = &ata_read;
+				node->fs.read  = &ata_read;
+				node->fs.write = &ata_write;
 
 				k_fs_vfs_mount_node(device_path, node);
 

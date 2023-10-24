@@ -2,6 +2,7 @@
 #include <kernel/fs/vfs.h>
 #include <kernel/mod/modules.h>
 #include <kernel/mem/heap.h>
+#include <kernel/mem/dma.h>
 #include <kernel/kernel.h>
 #include <kernel/util/log.h>
 #include <kernel/util/path.h>
@@ -88,7 +89,9 @@
 #define TRIPLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock)
 
 #define INODES_PER_CACHE 128
-#define BLOCKS_PER_CACHE 32
+#define BLOCKS_PER_CACHE 1024
+
+#define READAHEAD_SIZE   8
 
 typedef struct {
 	uint32_t total_inodes;
@@ -198,8 +201,8 @@ typedef struct {
 	size_t                         bgds_amount;
 	list_t*                        inode_cache;
 	list_t*                        block_cache;
+	void*                          readahead_buffer;
 } ext2_fs_t;
-
 
 ext2_inode_t* __ext2_try_get_cached_inode(ext2_fs_t* fs, uint32_t inode) {
 	for(size_t i = 0; i < fs->inode_cache->size; i++) {
@@ -268,11 +271,12 @@ static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* 
 		memcpy(buffer, bl, block_size);
 		return block_size; 
 	} else {
-		uint32_t read = k_fs_vfs_read(fs->device, start_block * BLOCK_SIZE(fs->superblock),BLOCK_SIZE(fs->superblock), buffer);	
-		if(read == block_size) {
-			__ext2_cache_block(fs, start_block, buffer);
+		uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, block_size * READAHEAD_SIZE, fs->readahead_buffer);	
+		for(size_t i = 0; i < read; i += block_size) {
+			__ext2_cache_block(fs, start_block + i / block_size, fs->readahead_buffer + i);
 		}
-		return read;
+		memcpy(buffer, fs->readahead_buffer, block_size);
+		return block_size;
 	}
 }
 
@@ -346,17 +350,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 	uint32_t buffer_offset = 0;
 
 	while(size > 0) {
-		uint32_t target_block = 0;
-		if(block_offset < DIRECT_BLOCK_CAPACITY) {
-			target_block = inode->block_pointers[block_offset];
-		} else if (block_offset < SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) && inode->indirect_block_pointer_s){
-			target_block = __ext2_resolve_single_indirect_block(fs, inode->indirect_block_pointer_s, block_offset);
-		} else if(block_offset < DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) && inode->indirect_block_pointer_d) {
-			target_block = __ext2_resolve_double_indirect_block(fs, inode->indirect_block_pointer_d, block_offset);
-		} else if(block_offset < TRIPLE_INDIRECT_BLOCK_CAPACITY(fs->superblock) && inode->indirect_block_pointer_t) {
-			target_block = __ext2_resolve_triple_indirect_block(fs, inode->indirect_block_pointer_t, block_offset);
-		} 
-
+		uint32_t target_block = __ext2_block_from_offset(fs, inode, block_offset);
 		if(!target_block) {
 			break;
 		}
@@ -561,10 +555,11 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 
 	ext2_fs_t* fs = k_malloc(sizeof(ext2_fs_t));
 
-	fs->superblock  = superblock;
-	fs->device      = dev;
-	fs->inode_cache = list_create();
-	fs->block_cache = list_create();
+	fs->superblock       = superblock;
+	fs->device           = dev;
+	fs->inode_cache      = list_create();
+	fs->block_cache      = list_create();
+	fs->readahead_buffer = k_mem_dma_alloc(READAHEAD_SIZE * BLOCK_SIZE(fs->superblock) / 0x1000, NULL);
 
 	fs->bgds_amount = fs->superblock->total_blocks / fs->superblock->blocks_per_group;
 	while(fs->bgds_amount * fs->superblock->blocks_per_group < fs->superblock->total_blocks) {

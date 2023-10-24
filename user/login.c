@@ -53,14 +53,15 @@ int login(char* name, char* pass) {
 }
 
 int main(int argc, char** argv) {
-	printf("Login: ");
-	fflush(stdout);
-	
-	char name[128];
-	fgets(name, sizeof(name), stdin);
-
-	char pass[128];
 	while(1) {
+		char name[128];
+		char pass[128];
+
+		printf("Login: ");
+		fflush(stdout);
+		
+		fgets(name, sizeof(name), stdin);
+
 		printf("Password: ");
 		fflush(stdout);
 

@@ -353,7 +353,7 @@ uint32_t  k_fs_vfs_readlink(fs_node_t* node, uint8_t* buf, uint32_t size) {
 	return node->fs.readlink(node, buf, size);
 }
 
-fs_node_t*   k_fs_vfs_finddir(fs_node_t* node, const char* path){
+fs_node_t* k_fs_vfs_finddir(fs_node_t* node, const char* path){
     if(!node->fs.finddir){
         return NULL;
     }

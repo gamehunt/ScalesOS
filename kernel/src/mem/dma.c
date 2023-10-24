@@ -5,8 +5,11 @@
 
 #include <string.h>
 
-void* k_mem_dma_alloc(uint32_t pages) {
+void* k_mem_dma_alloc(uint32_t pages, uint32_t* phys) {
 	uint32_t frames = k_mem_pmm_alloc_frames(pages);
+	if(phys) {
+		*phys = frames;
+	}
 	return k_map(frames, pages, PAGE_PRESENT | PAGE_WRITABLE);
 }
 
