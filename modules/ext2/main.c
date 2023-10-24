@@ -232,6 +232,16 @@ void* __ext2_try_get_cached_block(ext2_fs_t* fs, uint32_t block) {
 	return NULL;
 }
 
+void __ext2_invalidate_block(ext2_fs_t* fs, uint32_t block) {
+	for(size_t i = 0; i < fs->block_cache->size; i++) {
+		cached_block_t* c_bl = fs->block_cache->data[i];
+		if(c_bl->block_number == block) {
+			list_delete_element(fs->block_cache, c_bl);
+			break;
+		}
+	}
+}
+
 void __ext2_cache_inode(ext2_fs_t* fs, uint32_t num, ext2_inode_t* inode) {
 	cached_inode_t* copy = k_malloc(sizeof(cached_inode_t));
 	copy->inode_number = num; 
@@ -244,6 +254,16 @@ void __ext2_cache_inode(ext2_fs_t* fs, uint32_t num, ext2_inode_t* inode) {
 		k_free(last->inode);
 		k_free(last);
 	} 
+}
+
+void __ext2_invalidate_inode(ext2_fs_t* fs, uint32_t inode) {
+	for(size_t i = 0; i < fs->inode_cache->size; i++) {
+		cached_inode_t* c_ino = fs->inode_cache->data[i];
+		if(c_ino->inode_number == inode) {
+			list_delete_element(fs->inode_cache, c_ino);
+			break;
+		}
+	}
 }
 
 void __ext2_cache_block(ext2_fs_t* fs, uint32_t block, void* data) {
@@ -260,7 +280,7 @@ void __ext2_cache_block(ext2_fs_t* fs, uint32_t block, void* data) {
 	} 
 }
 
-static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* buffer) {
+static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* buffer, uint8_t readahead) {
 	if(start_block > fs->superblock->total_blocks) {
 		k_warn("ext2_read_block(): tried to read invalid block %d", start_block);
 		return 0;
@@ -271,12 +291,20 @@ static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* 
 		memcpy(buffer, bl, block_size);
 		return block_size; 
 	} else {
-		uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, block_size * READAHEAD_SIZE, fs->readahead_buffer);	
-		for(size_t i = 0; i < read; i += block_size) {
-			__ext2_cache_block(fs, start_block + i / block_size, fs->readahead_buffer + i);
+		if(readahead) {
+			uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, block_size * READAHEAD_SIZE, fs->readahead_buffer);	
+			for(size_t i = 0; i < read; i += block_size) {
+				__ext2_cache_block(fs, start_block + i / block_size, fs->readahead_buffer + i);
+			}
+			memcpy(buffer, fs->readahead_buffer, block_size);
+			return block_size;
+		} else {
+			uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, block_size, buffer);
+			if(read == block_size) {
+				__ext2_cache_block(fs, start_block, buffer);
+			}
+			return read;
 		}
-		memcpy(buffer, fs->readahead_buffer, block_size);
-		return block_size;
 	}
 }
 
@@ -285,7 +313,7 @@ static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t poi
 		return 0;
 	}
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer);
+	__ext2_read_block(fs, pointer, block_buffer, 1);
 	uint32_t target_block = ((uint32_t*) block_buffer) [block_offset - (DIRECT_BLOCK_CAPACITY)]; 
 	k_free(block_buffer);
 	return target_block;
@@ -297,7 +325,7 @@ static uint32_t __ext2_resolve_double_indirect_block(ext2_fs_t* fs, uint32_t poi
 	}
 	uint32_t extra_offset = block_offset - (SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer);
+	__ext2_read_block(fs, pointer, block_buffer, 1);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 
 	k_free(block_buffer);
 	return __ext2_resolve_single_indirect_block(fs, target_block, extra_offset % SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
@@ -309,7 +337,7 @@ static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t poi
 	}
 	uint32_t extra_offset = block_offset - (DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer);
+	__ext2_read_block(fs, pointer, block_buffer, 1);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 
 	k_free(block_buffer);
 	return __ext2_resolve_double_indirect_block(fs, target_block, extra_offset % DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
@@ -355,7 +383,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 			break;
 		}
 
-		__ext2_read_block(fs, target_block, block_buffer);
+		__ext2_read_block(fs, target_block, block_buffer, 1);
 		
 		if(size <= block_size - part_offset) {
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], size);
@@ -399,7 +427,7 @@ static ext2_inode_t* __ext2_read_inode(ext2_fs_t* fs, uint32_t inode) {
 	uint32_t inner_offset = inode_index - block_offset * (block_size / fs->superblock->inode_size);
 	uint32_t target_block = inode_table + block_offset;
 
-	__ext2_read_block(fs, target_block, buffer);
+	__ext2_read_block(fs, target_block, buffer, 0);
 
 	ext2_inode_t* actual_inode = k_malloc(fs->superblock->inode_size);
 
@@ -538,6 +566,66 @@ static fs_node_t* __ext2_finddir(fs_node_t* root, const char* path) {
 	}
 	k_free(final);
 	return root;
+}
+
+static void __ext2_write_superblock(ext2_fs_t* fs) {
+	k_fs_vfs_write(fs->device, 1024, 1024, fs);
+}
+
+static void __ext2_write_inode(ext2_fs_t* fs, uint32_t inode, ext2_inode_t* inode_data) {
+	uint32_t block_size = BLOCK_SIZE(fs->superblock);
+
+	uint32_t group = GROUP_FROM_INODE(fs->superblock, inode);
+
+	ext2_block_group_descriptor_t* block_group_table = fs->bgds;
+	uint32_t inode_table  = block_group_table[group].inode_table;
+
+	uint32_t inode_index  = INDEX_FROM_INODE(fs->superblock, inode);
+	uint32_t block_offset = BLOCK_FROM_INDEX(fs->superblock, inode_index);
+	uint32_t inner_offset = inode_index - block_offset * (block_size / fs->superblock->inode_size);
+	uint32_t target_block = inode_table + block_offset;
+
+	k_fs_vfs_write(fs->device, target_block * block_size + inner_offset * fs->superblock->inode_size, fs->superblock->inode_size, inode_data);
+
+	__ext2_invalidate_inode(fs, inode);
+}
+
+static uint32_t* __ext2_free_block_slot_from_inode(ext2_inode_t* inode) {
+	for(int i = 0; i < DIRECT_BLOCK_CAPACITY; i++) {
+		if(!inode->block_pointers[i]) {
+			return &inode->block_pointers[i];
+		}
+	}
+	if(inode->indirect_block_pointer_s) {
+
+	}
+	if(inode->indirect_block_pointer_d) {
+
+	}
+	if(inode->indirect_block_pointer_t) {
+
+	}
+}
+
+static void __ext2_allocate_blocks_for_inode(ext2_fs_t* fs, uint32_t inode, ext2_inode_t* inode_data, uint32_t blocks) {
+	uint32_t block_size = BLOCK_SIZE(fs->superblock);
+	uint32_t group      = GROUP_FROM_INODE(fs->superblock, inode);
+
+	ext2_block_group_descriptor_t desc = fs->bgds[group];
+
+	if(desc.free_blocks >= blocks) {
+		uint32_t  bitmap_address = desc.blocks_bitmap;	
+		uint32_t* bitmap = k_malloc(block_size);
+		uint32_t  block_offset = group * fs->superblock->blocks_per_group;
+
+		__ext2_read_block(fs, bitmap_address, bitmap, 0);
+
+		while(blocks) {
+			blocks--;
+		}
+
+		k_free(bitmap);
+	}
 }
 
 static fs_node_t* __ext2_mount(const char* path, const char* device) {
