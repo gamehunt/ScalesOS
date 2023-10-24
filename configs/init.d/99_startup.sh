@@ -1,5 +1,6 @@
 #!/bin/scsh
 
+echo !s9 > /tmp/splash
 echo Finishing up... > /tmp/splash
 echo !q > /tmp/splash
 
