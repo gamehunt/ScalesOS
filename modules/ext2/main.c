@@ -513,6 +513,7 @@ static struct dirent* __ext2_readdir(fs_node_t* dir, uint32_t index) {
 }
 
 static fs_node_t* __ext2_finddir(fs_node_t* node, const char* path);
+static uint32_t   __ext2_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
 
 static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t inode) {
 	ext2_inode_t* ino = __ext2_read_inode(fs, inode);
@@ -524,9 +525,12 @@ static fs_node_t* __ext2_from_inode(ext2_fs_t* fs, const char* name, uint32_t in
 	
 	if(ino->perms & EXT2_DIR) {
 		file->flags |= VFS_DIR;
+	} else {
+		file->flags |= VFS_FILE;
 	}
 
 	file->fs.read    = &__ext2_read;
+	file->fs.write   = &__ext2_write;
 	file->fs.readdir = &__ext2_readdir;
 	file->fs.finddir = &__ext2_finddir;
 	k_free(ino);
@@ -596,8 +600,9 @@ static uint32_t* __ext2_free_block_slot_from_inode(ext2_inode_t* inode) {
 			return &inode->block_pointers[i];
 		}
 	}
+	// TODO
 	if(inode->indirect_block_pointer_s) {
-
+		
 	}
 	if(inode->indirect_block_pointer_d) {
 
@@ -605,6 +610,23 @@ static uint32_t* __ext2_free_block_slot_from_inode(ext2_inode_t* inode) {
 	if(inode->indirect_block_pointer_t) {
 
 	}
+
+	return 0;
+}
+
+static uint32_t __ext2_get_free_block_from_bitmap(uint32_t* bitmap) {
+	for(uint32_t i = 0; i < 1024; i++) {
+		if(bitmap[i] == 0xFFFFFFFF) {
+			continue;
+		}
+		for(uint32_t j = 0; j < 32; j++) {
+			if(!(bitmap[i] & (1 << j))) {
+				bitmap[i] |= (1 << j);
+				return i * 32 + j;
+			}
+		}
+	}
+	return 0;
 }
 
 static void __ext2_allocate_blocks_for_inode(ext2_fs_t* fs, uint32_t inode, ext2_inode_t* inode_data, uint32_t blocks) {
@@ -621,11 +643,72 @@ static void __ext2_allocate_blocks_for_inode(ext2_fs_t* fs, uint32_t inode, ext2
 		__ext2_read_block(fs, bitmap_address, bitmap, 0);
 
 		while(blocks) {
+			*__ext2_free_block_slot_from_inode(inode_data) = block_offset + __ext2_get_free_block_from_bitmap(bitmap);
 			blocks--;
 		}
 
+		k_fs_vfs_write(fs->device, bitmap_address, block_size, bitmap);
+
 		k_free(bitmap);
 	}
+}
+
+static uint32_t __ext2_count_allocated_blocks(ext2_inode_t* ino) {
+	uint32_t t = 0;
+	for(int i = 0; i < DIRECT_BLOCK_CAPACITY; i++) {
+		if(ino->block_pointers[i]) {
+			t++;
+		} else {
+			break;
+		}
+	}
+	return t;
+}
+
+static uint32_t __ext2_write(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer) {
+	if(offset >= node->size) {
+		return 0;
+	}
+
+	ext2_fs_t*     fs   = node->device;
+	ext2_inode_t*  ino  = __ext2_read_inode(fs, node->inode);
+
+	if(!ino) {
+		return 0;
+	}
+
+	uint32_t block_size = BLOCK_SIZE(fs->superblock);
+	uint32_t block_offset = offset / block_size;
+	uint32_t part_offset  = offset % block_size;
+
+	uint32_t blocks_needed 	     = size / block_size;
+	uint32_t part_needed_before  = block_size - part_offset;
+	if(part_needed_before == block_size) {
+		part_needed_before = 0;
+	}
+	uint32_t part_needed_after   = size - blocks_needed - part_needed_before;
+
+	uint32_t total_blocks = blocks_needed + (part_needed_after > 0) + (part_needed_before > 0);
+	uint32_t total_offset = block_offset - (part_offset > 0);
+
+	uint32_t allocated_blocks = __ext2_count_allocated_blocks(ino);
+
+	if(blocks_needed > allocated_blocks) {
+		uint32_t delta = blocks_needed - allocated_blocks;	
+		__ext2_allocate_blocks_for_inode(fs, node->inode, ino, delta);
+	}
+
+	void* internal_buffer = k_malloc(total_blocks * block_size);
+	__ext2_read_inode_contents(fs, ino, total_offset * block_size, total_blocks * block_size, internal_buffer);
+	memcpy(internal_buffer + part_offset, buffer, size);
+	uint32_t r = k_fs_vfs_write(fs->device, total_offset * block_size, total_blocks * block_size, internal_buffer);
+
+	__ext2_write_inode(fs, node->inode, ino);
+
+	k_free(ino);
+	k_free(internal_buffer);
+
+	return r;
 }
 
 static fs_node_t* __ext2_mount(const char* path, const char* device) {
@@ -663,7 +746,7 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	}
 
 	for(uint32_t i = 0; i < block_amount; i++) {
-		__ext2_read_block(fs, start + i, (void*) ((uint32_t)fs->bgds + BLOCK_SIZE(fs->superblock) * i));
+		__ext2_read_block(fs, start + i, (void*) ((uint32_t)fs->bgds + BLOCK_SIZE(fs->superblock) * i), 0);
 	}
 
 	char* filename = k_util_path_filename(path);
@@ -672,6 +755,7 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	root->inode  = 2;
 	root->device = fs;
 	root->flags  = VFS_DIR;
+	root->fs.write   = &__ext2_write;
 	root->fs.read    = &__ext2_read;
 	root->fs.readdir = &__ext2_readdir;
 	root->fs.finddir = &__ext2_finddir;

@@ -29,7 +29,7 @@ static fs_node_t* __k_fs_vfs_root_node(){
     return __k_fs_vfs_root_entry()->node;
 }
 
-static fs_node_t* __k_fs_vfs_find_node(const char* path, uint8_t flags);
+static fs_node_t* __k_fs_vfs_find_node(const char* path, uint16_t flags);
 
 static fs_node_t* __k_fs_vfs_follow_symlink(fs_node_t* node) {
 	if(!(node->flags & VFS_SYMLINK)) {
@@ -46,7 +46,7 @@ static void __k_fs_vfs_maybe_free(fs_node_t* node) {
 	}
 }
 
-static fs_node_t* __k_fs_vfs_find_node(const char* path, uint8_t flags){
+static fs_node_t* __k_fs_vfs_find_node(const char* path, uint16_t flags){
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len   = k_util_path_length(path);
     char* filename = k_util_path_filename(path);
@@ -279,6 +279,20 @@ fs_node_t*  k_fs_vfs_open(const char* path, uint16_t mode){
     fs_node_t* root_node = __k_fs_vfs_find_node(canon_path, mode);
 
 	if(!root_node) {
+		if(mode & O_CREAT) {
+			char* folder = k_util_path_folder(canon_path);
+			char* name   = k_util_path_filename(canon_path);
+			fs_node_t* root_folder = k_fs_vfs_open(folder, O_WRONLY);
+			if(root_folder) {
+				root_node = k_fs_vfs_create(root_folder, name, mode);
+			}
+			k_free(folder);
+			k_free(name);
+			k_fs_vfs_close(root_folder);
+		}
+	}
+
+	if(!root_node) {
 		k_free(canon_path);
 		return NULL;
 	}
@@ -361,7 +375,7 @@ fs_node_t* k_fs_vfs_finddir(fs_node_t* node, const char* path){
     return node->fs.finddir(node, path);
 }
 
-fs_node_t* k_fs_vfs_create(fs_node_t* node, const char* path, uint8_t mode) {
+fs_node_t* k_fs_vfs_create(fs_node_t* node, const char* path, uint16_t mode) {
 	if(!node->fs.create) {
 		return NULL;
 	}
@@ -369,7 +383,7 @@ fs_node_t* k_fs_vfs_create(fs_node_t* node, const char* path, uint8_t mode) {
 	return node->fs.create(node, path, mode);
 }
 
-fs_node_t* k_fs_vfs_mkdir(fs_node_t* node, const char* path, uint8_t mode) {
+fs_node_t* k_fs_vfs_mkdir(fs_node_t* node, const char* path, uint16_t mode) {
 	if(!node->fs.mkdir) {
 		return NULL;
 	}

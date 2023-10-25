@@ -1,3 +1,4 @@
+#include "unistd.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -44,7 +45,7 @@ int fflush(FILE *stream){
 		return 0;
 	}
 	if(stream->write_ptr) {
-		uint32_t result = __sys_write(stream->fd, stream->write_ptr, (uint32_t) stream->write_buffer);
+		uint32_t result = write(stream->fd, stream->write_buffer, stream->write_ptr);
 		stream->write_ptr = 0;
 		return result;
 	}
@@ -138,10 +139,10 @@ int vfprintf(FILE* device, const char *format, va_list argptr){
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE* stream){
 	uint32_t len = size * nmemb;
-	uint32_t read = 0;
+	uint32_t read_bytes = 0;
 	char* buf = (char*) ptr;
 	if(!stream->read_buffer) {
-		return __sys_read(stream->fd, len, (uint32_t) buf);
+		return read(stream->fd, buf, len);
 	}
 	while(len > 0) {
 		if(!stream->available) {
@@ -150,8 +151,7 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE* stream){
 			}
 
 			stream->real_offset = fseek(stream, 0, SEEK_CUR);
-			int32_t r = __sys_read(stream->fd, stream->buffer_size - stream->read_buffer_offset, 
-					(uint32_t) &stream->read_buffer[stream->read_buffer_offset]);
+			int32_t r = read(stream->fd, &stream->read_buffer[stream->read_buffer_offset], stream->buffer_size - stream->read_buffer_offset);
 
 			if(r < 0){
 				break;
@@ -173,9 +173,9 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE* stream){
 		}
 
 		len--;
-		read++;
+		read_bytes++;
 	}
-	return read;
+	return read_bytes;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE* stream){
@@ -183,7 +183,7 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE* stream){
 	uint32_t written = len;
 	char* buf = (char*) ptr;
 	if(!stream->write_buffer) {
-		return __sys_write(stream->fd, len, (uint32_t) buf);
+		return write(stream->fd, buf, len);
 	}
 	while(len > 0) {
 		if(stream->write_buffer) {

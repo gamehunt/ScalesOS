@@ -46,6 +46,11 @@
 #define SYS_PRCTL        40
 #define SYS_RM           41
 #define SYS_RMDIR        42
+#define SYS_SOCKET       43
+#define SYS_CONNECT      44
+#define SYS_LISTEN       45
+#define SYS_BIND         46
+#define SYS_ACCEPT       47
 
 #define SYS_DEBUG        255
 
@@ -103,6 +108,11 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_prctl(op, arg)                          syscall(SYS_PRCTL, op, arg, UNUSED3)
 #define __sys_rm(path)                                syscall(SYS_RM, path, UNUSED4)
 #define __sys_rmdir(path)                             syscall(SYS_RMDIR, path, UNUSED4)
+#define __sys_socket(domain, type, prot)              syscall(SYS_SOCKET, domain, type, prot, UNUSED2)
+#define __sys_bind(fd, addr, len)                     syscall(SYS_BIND, fd, addr, len, UNUSED2)
+#define __sys_listen(fd, backlog)                     syscall(SYS_LISTEN, fd, backlog, UNUSED3)
+#define __sys_connect(fd, addr, len)                  syscall(SYS_CONNECT, fd, addr, len, UNUSED2)
+#define __sys_accept(fd, addr, len)                   syscall(SYS_ACCEPT, fd, addr, len, UNUSED2)
 
 #define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 

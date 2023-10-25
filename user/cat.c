@@ -24,6 +24,7 @@ int main(int argc, char** argv) {
 	}
 
 	size_t l = sb.st_size;
+
 	char* buff = malloc(l);
 	
 	fread(buff, 1, l, f);

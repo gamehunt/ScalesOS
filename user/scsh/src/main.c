@@ -120,7 +120,7 @@ int execute_line(char* line) {
 		}
 
 		if(parse_pipe == 1) {
-			out_pipe = fopen(word, "w");
+			out_pipe = fopen(word, "a+");
 			parse_pipe = 0;
 			word = strtok(NULL, " ");
 			continue;
@@ -188,6 +188,8 @@ int execute_line(char* line) {
 			}
 			waitpid(child, &status, 0);
 			tcsetpgrp(STDIN_FILENO, my_pid);
+		} else if(is_interactive) {
+			printf("In background: %d\n", child);
 		}
 	} else {
 		status = try_builtin_command(op, _op_argc, _op_argv, out_pipe, in_pipe);

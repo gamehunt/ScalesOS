@@ -5,6 +5,7 @@
 #include "dirent.h"
 #include "errno.h"
 #include "fs/pipe.h"
+#include "fs/socket.h"
 #include "fs/vfs.h"
 #include "kernel/mem/memory.h"
 #include "kernel/mem/paging.h"
@@ -14,6 +15,7 @@
 #include "mod/elf.h"
 #include "mod/modules.h"
 #include "sys/heap.h"
+#include "sys/socket.h"
 #include "sys/syscall.h"
 #include <signal.h>
 #include <stdio.h>
@@ -630,7 +632,23 @@ static uint32_t sys_munmap(void* start, size_t length) {
 static void __stat(fs_node_t* node, struct stat* sb) {
 	sb->st_ino  = node->inode;
 	sb->st_size = node->size;
-	sb->st_mode = node->mode;
+	switch(node->flags) {
+		case VFS_FILE:
+			sb->st_mode = S_IFREG;
+			break;
+		case VFS_DIR:
+			sb->st_mode = S_IFDIR;
+			break;
+		case VFS_SYMLINK:
+			sb->st_mode = S_IFLNK;
+			break;
+		case VFS_CHARDEV:
+			sb->st_mode = S_IFCHR;
+			break;
+		case VFS_FIFO:
+			sb->st_mode = S_IFIFO;
+			break;
+	}
 }
 
 static uint32_t sys_stat(const char* path, struct stat* sb) {
@@ -642,7 +660,10 @@ static uint32_t sys_stat(const char* path, struct stat* sb) {
 		return -EINVAL;
 	}
 
-	fs_node_t* node = k_fs_vfs_open(path, O_NOFOLLOW);
+	process_t* cur = k_proc_process_current();
+
+	char* fullpath = __sys_to_fullpath(path, cur);
+	fs_node_t* node = k_fs_vfs_open(fullpath, 0);	
 
 	if(!node) {
 		return -ENOENT;
@@ -664,7 +685,10 @@ static uint32_t sys_lstat(const char* path, struct stat* sb) {
 		return -EINVAL;
 	}
 
-	fs_node_t* node = k_fs_vfs_open(path, 0);
+	process_t* cur = k_proc_process_current();
+	
+	char* fullpath = __sys_to_fullpath(path, cur);
+	fs_node_t* node = k_fs_vfs_open(fullpath, 0);	
 
 	if(!node) {
 		return -ENOENT;
@@ -756,7 +780,7 @@ uint32_t sys_rm(const char* path) {
 	process_t* cur = k_proc_process_current();
 
 	char* fullpath = __sys_to_fullpath(path, cur);
-	fs_node_t* node = k_fs_vfs_open(path, 0);	
+	fs_node_t* node = k_fs_vfs_open(fullpath, 0);	
 
 	k_free(fullpath);
 
@@ -770,7 +794,7 @@ uint32_t sys_rm(const char* path) {
 uint32_t sys_rmdir(const char* path) {
 	process_t* cur = k_proc_process_current();
 
-	char* fullpath = __sys_to_fullpath(path, cur);
+	char* fullpath  = __sys_to_fullpath(path, cur);
 	fs_node_t* node = k_fs_vfs_open(fullpath, 0);	
 
 	k_free(fullpath);
@@ -780,6 +804,88 @@ uint32_t sys_rmdir(const char* path) {
 	}
 
 	return k_fs_vfs_rmdir(node);
+}
+
+static uint32_t sys_socket(int d, int t, int p) {
+	fs_node_t* node = k_fs_socket_create(d, t, p);
+
+	if(!node) {
+		return -EINVAL;
+	}
+
+	return k_proc_process_open_node(k_proc_process_current(), node);
+}
+
+static uint32_t sys_bind(int fd, struct sockaddr* addr, socklen_t l) {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, fd);
+
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	fs_node_t* node = fdt->node;
+
+	return k_fs_socket_bind(node->device, addr, l);
+}
+
+static uint32_t sys_connect(int fd, struct sockaddr* addr, socklen_t l) {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, fd);
+
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	fs_node_t* node = fdt->node;
+
+	return k_fs_socket_connect(node->device, addr, l);
+}
+
+static uint32_t sys_listen(int fd, int backlog UNUSED) {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, fd);
+
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	fs_node_t* node = fdt->node;
+
+	return k_fs_socket_listen(node->device);
+}
+
+static uint32_t sys_accept(int fd, struct sockaddr* addr, socklen_t* l) {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	fd_t* fdt = fd2fdt(list, fd);
+
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	fs_node_t* node = fdt->node;
+
+	fs_node_t* new = k_fs_socket_accept(node->device);
+	if(!new) {
+		return -EINVAL;
+	}
+
+	socket_t* sock = new->device;
+
+	if(addr) {
+		*l = sock->addr_len;
+		memcpy(addr, sock->addr, sock->addr_len);
+	}
+
+	return k_proc_process_open_node(proc, new);
 }
 
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
@@ -825,6 +931,11 @@ DEFN_SYSCALL1(sys_setheap, void*);
 DEFN_SYSCALL2(sys_prctl, int, void*);
 DEFN_SYSCALL1(sys_rm, const char*);
 DEFN_SYSCALL1(sys_rmdir, const char*);
+DEFN_SYSCALL3(sys_socket, int, int, int);
+DEFN_SYSCALL3(sys_bind, int, struct sockaddr*, socklen_t);
+DEFN_SYSCALL3(sys_connect, int, struct sockaddr*, socklen_t);
+DEFN_SYSCALL3(sys_accept, int, struct sockaddr*, socklen_t*);
+DEFN_SYSCALL2(sys_listen, int, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -873,6 +984,11 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_PRCTL, REF_SYSCALL(sys_prctl));
 	k_int_syscall_setup_handler(SYS_RM, REF_SYSCALL(sys_rm));
 	k_int_syscall_setup_handler(SYS_RMDIR, REF_SYSCALL(sys_rmdir));
+	k_int_syscall_setup_handler(SYS_SOCKET, REF_SYSCALL(sys_socket));
+	k_int_syscall_setup_handler(SYS_BIND, REF_SYSCALL(sys_bind));
+	k_int_syscall_setup_handler(SYS_ACCEPT, REF_SYSCALL(sys_accept));
+	k_int_syscall_setup_handler(SYS_LISTEN, REF_SYSCALL(sys_listen));
+	k_int_syscall_setup_handler(SYS_CONNECT, REF_SYSCALL(sys_connect));
     
 	return K_STATUS_OK;
 }

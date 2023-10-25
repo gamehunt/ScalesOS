@@ -25,6 +25,13 @@ ExternalProject_Add(
 )
 
 ExternalProject_Add(
+    compositor
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/compositor/
+    BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/compositor/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+)
+
+ExternalProject_Add(
     terminal
     SOURCE_DIR  ${PROJECT_SOURCE_DIR}/terminal/
     BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/terminal/
@@ -55,6 +62,7 @@ add_executable(pwd      pwd.c)
 add_executable(sleep    sleep.c)
 add_executable(chvt     chvt.c)
 add_executable(mkdir    mkdir.c)
+add_executable(rm       rm.c)
 
 install(TARGETS 
 	getty 
@@ -74,6 +82,7 @@ install(TARGETS
 	sleep
 	chvt
 	mkdir
+	rm
 DESTINATION bin/)
 
 install(TARGETS mount DESTINATION ramdisk/bin/)
