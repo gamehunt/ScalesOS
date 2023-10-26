@@ -19,6 +19,9 @@
 #define VFS_FIFO       (1 << 4)
 #define VFS_MAPPER     (1 << 5)
 
+#define VFS_EVENT_READ  (1 << 0)
+#define VFS_EVENT_WRITE (1 << 1)
+
 struct fs_node;
 typedef struct fs_node fs_node_t;
 
@@ -35,6 +38,8 @@ typedef struct dirent* (*fs_readdir_t)  (fs_node_t* node, uint32_t index);
 typedef fs_node_t*     (*fs_create_t)   (fs_node_t* node, const char* name, uint16_t flags);
 typedef fs_node_t*     (*fs_mkdir_t)    (fs_node_t* node, const char* name, uint16_t flags);
 typedef int            (*fs_ioctl_t)    (fs_node_t* node, uint32_t request, void* args);
+typedef uint8_t        (*fs_check_t)    (fs_node_t* node, uint8_t mode);
+typedef int            (*fs_wait_t)     (fs_node_t* node, uint8_t event);
 
 typedef struct fs_ops{
     fs_write_t    write;
@@ -50,6 +55,8 @@ typedef struct fs_ops{
 	fs_create_t   create;
 	fs_mkdir_t    mkdir;
 	fs_ioctl_t    ioctl;
+	fs_check_t    check;
+	fs_wait_t     wait;
 }fs_ops_t;
 
 struct fs_node{
@@ -95,6 +102,8 @@ fs_node_t*       k_fs_vfs_dup            (fs_node_t* node);
 fs_node_t*       k_fs_vfs_create         (fs_node_t* node, const char* path, uint16_t mode);
 fs_node_t*       k_fs_vfs_mkdir          (fs_node_t* node, const char* path, uint16_t mode);
 int              k_fs_vfs_ioctl          (fs_node_t* node, uint32_t req, void* args);
+uint8_t          k_fs_vfs_check          (fs_node_t* node, uint8_t mode);
+int              k_fs_vfs_wait           (fs_node_t* node, uint8_t events);
 void             k_d_fs_vfs_print        ();
 void             k_fs_vfs_register_fs    (const char* alias, mount_callback m);
 

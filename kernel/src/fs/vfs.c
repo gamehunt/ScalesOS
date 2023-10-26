@@ -399,6 +399,22 @@ int k_fs_vfs_ioctl(fs_node_t *node, uint32_t req, void *args) {
 	return node->fs.ioctl(node, req, args);
 }
 
+uint8_t k_fs_vfs_check(fs_node_t* node, uint8_t mode) {
+	if(!node->fs.check) {
+		return -EPERM;
+	}
+
+	return node->fs.check(node, mode);
+}
+
+int k_fs_vfs_wait(fs_node_t* node, uint8_t events) {
+	if(!node->fs.wait) {
+		return -EPERM;
+	}
+
+	return node->fs.wait(node, events);
+}
+
 vfs_entry_t* k_fs_vfs_get_mountpoint(const char* path) {
 	return __k_fs_vfs_get_entry(path, 0);
 }
