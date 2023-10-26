@@ -4,6 +4,7 @@
 #include "mem/paging.h"
 #include "proc/spinlock.h"
 #include "types.h"
+#include "util/log.h"
 #include "util/panic.h"
 
 #include <stddef.h>
@@ -41,12 +42,12 @@ void* k_map(uint32_t frame, uint32_t size, uint8_t flags) {
 		}
 	}
 
-	start_addr += 0x1000 * offset;
-
-	if(start_addr + size * 0x1000 >= LOWMEM_END) {
+	if(start_addr + (offset + size) * 0x1000 > LOWMEM_END) {
 		k_panic("k_map(): failed to find free address.", NULL);
 	}
 	
+	start_addr += 0x1000 * offset;
+
 	first_free_address  = start_addr + size * 0x1000;
 
 	k_mem_paging_map_region(start_addr, frame, size, flags, 1);

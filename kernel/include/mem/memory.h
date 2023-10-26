@@ -23,6 +23,7 @@
 #define HEAP_START             (LOWMEM_END + 0x1000)
 #define HEAP_END               (USABLE_MEMORY_END - 0x1000)             
 #define HEAP_SIZE              (HEAP_END - HEAP_START)
+#define HEAP_INITIAL_SIZE      KB(16)
 
 void* k_map(uint32_t frame, uint32_t size, uint8_t flags);
 void  k_unmap(void* addr, uint32_t size);

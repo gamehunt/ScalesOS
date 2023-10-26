@@ -14,6 +14,8 @@ set(SOURCES
 	reboot.c
 	heap.c
 	socket.c
+	select.c
+	poll.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

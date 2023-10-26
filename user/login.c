@@ -3,6 +3,21 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/tty.h>
+
+void echo() {
+	struct termios t;
+	tcgetattr(STDIN_FILENO, &t);
+	t.c_lflag |= ECHO;
+	tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
+
+void noecho() {
+	struct termios t;
+	tcgetattr(STDIN_FILENO, &t);
+	t.c_lflag &= ~ECHO;
+	tcsetattr(STDIN_FILENO, TCSANOW, &t);
+}
 
 int compare(char* passw, char* enc_passw) {
 	return 0;
@@ -33,7 +48,8 @@ int try_login_with_password(struct passwd* pwd, char* pass) {
 			}
 		}
 	}
-	
+
+	printf("\n");
 	system("motd");
 
 	chdir(pwd->pw_dir);
@@ -65,7 +81,11 @@ int main(int argc, char** argv) {
 		printf("Password: ");
 		fflush(stdout);
 
+		noecho();
+
 		fgets(pass, sizeof(pass), stdin);
+
+		echo();
 
 		name[strlen(name) - 1] = '\0';
 		pass[strlen(pass) - 1] = '\0';

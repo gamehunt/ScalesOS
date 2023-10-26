@@ -16,9 +16,9 @@ typedef volatile int spinlock_t;
 #define LOCK(spinlock) \
 	while(__sync_lock_test_and_set(&spinlock, 1)){ \
 		YIELD(); \
-	}
+	} 
 
 #define UNLOCK(spinlock) \
-	__sync_lock_release(&spinlock);
+	__sync_lock_release(&spinlock); \
 
 #endif

@@ -51,6 +51,7 @@
 #define SYS_LISTEN       45
 #define SYS_BIND         46
 #define SYS_ACCEPT       47
+#define SYS_SELECT       48
 
 #define SYS_DEBUG        255
 
@@ -113,6 +114,7 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_listen(fd, backlog)                     syscall(SYS_LISTEN, fd, backlog, UNUSED3)
 #define __sys_connect(fd, addr, len)                  syscall(SYS_CONNECT, fd, addr, len, UNUSED2)
 #define __sys_accept(fd, addr, len)                   syscall(SYS_ACCEPT, fd, addr, len, UNUSED2)
+#define __sys_select(n, r, w, e, t)                   syscall(SYS_SELECT, n, r, w, e, t)
 
 #define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 

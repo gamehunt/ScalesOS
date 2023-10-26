@@ -5,38 +5,66 @@
 #include <stddef.h>
 
 #include "kernel/mem/paging.h"
-#include "mem/heap.h"
 #include "mem/memory.h"
-#include "proc/process.h"
+#include "mem/paging.h"
 #include "sys/heap.h"
 #include "proc/spinlock.h"
 #include "sys/mman.h"
-#include "util/asm_wrappers.h"
 
-static spinlock_t heap_lock = 0; //TODO
-								 
+static spinlock_t heap_lock = 0;							 
+
 #undef LOCK
 #undef UNLOCK
 
-#define LOCK(x)
-#define UNLOCK(x)
+#define LOCK(a)
+#define UNLOCK(b)
 
 #ifdef __LIBK
 
 #include "util/log.h"
 #include "util/panic.h"
 
-mem_block_t* heap            = (mem_block_t*) HEAP_START;
+mem_block_t* heap      = (mem_block_t*) HEAP_START;
+uint32_t     heap_size = HEAP_INITIAL_SIZE;
 
 #else
 
 #include "sys/syscall.h"
 #include "sys/heap.h"
 
-mem_block_t* heap         = NULL;
-static uint32_t heap_size = USER_HEAP_INITIAL_SIZE;
+mem_block_t* heap  = NULL;
+uint32_t     heap_size = USER_HEAP_INITIAL_SIZE;
+
+void __mem_place_heap(void* addr) {
+	heap = addr;
+	heap_size = USER_HEAP_INITIAL_SIZE;
+
+	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
+}
+
+static uint32_t __mem_grow_heap(int32_t size); 
+void __mem_init_heap() {
+	setheapopts(HEAP_OPT_DEFAULTS);
+	__mem_place_heap(__mem_grow_heap(0));
+}
+#endif
 
 static uint32_t __mem_grow_heap(int32_t size) {
+#ifdef __LIBK
+	if(!size) {
+		return (uint32_t) heap;
+	}
+
+	uint32_t addr = ((uint32_t)heap) + heap_size;
+	
+	if(addr + size * 0x1000 > HEAP_END) {
+		return 0;
+	}
+
+	k_mem_paging_map_region(addr, 0, size, PAGE_PRESENT | PAGE_WRITABLE, 0);
+
+	return addr;
+#else
 	heap_opts_t opts = getheapopts();
 	if(!opts) { 
 		fprintf(stderr, "Invalid heap options.\n");
@@ -53,28 +81,12 @@ static uint32_t __mem_grow_heap(int32_t size) {
 	}
 
 	return __sys_grow(size);
-}
-
-void __mem_place_heap(void* addr) {
-	heap = addr;
-	heap_size = USER_HEAP_INITIAL_SIZE;
-
-	__mem_heap_init_block(heap, heap_size - sizeof(mem_block_t));
-}
-
-void __mem_init_heap() {
-	setheapopts(HEAP_OPT_DEFAULTS);
-	__mem_place_heap(__mem_grow_heap(0));
-}
 #endif
+}
 
 
 static uint32_t __mem_heap_size() {
-#ifdef __LIBK
-	return HEAP_SIZE;
-#else
 	return heap_size;
-#endif
 }
 
 static uint32_t __mem_heap_start() {
@@ -84,9 +96,8 @@ static uint32_t __mem_heap_start() {
 static uint32_t __mem_heap_end() {
 #ifndef __LIBK
 	return USER_STACK_END;
-#else
-	return ((uint32_t)heap) + __mem_heap_size();
 #endif
+	return __mem_heap_start() + __mem_heap_size();
 }
 
 uint8_t __mem_heap_is_valid_block(mem_block_t* block){
@@ -111,12 +122,12 @@ void __mem_heap_init_block(mem_block_t* block, uint32_t size){
 }
 
 static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint32_t size){
-    if(src->size < size){
+    if(!__mem_heap_is_valid_block(src)){
         return 1;
     }
 
-    if(!__mem_heap_is_valid_block(src)){
-        return 1;
+    if(src->size < size){
+        return 2;
     }
 
     uint32_t diff = src->size - size;
@@ -126,7 +137,7 @@ static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint3
 	(*splitted)->next = src->next;
 	src->next = *splitted;
 
-    src->size          = size;
+    src->size = size;
 
     return 0;
 }
@@ -156,7 +167,6 @@ uint32_t __heap_usage() {
 void* __attribute__((malloc)) malloc(size_t size){
 	LOCK(heap_lock);
 
-
     mem_block_t* block            = heap;
 	mem_block_t* last_valid_block = heap;
     while(__mem_heap_is_valid_block(block) && (!(block->flags & M_BLOCK_FREE) 
@@ -167,32 +177,31 @@ void* __attribute__((malloc)) malloc(size_t size){
     }
 
     if(!__mem_heap_is_valid_block(block)){
-#ifndef __LIBK
 		uint32_t grow = (size + sizeof(mem_block_t) + 1) / 0x1000 + 1;
 		block = (mem_block_t*) __mem_grow_heap(grow);
 		if(!block) {
+#ifndef __LIBK
 			fprintf(stderr, "alloc(): out of memory\n");
 			abort();
+#else 
+			k_panic("alloc(): out of memory.", NULL);
+#endif
 		}
 		heap_size += grow * 0x1000;
 		__mem_heap_init_block(block, grow * 0x1000 - sizeof(mem_block_t));
 		last_valid_block->next = block;
-#else
-		cli();
-		k_d_mem_heap_print();
-		k_panic("Out of memory.", 0);
-#endif
     }
 
 	__last_alloc_address = (uint32_t) __builtin_return_address(0);
 
     if(block->size != size){
         mem_block_t* sblock;
-        if(__mem_split_block(block, &sblock, size) != 0){
+		int r;
+        if((r = __mem_split_block(block, &sblock, size)) != 0){
 #ifdef __LIBK
             k_panic("Block split failed. Kmalloc failure.", 0);
 #else
-			fprintf(stderr, "alloc(): block split failed.\n");
+			fprintf(stderr, "alloc(): block split failed with code %d.\n", r);
 			abort();
 #endif
             __builtin_unreachable();

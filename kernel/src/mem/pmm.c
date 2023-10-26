@@ -2,6 +2,7 @@
 #include "mem/memory.h"
 #include "mem/paging.h"
 #include "multiboot.h"
+#include "proc/spinlock.h"
 #include "shared.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
@@ -21,6 +22,8 @@ static uint32_t *bitmap = 0;
 static uint32_t bitmap_size = 0;
 static uint32_t first_free_index = 0xFFFFFFFF;
 static uint8_t  init = 0;
+
+static spinlock_t lock = 0;
 
 void k_mem_pmm_init(multiboot_info_t *mb) {
     bitmap = (uint32_t *)(ALIGN((uint32_t)&_kernel_end, 0x1000) + 0x100000);
@@ -61,6 +64,8 @@ void k_mem_pmm_set_allocated(pmm_frame_t frame) {
 }
 
 pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
+	LOCK(lock)
+
 	if(!frames) {
 		k_panic("Tried to allocate invalid amount of frames.", 0);
 	}
@@ -105,6 +110,8 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
             first_free_index++;
         }
 
+		UNLOCK(lock)
+
         return frame;
     }
 
@@ -117,6 +124,7 @@ void k_mem_pmm_free(pmm_frame_t frame, uint32_t size) {
 		k_warn("Invalid frame alignment: 0x%.8x", frame);
 		return;
 	}
+	LOCK(lock)
     for (pmm_frame_t f = frame; f < frame + ((pmm_frame_t)0x1000) * size; f += 0x1000) {
         uint32_t index = BITMAP_INDEX(f);
         while (index >= bitmap_size) {
@@ -125,13 +133,14 @@ void k_mem_pmm_free(pmm_frame_t frame, uint32_t size) {
         }
 		if(!k_mem_pmm_is_allocated(f)) {
 			k_warn("Trying to free non-allocated frame 0x%.8x", f);
-			return;
+			break;
 		}
         bitmap[index] |= BITMAP_BIT_MASK(f);
         if (index < first_free_index) {
             first_free_index = index;
         }
     }
+	UNLOCK(lock)
 }
 
 uint8_t k_mem_pmm_is_allocated(pmm_frame_t frame) {

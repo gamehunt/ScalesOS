@@ -16,7 +16,7 @@ add_library(test_module_objs OBJECT main.c)
 
 add_custom_target(
     test_module ALL
-    COMMAND ${CMAKE_LINKER} -r $<TARGET_OBJECTS:test_module_objs> -ffreestanding -O0 -nostdlib -o ${TARGET_FILE} -L${CMAKE_INSTALL_PREFIX}/lib -lk -lgcc
+    COMMAND ${CMAKE_LINKER} -r $<TARGET_OBJECTS:test_module_objs> -ffreestanding -O0 -nostdlib -o ${TARGET_FILE} -L${CMAKE_INSTALL_PREFIX}/lib -lgcc
     DEPENDS $<TARGET_OBJECTS:test_module_objs>
     VERBATIM
 )

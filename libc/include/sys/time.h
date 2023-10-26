@@ -8,6 +8,11 @@ struct timeval {
 	msec_t tv_msec;
 };
 
+struct timespec {
+    long  tv_sec;       
+	long  tv_nsec;
+};
+
 struct timezone {
 	char TODO;
 };

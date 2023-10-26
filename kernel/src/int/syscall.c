@@ -29,6 +29,7 @@
 #include "shared.h"
 #include "sys/times.h"
 #include "sys/time.h"
+#include "sys/select.h"
 #include "sys/signal.h"
 #include "sys/utsname.h"
 #include "sys/mman.h"
@@ -888,6 +889,10 @@ static uint32_t sys_accept(int fd, struct sockaddr* addr, socklen_t* l) {
 	return k_proc_process_open_node(proc, new);
 }
 
+static uint32_t sys_select(int n, fd_set* r, fd_set* w, fd_set* e, struct timeval* tv) {
+
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -936,6 +941,7 @@ DEFN_SYSCALL3(sys_bind, int, struct sockaddr*, socklen_t);
 DEFN_SYSCALL3(sys_connect, int, struct sockaddr*, socklen_t);
 DEFN_SYSCALL3(sys_accept, int, struct sockaddr*, socklen_t*);
 DEFN_SYSCALL2(sys_listen, int, int);
+DEFN_SYSCALL5(sys_select, int, fd_set*, fd_set*, fd_set*, struct timeval*);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -989,6 +995,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_ACCEPT, REF_SYSCALL(sys_accept));
 	k_int_syscall_setup_handler(SYS_LISTEN, REF_SYSCALL(sys_listen));
 	k_int_syscall_setup_handler(SYS_CONNECT, REF_SYSCALL(sys_connect));
+	k_int_syscall_setup_handler(SYS_SELECT, REF_SYSCALL(sys_select));
     
 	return K_STATUS_OK;
 }

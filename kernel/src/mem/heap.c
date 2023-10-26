@@ -27,9 +27,8 @@ void k_d_mem_heap_print(){
 
 
 K_STATUS k_mem_heap_init(){
-    k_mem_paging_map_region(HEAP_START, 0, (HEAP_SIZE / 0x1000), 0x3, 0);
-    __mem_heap_init_block(heap, HEAP_SIZE - sizeof(mem_block_t));
-	k_info("Heap physical start: 0x%.8x", k_mem_paging_virt2phys(HEAP_START));
+    k_mem_paging_map_region(HEAP_START, 0, (HEAP_INITIAL_SIZE / 0x1000), 0x3, 0);
+    __mem_heap_init_block(heap, HEAP_INITIAL_SIZE - sizeof(mem_block_t));
     return K_STATUS_OK;
 }
 

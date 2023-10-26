@@ -489,7 +489,10 @@ static interrupt_context_t* ata_irq15_handler(interrupt_context_t* ctx) {
 	return ctx;
 }
 
+extern size_t heap_size;
 K_STATUS load(){
+	k_debug("%d", heap_size);
+
 	ata_device_list = list_create();
 
 	__ide_controller = k_dev_pci_find_device_by_class(0x1, 0x1);
