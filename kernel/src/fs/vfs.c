@@ -407,12 +407,12 @@ uint8_t k_fs_vfs_check(fs_node_t* node, uint8_t mode) {
 	return node->fs.check(node, mode);
 }
 
-int k_fs_vfs_wait(fs_node_t* node, uint8_t events) {
+int k_fs_vfs_wait(fs_node_t* node, uint8_t events, struct process* prc) {
 	if(!node->fs.wait) {
 		return -EPERM;
 	}
 
-	return node->fs.wait(node, events);
+	return node->fs.wait(node, events, prc);
 }
 
 vfs_entry_t* k_fs_vfs_get_mountpoint(const char* path) {

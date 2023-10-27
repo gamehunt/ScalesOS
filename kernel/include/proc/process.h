@@ -108,6 +108,9 @@ typedef struct process {
 
 	fs_node_t* wd_node;
 	char       wd[256];
+
+	fs_node_t* select_wait_node;
+	uint8_t    select_wait_event;
 } process_t;
 
 typedef struct {
@@ -152,6 +155,8 @@ uint8_t    k_proc_process_sleep_and_unlock(process_t* process, list_t* queue, sp
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 void       k_proc_process_wakeup_queue(list_t* queue);
 void       k_proc_process_wakeup_queue_single(list_t* queue);
+void       k_proc_process_wakeup_queue_single_select(list_t* queue, fs_node_t* fsnode, uint8_t event);
+void       k_proc_process_wakeup_queue_select(list_t* queue, fs_node_t* node, uint8_t event);
 void       k_proc_process_wakeup_on_signal(process_t* process); 
 
 void       k_proc_process_exit(process_t* process, int code) __attribute__((noreturn));

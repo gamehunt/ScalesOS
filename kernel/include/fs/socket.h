@@ -9,6 +9,10 @@
 #define SOCKET_MAX_BUFFER_SIZE  256 * 256
 #define SOCKET_INIT_BUFFER_SIZE 4096
 
+#define SOCK_SEL_QUEUE_R 0
+#define SOCK_SEL_QUEUE_W 1
+#define SOCK_SEL_QUEUE_E 2
+
 typedef struct {
 	struct sockaddr* addr;
 	socklen_t        addr_len;
@@ -24,6 +28,7 @@ typedef struct {
 	list_t*          cnn_blocked_processes;
 	list_t*          blocked_processes;
 	mutex_t          lock;
+	list_t*          sel_queues[3];
 } socket_t;
 
 fs_node_t* k_fs_socket_create(int domain, int type, int protocol);

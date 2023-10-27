@@ -5,6 +5,7 @@
 #include "int/isr.h"
 #include "int/pic.h"
 #include "kernel.h"
+#include "stdio.h"
 #include <dev/ps2.h>
 #include <util/asm_wrappers.h>
 #include <util/log.h>
@@ -78,7 +79,7 @@ static uint8_t __k_dev_ps2_read_byte(void) {
 }
 
 static void __k_dev_ps2_handle_keyboard(uint8_t byte) {
-    // k_fs_vfs_write(kbd_pipe, 0, 1, &byte);
+    k_fs_vfs_write(kbd_pipe, 0, 1, &byte);
 	k_dev_vt_handle_scancode(byte);
 }
 
@@ -144,12 +145,14 @@ K_STATUS k_dev_ps2_init() {
     kbd_pipe   = k_fs_pipe_create(128);
     mouse_pipe = k_fs_pipe_create(PS2_MOUSE_PACKETS_PER_PIPE * sizeof(ps_mouse_packet_t));
 
+	kbd_pipe->mode   |= O_NOBLOCK;
+	mouse_pipe->mode |= O_NOBLOCK;
+
     k_fs_vfs_mount_node("/dev/kbd", kbd_pipe);
     k_fs_vfs_mount_node("/dev/mouse", mouse_pipe);
 
     __k_dev_ps2_write_command(PS2_DISABLE_PORT1);
     __k_dev_ps2_write_command(PS2_DISABLE_PORT2);
-
 
     __k_dev_ps2_write_command(PS2_READ_CONFIG);
     uint8_t cfg = __k_dev_ps2_read_byte();
@@ -167,13 +170,13 @@ K_STATUS k_dev_ps2_init() {
     __k_dev_ps2_write_mouse(PS2_MOUSE_SET_DEFAULTS);
     __k_dev_ps2_write_mouse(PS2_MOUSE_DATA_ON);
 
-    k_int_pic_unmask_irq(1);
-    k_int_pic_unmask_irq(12);
-
     k_int_irq_setup_handler(1,  __irq1_handler);
     k_int_irq_setup_handler(12, __irq12_handler);
 
     __k_dev_ps2_clear_buffer(0x1000);
+
+    k_int_pic_unmask_irq(1);
+    k_int_pic_unmask_irq(12);
 
     return K_STATUS_OK;
 }

@@ -12,6 +12,59 @@
 #include <string.h>
 #include <stdio.h>
 
+static int __k_fs_socket_event2index(uint8_t event) {
+	switch(event) {
+		case VFS_EVENT_READ:
+			return SOCK_SEL_QUEUE_R;
+		case VFS_EVENT_WRITE:
+			return SOCK_SEL_QUEUE_W;
+		case VFS_EVENT_EXCEPT:
+			return SOCK_SEL_QUEUE_E;
+		default:
+			return -EINVAL;
+	}
+}
+
+static uint8_t __k_fs_socket_check(fs_node_t* node, uint8_t event) {
+	socket_t* socket = node->device;
+	if(!socket) {
+		return 0;
+	}
+
+	switch(event) {
+		case VFS_EVENT_READ:
+			return socket->available_data > 0;
+		case VFS_EVENT_WRITE:
+			return socket->available_data < SOCKET_MAX_BUFFER_SIZE;
+		default:
+			return 0;
+	}
+}
+
+static int __k_fs_socket_wait(fs_node_t* node, uint8_t event, process_t* prc) {
+	socket_t* socket = node->device;
+	if(!socket) {
+		return -ENOENT;
+	}
+
+	int idx = __k_fs_socket_event2index(event);
+	if(idx < 0) {
+		return idx;
+	}
+
+	list_push_back(socket->sel_queues[idx], prc->block_node);
+
+	return 0;
+}
+static void __k_fs_socket_notify(fs_node_t* node, uint8_t event) {
+	socket_t* p = node->device;
+	int idx = __k_fs_socket_event2index(event);
+	if(idx < 0) {
+		return;
+	}
+	k_proc_process_wakeup_queue_select(p->sel_queues[idx], node, event);
+}
+
 static uint32_t __k_fs_socket_read(fs_node_t* node, uint32_t offset UNUSED, uint32_t size, uint8_t* buffer) {
 	socket_t* sock = node->device;
 	if(!sock) {
@@ -39,6 +92,8 @@ static uint32_t __k_fs_socket_read(fs_node_t* node, uint32_t offset UNUSED, uint
 		data_left -= to_read;
 	}
 
+	__k_fs_socket_notify(node, VFS_EVENT_WRITE);
+
 	return size;
 }
 
@@ -63,6 +118,7 @@ static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uin
 
 	if(client->available_data >= client->buffer_size) {
 		if(client->available_data >= SOCKET_MAX_BUFFER_SIZE) {
+			__k_fs_socket_notify(node, VFS_EVENT_EXCEPT);
 			return -ENOBUFS;
 		}
 
@@ -76,6 +132,8 @@ static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uin
 	mutex_unlock(&client->lock);
 
 	k_proc_process_wakeup_queue(client->blocked_processes);
+
+	__k_fs_socket_notify(node, VFS_EVENT_READ);
 
 	return size;
 }
@@ -96,11 +154,17 @@ fs_node_t* k_fs_socket_create(int domain, int type, int protocol UNUSED) {
 	sock->blocked_processes = list_create();
 	sock->cnn_blocked_processes = list_create();
 
+	for(int i = 0; i < 3; i++) {
+		sock->sel_queues[i] = list_create();
+	}
+
 	mutex_init(&sock->lock);
 
 	node->device   = sock;
 	node->fs.write = &__k_fs_socket_write;
 	node->fs.read  = &__k_fs_socket_read;
+	node->fs.check = &__k_fs_socket_check;
+	node->fs.wait  = &__k_fs_socket_wait;
 	node->mode     = O_RDWR;
 
 	return node;

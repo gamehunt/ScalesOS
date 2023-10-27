@@ -40,6 +40,7 @@ int   msync(void *start, size_t length, int flags);
 
 size_t read(int fd, void *buf, size_t count);
 size_t write(int fd, void *buf, size_t count);
+int    open(const char *pathname, int flags);
 #endif
 
 #endif

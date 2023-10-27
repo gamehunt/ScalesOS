@@ -14,7 +14,6 @@
 #include "mem/paging.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
-#include "sys/heap.h"
 #include "sys/socket.h"
 #include "sys/syscall.h"
 #include <signal.h>
@@ -889,9 +888,152 @@ static uint32_t sys_accept(int fd, struct sockaddr* addr, socklen_t* l) {
 	return k_proc_process_open_node(proc, new);
 }
 
-static uint32_t sys_select(int n, fd_set* r, fd_set* w, fd_set* e, struct timeval* tv) {
-
+static int __select_for_event(int fd, fs_node_t* node, fd_set* set, fd_set* wait_set, uint8_t event) {
+	if(!set) {
+		return 0;
+	}
+	if(FD_ISSET(fd, set)) {
+		FD_CLR(fd, set);
+		if(node) {
+			int r = k_fs_vfs_check(node, event);
+			if(r < 0) {
+				return -1;
+			} else if (r == 0) {
+				FD_SET(fd, wait_set);
+				return 0;
+			} else {
+				FD_SET(fd, set);
+				return 1;
+			}
+		} else {
+			return -1;
+		}
+	}
+	return 0;
 }
+
+static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct timeval* tv UNUSED) {
+	if(n < 0) {
+		return -EINVAL;
+	}
+
+	process_t* cur = k_proc_process_current();
+
+	fd_list_t* fds = &cur->fds;
+
+	int has_result = 0;
+
+	fd_set wait_read;
+	fd_set wait_write;
+	fd_set wait_exc;
+
+	FD_ZERO(&wait_read);
+	FD_ZERO(&wait_write);
+	FD_ZERO(&wait_exc);
+
+	for(int i = 0; i < n; i++) {
+		fd_t* fdt = fd2fdt(fds, i);
+		fs_node_t* node = fdt ? fdt->node : NULL;
+
+		int r = __select_for_event(i, node, rs, &wait_read, VFS_EVENT_READ);
+		if(r > 0) {
+			has_result++;
+		} else if (r < 0) {
+			return -EBADF;
+		}
+
+		r = __select_for_event(i, node, ws, &wait_write, VFS_EVENT_WRITE);
+		if(r > 0) {
+			has_result++;
+		} else if (r < 0) {
+			return -EBADF;
+		}
+
+		r = __select_for_event(i, node, es, &wait_exc, VFS_EVENT_EXCEPT);
+		if(r > 0) {
+			has_result++;
+		} else if (r < 0) {
+			return -EBADF;
+		}
+	}	
+
+	if(has_result) {
+		return has_result;
+	}
+
+	for(int i = 0; i < n; i++) {
+		fd_t* fdt = fd2fdt(fds, i);
+		if(!fdt) {
+			continue;
+		}
+		
+		fs_node_t* node = fdt->node;
+		if(!node) {
+			continue;
+		}
+
+		if(FD_ISSET(i, &wait_read)) {
+			if(k_fs_vfs_wait(node, VFS_EVENT_READ, cur) < 0) {
+				k_warn("wait(): failed for %s", node->name);		
+			}
+		}
+		if(FD_ISSET(i, &wait_write)) {
+			if(k_fs_vfs_wait(node, VFS_EVENT_WRITE, cur) < 0) {
+				k_warn("wait(): failed for %s", node->name);		
+			}
+		}
+		if(FD_ISSET(i, &wait_exc)) {
+			if(k_fs_vfs_wait(node, VFS_EVENT_EXCEPT, cur) < 0) {
+				k_warn("wait(): failed for %s", node->name);		
+			}
+		}
+	}
+
+	cur->state = PROCESS_STATE_SLEEPING;
+	k_proc_process_yield();
+
+	if(!cur->select_wait_node) {
+		return -EINTR;
+	}
+
+	fd_set* sel_set = NULL;
+
+	switch(cur->select_wait_event) {
+		case VFS_EVENT_READ:
+			sel_set = rs;
+			break;
+		case VFS_EVENT_WRITE:
+			sel_set = ws;
+			break;
+		case VFS_EVENT_EXCEPT:
+			sel_set = es;
+			break;
+	}
+
+	if(sel_set) {
+		for(int i = 0; i < n; i++) {
+			fd_t* fd = fd2fdt(fds, i);
+			if(!fd) {
+				continue;
+			}
+			fs_node_t* node = fd->node;
+			if(node == cur->select_wait_node) {
+				FD_SET(i, sel_set);
+				has_result = 1;
+				break;
+			}
+		}
+	}
+
+	cur->select_wait_event = 0;
+	cur->select_wait_node  = NULL;
+
+	if(sel_set) {
+		return has_result;
+	} else {
+		return -EFAULT;
+	}
+} 
 
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
