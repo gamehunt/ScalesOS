@@ -465,6 +465,10 @@ void k_proc_process_wakeup_queue_single_select(list_t* queue, fs_node_t* fsnode,
 			process->state = PROCESS_STATE_RUNNING;
 			process->select_wait_node  = fsnode;
 			process->select_wait_event = event;
+			if(process->timeout_node) {
+				process->timeout_node->data.is_valid = 0;
+				process->timeout_node = NULL;
+			}
 			k_proc_process_mark_ready(process);
 			return;
 		}
@@ -622,10 +626,16 @@ static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microsecon
 		if(node->data.is_valid && !node->data.interrupted) {
 			process_t* process = node->data.process;
 			if(process->state != PROCESS_STATE_FINISHED) {
+				if(process->timeout_node == node) {
+					process->select_wait_node             = (void*) 0xFFFFFFFF;
+					process->select_wait_event            = 0;
+					process->timeout_node                 = NULL;
+				} else {
+					node->data.process->wait_node = NULL;
+				}
 				process->state = PROCESS_STATE_RUNNING;
 				k_proc_process_mark_ready(process);
 			}
-			node->data.process->wait_node = 0;
 		}
 		k_free(node);
 		node = sleep_queue;
@@ -640,6 +650,42 @@ static uint64_t __k_proc_get_tsc_ticks() {
 	uint64_t ticks     = (tsc_ticks / speed) - base; 
 
 	return ticks;
+}
+
+void k_proc_process_timeout(process_t* process, uint64_t seconds, uint64_t microseconds) {
+	uint64_t ticks   = __k_proc_get_tsc_ticks();
+
+	uint64_t cur_seconds      = TICKS_SECONDS(ticks);
+	uint64_t cur_microseconds = TICKS_MICROSECONDS(ticks);
+
+	cur_seconds      += seconds;
+	cur_microseconds += microseconds;
+
+	if(cur_microseconds >= MICROSECONDS_PER_SECOND) {
+		cur_seconds      += cur_microseconds / MICROSECONDS_PER_SECOND;
+		cur_microseconds %= MICROSECONDS_PER_SECOND;
+	}
+
+	wait_node_t* new_node   = k_calloc(1, sizeof(wait_node_t));
+	new_node->data.is_valid = 1;
+	new_node->data.process 	= process;
+	new_node->seconds      	= cur_seconds;
+	new_node->microseconds 	= cur_microseconds;
+	process->timeout_node  	= new_node;
+
+	if(!sleep_queue) {
+		sleep_queue = new_node;
+		sleep_queue->next = 0;
+	} else {
+		wait_node_t* node 	   = sleep_queue;
+		wait_node_t* prev_node = node;
+		while(node && (node->seconds > cur_seconds || (node->seconds == cur_seconds && node->microseconds > cur_microseconds))) {
+			prev_node = node;
+			node      = node->next;
+		}
+		prev_node->next = new_node;
+		new_node->next  = node;
+	}
 }
 
 uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
@@ -660,10 +706,11 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 	}
 
 	wait_node_t* new_node  = k_calloc(1, sizeof(wait_node_t));
-	new_node->data.process = process;
-	new_node->seconds      = cur_seconds;
-	new_node->microseconds = cur_microseconds;
-	process->wait_node 	   = new_node;
+	new_node->data.is_valid = 1;
+	new_node->data.process 	= process;
+	new_node->seconds      	= cur_seconds;
+	new_node->microseconds 	= cur_microseconds;
+	process->wait_node 	   	= new_node;
 
 	if(!sleep_queue) {
 		sleep_queue = new_node;

@@ -873,11 +873,12 @@ static uint32_t sys_accept(int fd, struct sockaddr* addr, socklen_t* l) {
 
 	fs_node_t* node = fdt->node;
 
-	fs_node_t* new = k_fs_socket_accept(node->device);
-	if(!new) {
-		return -EINVAL;
+	int32_t r = (int32_t) k_fs_socket_accept(node->device);
+	if(r < 0) {
+		return r;
 	}
 
+	fs_node_t* new = (fs_node_t*) r;
 	socket_t* sock = new->device;
 
 	if(addr) {
@@ -912,8 +913,8 @@ static int __select_for_event(int fd, fs_node_t* node, fd_set* set, fd_set* wait
 	return 0;
 }
 
-static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct timeval* tv UNUSED) {
-	if(n < 0) {
+static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct timeval* tv) {
+	if(n < 0 || (tv && !IS_VALID_PTR((uint32_t) tv))) {
 		return -EINVAL;
 	}
 
@@ -989,11 +990,21 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 		}
 	}
 
+	if(tv) {
+		k_proc_process_timeout(cur, tv->tv_sec, tv->tv_msec);
+	}
+
 	cur->state = PROCESS_STATE_SLEEPING;
 	k_proc_process_yield();
 
 	if(!cur->select_wait_node) {
 		return -EINTR;
+	}
+
+	if(cur->select_wait_node == 0xFFFFFFFF) {
+		cur->select_wait_node  = 0;
+		cur->select_wait_event = 0;
+		return 0;
 	}
 
 	fd_set* sel_set = NULL;

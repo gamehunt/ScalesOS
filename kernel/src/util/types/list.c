@@ -94,3 +94,12 @@ void* list_tail(list_t* list) {
 	}
 	return list->data[list->size - 1];
 }
+
+uint8_t list_contains(list_t* list, void* data) {
+	for(size_t i = 0; i < list->size; i++) {
+		if(list->data[i] == data) {
+			return 1;
+		}
+	}
+	return 0;
+}

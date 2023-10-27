@@ -52,7 +52,9 @@ static int __k_fs_socket_wait(fs_node_t* node, uint8_t event, process_t* prc) {
 		return idx;
 	}
 
-	list_push_back(socket->sel_queues[idx], prc->block_node);
+	if(!list_contains(socket->sel_queues[idx], prc->block_node)) {
+		list_push_back(socket->sel_queues[idx], prc->block_node);
+	}
 
 	return 0;
 }
@@ -73,8 +75,16 @@ static uint32_t __k_fs_socket_read(fs_node_t* node, uint32_t offset UNUSED, uint
 
 	uint32_t data_left = size;
 	while(data_left) {
-		while(!sock->available_data) { // TODO nonblocking sockets
+		uint8_t b = 0;
+		while(!sock->available_data) {
+			if(node->mode & O_NOBLOCK) {
+				b = 1;
+				break;
+			}
 			k_proc_process_sleep_on_queue(k_proc_process_current(), sock->blocked_processes);
+		}
+		if(b) {
+			break;
 		}
 		uint32_t to_read = 0;
 		if(size < sock->available_data) {
@@ -94,7 +104,7 @@ static uint32_t __k_fs_socket_read(fs_node_t* node, uint32_t offset UNUSED, uint
 
 	__k_fs_socket_notify(node, VFS_EVENT_WRITE);
 
-	return size;
+	return size - data_left;
 }
 
 static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uint32_t size, uint8_t* buffer) {
@@ -166,6 +176,9 @@ fs_node_t* k_fs_socket_create(int domain, int type, int protocol UNUSED) {
 	node->fs.check = &__k_fs_socket_check;
 	node->fs.wait  = &__k_fs_socket_wait;
 	node->mode     = O_RDWR;
+	if(type & SOCK_NONBLOCK) {
+		node->mode |= O_NOBLOCK;
+	}
 
 	return node;
 }
@@ -225,6 +238,9 @@ int k_fs_socket_connect(socket_t* socket, struct sockaddr* addr, socklen_t l) {
 		k_proc_process_wakeup_queue(server->blocked_processes);
 
 		while(!socket->connect) {
+			if(socket->type & SOCK_NONBLOCK) {
+				return -EAGAIN;
+			}
 			k_proc_process_sleep_on_queue(k_proc_process_current(), server->cnn_blocked_processes);
 		}
 
@@ -248,6 +264,9 @@ int k_fs_socket_listen(socket_t* socket) {
 fs_node_t* k_fs_socket_accept(socket_t* socket) {
 	if(socket->domain == AF_LOCAL) {
 		while(!socket->backlog->size) {
+			if(socket->type & SOCK_NONBLOCK) {
+				return (fs_node_t*) -EAGAIN;
+			}
 			k_proc_process_sleep_on_queue(k_proc_process_current(), socket->blocked_processes);
 		}
 
@@ -267,5 +286,5 @@ fs_node_t* k_fs_socket_accept(socket_t* socket) {
 		return node;
 	}
 
-	return NULL;
+	return (fs_node_t*) -ENOTSUP;
 }

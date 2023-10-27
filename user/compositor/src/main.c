@@ -39,6 +39,10 @@ int main(int argc, char** argv) {
 	fd_set rset;
 	FD_ZERO(&rset);
 
+	struct timeval tv;
+	tv.tv_sec  = 5;
+	tv.tv_msec = 0;
+
 	printf("Waiting for events...\n");
 
 	while(1) {
@@ -46,20 +50,21 @@ int main(int argc, char** argv) {
 		FD_SET(kbdfd, &rset);
 		FD_SET(mosfd, &rset);
 
-		int d = select(maxfd + 1, &rset, NULL, NULL, NULL);
+		int d = select(maxfd + 1, &rset, NULL, NULL, &tv);
 
-		printf("select(): %d\n", d);
-		
 		uint8_t a;
 
-		if(FD_ISSET(kbdfd, &rset)) {
-			printf("Keyboard event received!\n");
-			read(kbdfd, &a, 1);
-		}
-
-		if(FD_ISSET(mosfd, &rset)) {
-			printf("Mouse event received!\n");
-			read(mosfd, &a, 3);
+		if(!d) {
+			printf("Timeout passed...\n");
+		} else {
+			if(FD_ISSET(kbdfd, &rset)) {
+				printf("Keyboard event received!\n");
+				read(kbdfd, &a, 1);
+			}
+			if(FD_ISSET(mosfd, &rset)) {
+				printf("Mouse event received!\n");
+				read(mosfd, &a, 3);
+			}
 		}
 	}
 
