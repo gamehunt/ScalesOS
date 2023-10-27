@@ -46,6 +46,8 @@ static list_t* 		process_list = 0;
 static list_t* 		ready_queue  = 0;
 static wait_node_t* sleep_queue  = 0;
 
+static spinlock_t   sleep_lock   = 0;
+
 static uint8_t __k_proc_process_check_stack(process_t* proc) {
     return proc->image.kernel_stack_base[0] == GUARD_MAGIC;
 }
@@ -526,6 +528,10 @@ void k_proc_process_exit(process_t* process, int code) {
 		process->wait_node->data.is_valid = 0;
 	}
 
+	if(process->timeout_node) {
+		process->timeout_node->data.is_valid = 0;
+	}
+
 	process->block_node->data.is_valid = 0;
 
 	k_proc_process_switch();
@@ -620,6 +626,7 @@ static void __k_proc_process_timer_callback(interrupt_context_t* regs UNUSED) {
 #define TICKS_MICROSECONDS(x) (x % MICROSECONDS_PER_SECOND)
 
 static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microseconds) {
+	LOCK(sleep_lock)
 	wait_node_t* node = sleep_queue; 
 	while(node && (node->seconds < seconds || (node->seconds == seconds && node->microseconds <= microseconds))) {
 		sleep_queue = node->next;
@@ -640,6 +647,7 @@ static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microsecon
 		k_free(node);
 		node = sleep_queue;
 	}
+	UNLOCK(sleep_lock)
 }
 
 static uint64_t __k_proc_get_tsc_ticks() {
@@ -673,6 +681,7 @@ void k_proc_process_timeout(process_t* process, uint64_t seconds, uint64_t micro
 	new_node->microseconds 	= cur_microseconds;
 	process->timeout_node  	= new_node;
 
+	LOCK(sleep_lock)
 	if(!sleep_queue) {
 		sleep_queue = new_node;
 		sleep_queue->next = 0;
@@ -686,6 +695,7 @@ void k_proc_process_timeout(process_t* process, uint64_t seconds, uint64_t micro
 		prev_node->next = new_node;
 		new_node->next  = node;
 	}
+	UNLOCK(sleep_lock)
 }
 
 uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
@@ -712,6 +722,7 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 	new_node->microseconds 	= cur_microseconds;
 	process->wait_node 	   	= new_node;
 
+	LOCK(sleep_lock)
 	if(!sleep_queue) {
 		sleep_queue = new_node;
 		sleep_queue->next = 0;
@@ -725,6 +736,7 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 		prev_node->next = new_node;
 		new_node->next  = node;
 	}
+	UNLOCK(sleep_lock)
 
 	process->state = PROCESS_STATE_SLEEPING;
 	k_proc_process_yield();

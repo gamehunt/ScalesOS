@@ -52,6 +52,8 @@ int main(int argc, char** argv) {
 
 		int d = select(maxfd + 1, &rset, NULL, NULL, &tv);
 
+		printf("printf(): returned %d\n", d);
+
 		uint8_t a;
 
 		if(!d) {

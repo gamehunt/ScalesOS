@@ -173,6 +173,8 @@ static int __k_fs_pipe_wait(fs_node_t* node, uint8_t event, process_t* prc) {
 		return idx;
 	}
 
+	prc->block_node->data.interrupted = 0;
+
 	if(!list_contains(pipe->sel_queues[idx], prc->block_node)) {
 		list_push_back(pipe->sel_queues[idx], prc->block_node);
 	}
