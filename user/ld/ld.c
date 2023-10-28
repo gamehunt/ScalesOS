@@ -221,6 +221,24 @@ void relocate_objects() {
 	relocate_object(__main);
 }
 
+static uint32_t object_map_base(object_t* object) {
+	Elf32_Ehdr* header = object->file;
+	uint32_t    h    = 0;
+	uint32_t    size = 0;
+	while(h < header->e_phnum) {
+		Elf32_Phdr* phdr = (Elf32_Phdr*) (((uint32_t) header) + header->e_phoff + h * header->e_phentsize);
+		switch(phdr->p_type) {
+			case PT_LOAD:
+				if(phdr->p_vaddr + phdr->p_memsz > size) {
+					size = phdr->p_vaddr + phdr->p_memsz;
+				}
+				break;
+		}
+		h++;
+	}
+	return (uint32_t) mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS, 0, 0);
+}
+
 object_t* load_library(const char* path);
 object_t* load_object(object_t* object, uint8_t absolute) {
 	Elf32_Ehdr* header = object->file;
@@ -241,7 +259,11 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 	if(absolute) {
 		object->base = 0;
 	} else {
-		object->base = ALIGN((uint32_t) object->file + object->file_size, 0x1000) + 0x1000;
+		object->base = object_map_base(object);
+		if((int32_t)object->base == MAP_FAILED) {
+			printf("LD: mmap() failed with code %ld\n", errno);
+			exit(-1);
+		}
 	}
 	object->end = object->base;
 
@@ -250,23 +272,27 @@ object_t* load_object(object_t* object, uint8_t absolute) {
 	// Process program headers
 	uint32_t h = 0;
 	while(h < header->e_phnum) {
-		Elf32_Phdr* phdr = (Elf32_Phdr*) (((uint32_t) header) + header->e_phoff + h * header->e_phentsize);
-		void* mem = 0;
-		uint32_t start = 0;
+		Elf32_Phdr* phdr  = (Elf32_Phdr*) (((uint32_t) header) + header->e_phoff + h * header->e_phentsize);
+		uint32_t    start = 0;
 		switch(phdr->p_type) {
 			case PT_LOAD:
 				start = object->base + phdr->p_vaddr;
-				mem = mmap((void*) (start & 0xFFFFF000), phdr->p_memsz + (start % 0x1000), PROT_READ | PROT_WRITE | PROT_EXEC, MAP_FIXED | MAP_ANONYMOUS, 0, 0);
-				if((int32_t) mem == MAP_FAILED) {
-					printf("LD: mmap() failed with code %ld\n", errno);
-					exit(-1);
-				} else {
-					memset((void*) start, 0, phdr->p_memsz);
-					if(object->end < base + phdr->p_vaddr + phdr->p_memsz) {
-						object->end = base + phdr->p_vaddr + phdr->p_memsz;
+				if(!object->base) {
+					int32_t mem = (int32_t)
+						mmap((void*) (start & 0xFFFFF000), phdr->p_memsz + (start % 0x1000), PROT_READ | PROT_WRITE | PROT_EXEC, 
+																							 MAP_FIXED | MAP_ANONYMOUS, 0, 0);
+					if(mem == MAP_FAILED) {
+							printf("LD: mmap() failed with code %ld\n", errno);
+							exit(-1);
 					}
-					memcpy((void*) start, (void*) (((uint32_t) header) + phdr->p_offset), phdr->p_filesz);
 				}
+				memset((void*) start, 0, phdr->p_memsz);
+				uint32_t real_start = (start & 0xFFFFF000);
+				uint32_t real_size  = ALIGN(phdr->p_memsz + (start % 0x1000), 0x1000) + 0x1000;
+				if(object->end < real_start + real_size) {
+					object->end = real_start + real_size;
+				}
+				memcpy((void*) start, (void*) (((uint32_t) header) + phdr->p_offset), phdr->p_filesz);
 				break;
 			case PT_DYNAMIC:
 				object->dynamic = (Elf32_Dyn*) (base + phdr->p_vaddr);

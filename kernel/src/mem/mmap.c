@@ -8,7 +8,7 @@
 #include "util/fd.h"
 #include "util/types/list.h"
 
-// #define MMAP_DEBUG
+#define MMAP_DEBUG
 #ifndef MMAP_DEBUG
 #undef k_debug
 #define k_debug(...)
@@ -28,7 +28,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		pages = size / 0x1000;
 	}
 
-	k_debug("mmap: allocating %d pages", pages);
+	k_debug("mmap: allocating %d pages. Type: %d, start=0x%.8x", pages, flags, start);
 
 	if(flags & MAP_FIXED) {
 		if(!start) {
@@ -53,6 +53,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 	} else {
 		start_addr = info->start;
 		uint32_t offset = 0;
+		uint8_t  loop   = 0;
 		while(1) {
 			uint32_t i = 0;
 			uint8_t  f = 0;
@@ -74,7 +75,13 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 			}
 
 			if(start_addr + offset * 0x1000 >= USER_STACK_END) {
-				break;
+				if(loop) {
+					break;
+				} else {
+					loop = 1;
+					start_addr = LOWMEM_START;
+					offset = 0;
+				}
 			}
 		}
 
@@ -226,8 +233,10 @@ uint8_t k_mem_mmap_handle_pagefault(uint32_t address, int code) {
 	uint32_t page_offset = (page - block->start) / 0x1000;
 	uint32_t offset      = block->offset + page_offset * 0x1000;
 
+#ifdef MMAP_DEBUG_VERBOSE
 	k_debug("mmap: fault address = 0x%.8x, page = 0x%.8x, block start = 0x%.8x (+%d pages)", address, page, block->start, page_offset);
 	k_debug("mmap: reading %d bytes from +%d to 0x%.8x", 0x1000, offset, page);
+#endif
 
 	k_fs_vfs_read(fdt->node, offset, 0x1000, (void*) page);
 

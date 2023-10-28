@@ -87,7 +87,9 @@ static uint8_t           mouse_packet_counter = 0;
 static ps_mouse_packet_t current_mouse_packet;
 
 static void __k_dev_ps2_handle_mouse(uint8_t byte) {
-	k_debug("Byte %d = 0x%.2x", mouse_packet_counter, byte);
+	if(!mouse_packet_counter && !(byte & 8)) {
+		return;
+	}
     switch(mouse_packet_counter){
         case 0:
             current_mouse_packet.data = byte;
