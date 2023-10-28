@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/tty.h>
 #include <unistd.h>
+#include <kernel/dev/ps2.h>
 
 int main(int argc, char** argv) {	
 	struct termios t;
@@ -52,18 +53,19 @@ int main(int argc, char** argv) {
 
 		int d = select(maxfd + 1, &rset, NULL, NULL, &tv);
 
-		uint8_t a;
+		uint8_t scancode;
+		ps_mouse_packet_t packet;
 
 		if(!d) {
 			printf("Timeout passed...\n");
 		} else {
 			if(FD_ISSET(kbdfd, &rset)) {
-				printf("Keyboard event received!\n");
-				read(kbdfd, &a, 1);
+				read(kbdfd, &scancode, 1);
+				printf("Keyboard event received! Scancode: %d\n", scancode);
 			}
 			if(FD_ISSET(mosfd, &rset)) {
-				printf("Mouse event received!\n");
-				read(mosfd, &a, 1);
+				read(mosfd, &packet, sizeof(ps_mouse_packet_t));
+				printf("Mouse event received! data: %d mx: %d my: %d\n", packet.data, packet.mx, packet.my);
 			}
 		}
 	}

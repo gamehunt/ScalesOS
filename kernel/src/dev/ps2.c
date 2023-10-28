@@ -83,17 +83,11 @@ static void __k_dev_ps2_handle_keyboard(uint8_t byte) {
 	k_dev_vt_handle_scancode(byte);
 }
 
-static uint8_t mouse_packet_counter = 0;
-
-typedef struct ps2_mouse_packet{
-    uint8_t data;
-    uint8_t mx;
-    uint8_t my;
-}ps_mouse_packet_t;
-
+static uint8_t           mouse_packet_counter = 0;
 static ps_mouse_packet_t current_mouse_packet;
 
 static void __k_dev_ps2_handle_mouse(uint8_t byte) {
+	k_debug("Byte %d = 0x%.2x", mouse_packet_counter, byte);
     switch(mouse_packet_counter){
         case 0:
             current_mouse_packet.data = byte;
@@ -154,6 +148,8 @@ K_STATUS k_dev_ps2_init() {
     __k_dev_ps2_write_command(PS2_DISABLE_PORT1);
     __k_dev_ps2_write_command(PS2_DISABLE_PORT2);
 
+    __k_dev_ps2_clear_buffer(0x1000);
+
     __k_dev_ps2_write_command(PS2_READ_CONFIG);
     uint8_t cfg = __k_dev_ps2_read_byte();
     cfg |= (PS2_CFG_PORT1_INTERRUPT | PS2_CFG_PORT2_INTERRUPT |
@@ -172,8 +168,6 @@ K_STATUS k_dev_ps2_init() {
 
     k_int_irq_setup_handler(1,  __irq1_handler);
     k_int_irq_setup_handler(12, __irq12_handler);
-
-    __k_dev_ps2_clear_buffer(0x1000);
 
     k_int_pic_unmask_irq(1);
     k_int_pic_unmask_irq(12);
