@@ -70,9 +70,40 @@ static void __k_proc_process_idle() {
     }
 }
 
+static void __k_proc_process_remove_from_sleep_queue(struct wait_node* target) {
+	if(!target) {
+		return;
+	}
+	wait_node_t* node 	   = sleep_queue;
+	wait_node_t* prev_node = node;
+	wait_node_t* next_node = NULL;
+	int f = 0;
+	while(node) {
+		next_node = node->next;
+		if(node == target) {
+			f = 1;
+			break;
+		}
+		prev_node = node;
+		node      = next_node;
+	}
+	if(!f) {
+		return;
+	}
+	if(node == sleep_queue) {
+		sleep_queue = next_node;
+	} else {
+		prev_node->next = next_node;
+	}
+}
+
 void k_proc_process_mark_ready(process_t* process) {
     LOCK(ready_queue->lock)
+	if(k_proc_process_has_locks(process)) {
+		process->flags |= PROCESS_FLAG_INTERRUPTED;
+	} 
 	process->state = PROCESS_STATE_RUNNING;
+	k_proc_process_invalidate_locks(process);
     list_push_back(ready_queue, process);
     UNLOCK(ready_queue->lock)
 }
@@ -103,10 +134,8 @@ static void __k_proc_process_spawn(process_t* proc, process_t* parent) {
 
 static block_node_t* __k_proc_process_init_block_node(process_t* proc) {
 	proc->block_node = k_malloc(sizeof(block_node_t));
-	proc->block_node->data.is_valid    = 1;
-	proc->block_node->data.interrupted = 0;
 	proc->block_node->data.process = proc;
-	proc->block_node->links = 0;
+	proc->block_node->owners       = list_create();
 	return proc->block_node;
 }
 
@@ -205,24 +234,24 @@ void k_proc_process_switch() {
 
 	do {
 		new_proc = k_proc_process_next();
-	}while(!IS_READY(new_proc->state));
+	}while(!PROCESS_IS_SCHEDULABLE(new_proc));
 
     current_core->current_process = new_proc;
+
+	if(!PROCESS_IS_SCHEDULABLE(current_core->current_process)) {
+        char buffer[256];
+        sprintf(buffer, "Invalid process scheduled: %s (%d) in state %d!", new_proc->name, new_proc->pid, new_proc->state);
+		k_panic(buffer, NULL);
+	}
+
+	if(current_core->current_process->state != PROCESS_STATE_RUNNING) {
+		current_core->current_process->state = PROCESS_STATE_RUNNING;
+	}
 
 	__k_proc_process_update_stats();
 
 	current_core->current_process->last_entrance = k_dev_timer_read_tsc();
 	current_core->current_process->last_sys = current_core->current_process->last_entrance;
-
-	if(current_core->current_process->state == PROCESS_STATE_STARTING) {
-		current_core->current_process->state = PROCESS_STATE_RUNNING;
-	}
-
-	if(current_core->current_process->state != PROCESS_STATE_RUNNING) {
-        char buffer[256];
-        sprintf(buffer, "Invalid process scheduled: %s (%d) in state %d!", new_proc->name, new_proc->pid, new_proc->state);
-		k_panic(buffer, NULL);
-	}
 
     if (!__k_proc_process_check_stack(new_proc)) {
         char buffer[256];
@@ -262,7 +291,7 @@ void k_proc_process_yield() {
         return; // Just returned from switch, do nothing and let it return
     }
 
-	if(old_proc->state != PROCESS_STATE_SLEEPING && old_proc->state != PROCESS_STATE_FINISHED) {
+	if(PROCESS_IS_SCHEDULABLE(old_proc)) {
     	k_proc_process_mark_ready(old_proc);
 	}
 
@@ -307,6 +336,9 @@ uint32_t k_proc_process_fork() {
 
 	if(new->wait_node) {
 		new->wait_node = NULL;
+	}
+	if(new->timeout_node) {
+		new->timeout_node = NULL;
 	}
 	new->wait_queue = list_create();
 
@@ -400,46 +432,46 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	UNLOCK(process->fds.lock);
 }
 
-uint8_t k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
-	process->state = PROCESS_STATE_SLEEPING;
-	process->block_node->data.interrupted = 0;
-	process->block_node->links++;
+void  k_proc_process_own_block(process_t* process, list_t* queue) {
 	list_push_back(queue, process->block_node);
+	list_push_back(process->block_node->owners, queue);
+}
+
+void k_proc_process_release_block(process_t* process) {
+	block_node_t* node = process->block_node;
+	while(node->owners->size) {
+		list_t* l = list_pop_back(node->owners);
+		list_delete_element(l, node);
+	}
+}
+
+uint8_t k_proc_process_sleep_on_queue(process_t* process, list_t* queue) {
+	k_proc_process_own_block(process, queue);
+	process->flags &= ~PROCESS_FLAG_INTERRUPTED;
+	process->state = PROCESS_STATE_SLEEPING;
 	if(process == k_proc_process_current()) {
 		k_proc_process_yield();
 	}
-	return process->block_node->data.interrupted;
+	return (process->flags & PROCESS_FLAG_INTERRUPTED);
 }
 
 uint8_t k_proc_process_sleep_and_unlock(process_t* process, list_t* queue, spinlock_t* lock) {
+	k_proc_process_own_block(process, queue);
+	process->flags &= ~PROCESS_FLAG_INTERRUPTED;
 	process->state = PROCESS_STATE_SLEEPING;
-	process->block_node->data.interrupted = 0;
-	process->block_node->links++;
-	list_push_back(queue, process->block_node);
 	UNLOCK(*lock)
 	if(process == k_proc_process_current()) {
 		k_proc_process_yield();
 	}
-	return process->block_node->data.interrupted;
+	return (process->flags & PROCESS_FLAG_INTERRUPTED);
 }
 
 void k_proc_process_wakeup_queue_single(list_t* queue) {
 	while(queue->size > 0) {
 		block_node_t* node = list_pop_back(queue);
-		if(node->links) {
-			node->links--;
-		}
-		if(!node->data.is_valid) {
-			if(!node->links) {
-				k_free(node);
-			}
-			continue;
-		}
-		if(node->data.interrupted) {
-			continue;
-		}
+		list_delete_element(node->owners, queue);
 		process_t* process = node->data.process;
-		if(process->state != PROCESS_STATE_FINISHED) {
+		if(process->state != PROCESS_STATE_FINISHED && !k_proc_process_is_ready(process)) {
 			process->state = PROCESS_STATE_RUNNING;
 			k_proc_process_mark_ready(process);
 			return;
@@ -450,25 +482,16 @@ void k_proc_process_wakeup_queue_single(list_t* queue) {
 void k_proc_process_wakeup_queue_single_select(list_t* queue, fs_node_t* fsnode, uint8_t event) {
 	while(queue->size > 0) {
 		block_node_t* node = list_pop_back(queue);
-		if(node->links) {
-			node->links--;
-		}
-		if(!node->data.is_valid) {
-			if(!node->links) {
-				k_free(node);
-			}
-			continue;
-		}
-		if(node->data.interrupted) {
-			continue;
-		}
 		process_t* process = node->data.process;
-		if(process->state != PROCESS_STATE_FINISHED) {
+		list_delete_element(node->owners, queue);
+		k_proc_process_release_block(process);
+		if(process->state != PROCESS_STATE_FINISHED && !k_proc_process_is_ready(process)) {
 			process->state = PROCESS_STATE_RUNNING;
 			process->select_wait_node  = fsnode;
 			process->select_wait_event = event;
 			if(process->timeout_node) {
-				process->timeout_node->data.is_valid = 0;
+				__k_proc_process_remove_from_sleep_queue(process->timeout_node);
+				k_free(process->timeout_node);
 				process->timeout_node = NULL;
 			}
 			k_proc_process_mark_ready(process);
@@ -486,6 +509,29 @@ void k_proc_process_wakeup_queue(list_t* queue) {
 void k_proc_process_wakeup_queue_select(list_t* queue, fs_node_t* node, uint8_t event) {
 	while(queue->size > 0) {
 		k_proc_process_wakeup_queue_single_select(queue, node, event);
+	}
+}
+
+uint8_t k_proc_process_has_locks(process_t* process) {
+	return process->block_node->owners->size > 0 || process->timeout_node || process->wait_node;
+}
+void k_proc_process_invalidate_locks(process_t* process) {
+	while(process->block_node->owners->size) {
+		list_t* owner = list_pop_back(process->block_node->owners);
+		LOCK(owner->lock)
+		list_delete_element(owner, process->block_node);
+		UNLOCK(owner->lock)
+	}
+	if(process->wait_node) {
+		__k_proc_process_remove_from_sleep_queue(process->wait_node);	
+		k_free(process->wait_node);
+		process->wait_node = NULL;
+	}
+
+	if(process->timeout_node) {
+		__k_proc_process_remove_from_sleep_queue(process->timeout_node);	
+		k_free(process->timeout_node);
+		process->timeout_node = NULL;
 	}
 }
 
@@ -524,15 +570,10 @@ void k_proc_process_exit(process_t* process, int code) {
 		}
 	}
 
-	if(process->wait_node) {
-		process->wait_node->data.is_valid = 0;
-	}
+	k_proc_process_invalidate_locks(process);
 
-	if(process->timeout_node) {
-		process->timeout_node->data.is_valid = 0;
-	}
-
-	process->block_node->data.is_valid = 0;
+	list_free(process->block_node->owners);
+	k_free(process->block_node);
 
 	k_proc_process_switch();
 }
@@ -630,19 +671,17 @@ static void __k_proc_process_wakeup_timing(uint64_t seconds, uint64_t microsecon
 	wait_node_t* node = sleep_queue; 
 	while(node && (node->seconds < seconds || (node->seconds == seconds && node->microseconds <= microseconds))) {
 		sleep_queue = node->next;
-		if(node->data.is_valid && !node->data.interrupted) {
-			process_t* process = node->data.process;
-			if(process->state != PROCESS_STATE_FINISHED) {
-				if(process->timeout_node == node) {
-					process->select_wait_node             = (void*) 0xFFFFFFFF;
-					process->select_wait_event            = 0;
-					process->timeout_node                 = NULL;
-				} else {
-					node->data.process->wait_node = NULL;
-				}
-				process->state = PROCESS_STATE_RUNNING;
-				k_proc_process_mark_ready(process);
+		process_t* process = node->data.process;
+		if(process->state != PROCESS_STATE_FINISHED) {
+			if(process->timeout_node == node) {
+				k_proc_process_release_block(process);
+				process->select_wait_node             = 0;
+				process->select_wait_event            = 0;
+				process->timeout_node                 = NULL;
+			} else {
+				node->data.process->wait_node = NULL;
 			}
+			k_proc_process_mark_ready(process);
 		}
 		k_free(node);
 		node = sleep_queue;
@@ -675,7 +714,6 @@ void k_proc_process_timeout(process_t* process, uint64_t seconds, uint64_t micro
 	}
 
 	wait_node_t* new_node   = k_calloc(1, sizeof(wait_node_t));
-	new_node->data.is_valid = 1;
 	new_node->data.process 	= process;
 	new_node->seconds      	= cur_seconds;
 	new_node->microseconds 	= cur_microseconds;
@@ -716,7 +754,6 @@ uint32_t k_proc_process_sleep(process_t* process, uint64_t microseconds) {
 	}
 
 	wait_node_t* new_node  = k_calloc(1, sizeof(wait_node_t));
-	new_node->data.is_valid = 1;
 	new_node->data.process 	= process;
 	new_node->seconds      	= cur_seconds;
 	new_node->microseconds 	= cur_microseconds;
@@ -764,17 +801,11 @@ void k_proc_process_update_timings() {
 
 
 uint8_t k_proc_process_is_ready(process_t* process) {
-	return IS_READY(process->state);
+	return PROCESS_IS_SCHEDULABLE(process);
 }
 
 void k_proc_process_wakeup_on_signal(process_t* process) {
 	if(process != current_core->current_process && !k_proc_process_is_ready(process)) {
-		if(process->block_node->links > 0) {
-			process->block_node->data.interrupted = 1;
-		}
-		if(process->wait_node) {
-			process->wait_node->data.interrupted = 1;
-		}
 		k_proc_process_mark_ready(process);
 	}
 }

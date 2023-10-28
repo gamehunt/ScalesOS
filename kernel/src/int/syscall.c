@@ -994,14 +994,15 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 		k_proc_process_timeout(cur, tv->tv_sec, tv->tv_msec);
 	}
 
-	cur->state = PROCESS_STATE_SLEEPING;
+	cur->flags &= ~PROCESS_FLAG_INTERRUPTED;
+	cur->state  = PROCESS_STATE_SLEEPING;
 	k_proc_process_yield();
 
-	if(!cur->select_wait_node) {
+	if(cur->flags & PROCESS_FLAG_INTERRUPTED) {
 		return -EINTR;
 	}
 
-	if(cur->select_wait_node == 0xFFFFFFFF) {
+	if(!cur->select_wait_node) {
 		cur->select_wait_node  = 0;
 		cur->select_wait_event = 0;
 		return 0;

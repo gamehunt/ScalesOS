@@ -18,13 +18,15 @@
 #define PROCESS_STATE_FINISHED           0x2
 #define PROCESS_STATE_SLEEPING           0x3
 
-#define IS_READY(state) \
-	(state < PROCESS_STATE_FINISHED)
+#define PROCESS_IS_SCHEDULABLE(x)        (x->state == PROCESS_STATE_STARTING || \
+										  x->state == PROCESS_STATE_RUNNING \
+										 )
 
 #define PROCESS_WAITPID_WNOHANG          (1 << 0)
 #define PROCESS_WAITPID_WUNTRACED        (1 << 1)
 
 #define PROCESS_FLAG_TASKLET             (1 << 0)
+#define PROCESS_FLAG_INTERRUPTED         (1 << 1)
 
 #define IS_SIGNAL_IGNORED(proc, sig) \
 	(proc->signals_ignored & (1 << sig))
@@ -115,9 +117,7 @@ typedef struct process {
 } process_t;
 
 typedef struct {
-	uint8_t    is_valid;
 	process_t* process;
-	uint8_t    interrupted;
 } generic_sleep_node_t;
 
 typedef struct wait_node {
@@ -129,7 +129,7 @@ typedef struct wait_node {
 
 typedef struct block_node {
 	generic_sleep_node_t data;
-	uint32_t   links;
+	list_t*              owners;
 } block_node_t;
 
 void       k_proc_process_yield();
@@ -153,6 +153,8 @@ void*      k_proc_process_grow_heap(process_t* process, int32_t size);
 uint32_t   k_proc_process_sleep(process_t* process, uint64_t microseconds);
 void       k_proc_process_timeout(process_t* process, uint64_t seconds, uint64_t microseconds);
 uint8_t    k_proc_process_sleep_on_queue(process_t* process, list_t* queue);
+void       k_proc_process_own_block(process_t* process, list_t* queue);
+void       k_proc_process_release_block(process_t* process);
 uint8_t    k_proc_process_sleep_and_unlock(process_t* process, list_t* queue, spinlock_t* lock);
 pid_t      k_proc_process_waitpid(process_t* process, int pid, int* status, int options);
 void       k_proc_process_wakeup_queue(list_t* queue);
@@ -160,6 +162,9 @@ void       k_proc_process_wakeup_queue_single(list_t* queue);
 void       k_proc_process_wakeup_queue_single_select(list_t* queue, fs_node_t* fsnode, uint8_t event);
 void       k_proc_process_wakeup_queue_select(list_t* queue, fs_node_t* node, uint8_t event);
 void       k_proc_process_wakeup_on_signal(process_t* process); 
+
+uint8_t    k_proc_process_has_locks(process_t* process);
+void       k_proc_process_invalidate_locks(process_t* process);
 
 void       k_proc_process_exit(process_t* process, int code) __attribute__((noreturn));
 void       k_proc_process_destroy(process_t* process);

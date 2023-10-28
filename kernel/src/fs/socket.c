@@ -52,10 +52,8 @@ static int __k_fs_socket_wait(fs_node_t* node, uint8_t event, process_t* prc) {
 		return idx;
 	}
 
-	prc->block_node->data.interrupted = 0;
-
 	if(!list_contains(socket->sel_queues[idx], prc->block_node)) {
-		list_push_back(socket->sel_queues[idx], prc->block_node);
+		k_proc_process_own_block(prc, socket->sel_queues[idx]);
 	}
 
 	return 0;
