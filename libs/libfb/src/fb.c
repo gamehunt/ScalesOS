@@ -90,6 +90,19 @@ int fb_open(const char* path, fb_t* buf) {
 	return 0;
 }
 
+int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf) {
+	(*buf).file = NULL;
+	(*buf).info.w   = w;
+	(*buf).info.h   = h;
+	(*buf).info.bpp = size / w / h;
+	(*buf).info.memsz = size;
+	(*buf).mem  = (void*) mem;
+
+	fb_init_colors();
+
+	return 0;
+}
+
 int fb_open_font(const char* path, fb_font_t** font) {
 	FILE* f = fopen(path, "r");
 	if(!f) {
@@ -129,8 +142,10 @@ void fb_close_font(fb_font_t* font) {
 }
 
 void fb_flush(fb_t* fb) {
-	int r = msync(fb->mem, fb->info.memsz, MS_SYNC);
-	ioctl(fileno(fb->file), FB_IOCTL_SYNC, NULL);
+	if(fb->file) {
+		int r = msync(fb->mem, fb->info.memsz, MS_SYNC);
+		ioctl(fileno(fb->file), FB_IOCTL_SYNC, NULL);
+	}
 }
 
 void fb_pixel(fb_t* fb, coord_t x0, coord_t y0, color_t color) {

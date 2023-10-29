@@ -20,6 +20,12 @@ ExternalProject_Add(
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_scales_toolchain.cmake
 )
 
+ExternalProject_Add(
+    types
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/types/
+    BINARY_DIR  ${PROJECT_SOURCE_DIR}/build/types/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${SYSROOT_FOLDER} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${PROJECT_SOURCE_DIR}/toolchain/i686_scales_toolchain.cmake
+)
 
 ExternalProject_Add(
     kernel

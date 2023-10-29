@@ -33,7 +33,7 @@ static uint8_t __k_fs_socket_check(fs_node_t* node, uint8_t event) {
 
 	switch(event) {
 		case VFS_EVENT_READ:
-			return socket->available_data > 0;
+			return socket->available_data > 0 || socket->backlog->size > 0;
 		case VFS_EVENT_WRITE:
 			return socket->available_data < SOCKET_MAX_BUFFER_SIZE;
 		default:
@@ -234,7 +234,8 @@ int k_fs_socket_connect(socket_t* socket, struct sockaddr* addr, socklen_t l) {
 		memcpy(socket->addr, addr, l);
 
 		list_push_back(server->backlog, socket);
-
+		
+		__k_fs_socket_notify(remote_sock, VFS_EVENT_READ);
 		k_proc_process_wakeup_queue(server->blocked_processes);
 
 		while(!socket->connect) {

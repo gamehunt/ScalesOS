@@ -11,5 +11,9 @@ size_t write(int fd, void *buf, size_t count) {
 }
 
 int open(const char *pathname, int flags) {
-	return __sys_open(pathname, flags, 0);
+	__return_errno(__sys_open(pathname, flags, 0));
+}
+
+int close(int fd) {
+	__return_errno(__sys_close(fd));
 }

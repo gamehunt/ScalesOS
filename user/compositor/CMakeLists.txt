@@ -5,6 +5,6 @@ project(Scales-Compositor VERSION 1.0.0)
 add_executable(compositor
 	src/main.c
 )
-target_link_libraries(compositor PRIVATE compose input)
+target_link_libraries(compositor PRIVATE compose input fb)
 
 install(TARGETS compositor DESTINATION bin/)

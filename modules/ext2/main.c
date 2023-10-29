@@ -8,6 +8,8 @@
 #include <kernel/util/path.h>
 #include <kernel/dev/timer.h>
 
+#include <types/list.h>
+
 #include <stdio.h>
 #include <string.h>
 

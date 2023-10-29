@@ -18,7 +18,7 @@ set(CMAKE_C_LINK_EXECUTABLE "<CMAKE_LINKER> <LINK_FLAGS> <OBJECTS> -o <TARGET> <
 set(CMAKE_EXE_LINKER_FLAGS  "-ffreestanding -O0 -nostdlib -mno-red-zone")
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/)
-link_libraries(gcc k)
+link_libraries(gcc k ktypes)
 
 add_library(kernel.bin OBJECT)
 add_subdirectory(src)

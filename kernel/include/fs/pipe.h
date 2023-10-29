@@ -2,6 +2,7 @@
 #define __K_FS_PIPE_H
 
 #include "fs/vfs.h"
+#include "types/list.h"
 
 #define PIPE_SEL_QUEUE_R 0
 #define PIPE_SEL_QUEUE_W 1

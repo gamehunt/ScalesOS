@@ -8,7 +8,7 @@
 #include "util/fd.h"
 #include "util/types/list.h"
 
-#define MMAP_DEBUG
+// #define MMAP_DEBUG
 #ifndef MMAP_DEBUG
 #undef k_debug
 #define k_debug(...)

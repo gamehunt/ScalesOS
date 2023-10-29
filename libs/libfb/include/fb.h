@@ -36,6 +36,7 @@ color_t fb_color(char r, char g, char b, char a);
 double  fb_brightness(color_t);
 color_t fb_blend(color_t a, color_t b);
 int  	fb_open(const char* path, fb_t* buf);
+int     fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf);
 int  	fb_open_font(const char* path, fb_font_t** font);
 void 	fb_close(fb_t* buffer);
 void    fb_close_font(fb_font_t* font);

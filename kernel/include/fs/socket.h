@@ -1,9 +1,15 @@
 #ifndef __K_FS_SOCKET_H
 #define __K_FS_SOCKET_H
 
+#ifdef __KERNEL
 #include "fs/vfs.h"
 #include "proc/mutex.h"
 #include "proc/process.h"
+#else
+#include "kernel/fs/vfs.h"
+#include "kernel/proc/mutex.h"
+#include "kernel/proc/process.h"
+#endif
 #include <sys/socket.h>
 
 #define SOCKET_MAX_BUFFER_SIZE  256 * 256

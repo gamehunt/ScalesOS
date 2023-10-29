@@ -54,15 +54,12 @@ typedef struct {
 
 void k_dev_fb_init();
 void k_dev_fb_set_impl(fb_impl_t* impl);
-
 void k_dev_fb_write(char* buff, uint32_t size);
 void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg);
 void k_dev_fb_putpixel(uint32_t x, uint32_t y, uint32_t color);
 void k_dev_fb_clear(uint32_t color);
 void k_dev_fb_sync();
-
 int  k_dev_fb_ioctl(fs_node_t*, int op, void* arg);
-
 void k_dev_fb_terminfo(fb_term_info_t* info);
 
 #endif

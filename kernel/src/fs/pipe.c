@@ -120,21 +120,19 @@ static uint32_t  __k_fs_pipe_read(fs_node_t* node, uint32_t offset UNUSED, uint3
 		return -ENOENT;
 	}
 
+	if(node->mode & O_NOBLOCK) {
+		if(__k_fs_pipe_read_available(dev) < size) {
+			return -EAGAIN;
+		}
+	}
+
 	uint32_t read = 0;
 
     for(read = 0; read < size; read++){
-		uint8_t b = 0;
 		while(!__k_fs_pipe_read_available(dev)) {
-			if(node->mode & O_NOBLOCK) {
-				b = 1;
-				break;
-			}
 			if(k_proc_process_sleep_on_queue(k_proc_process_current(), dev->wait_queue)) {
 				return -ERESTARTSYS;
 			}
-		}
-		if(b) {
-			break;
 		}
         buffer[read] = dev->buffer[dev->read_ptr];
         __k_fs_pipe_bump_read_ptr(dev);
