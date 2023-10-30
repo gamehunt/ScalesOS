@@ -16,6 +16,7 @@ set(SOURCES
 	socket.c
 	select.c
 	poll.c
+	mman.c
 )
 
 target_sources(c PRIVATE ${SOURCES})
