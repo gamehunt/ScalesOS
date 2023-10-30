@@ -577,8 +577,12 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 
 	if(flags & MAP_SHMEM) {
 		shm_node_t* node = fdt->node->device;	
+		int fl = PAGE_PRESENT | PAGE_USER;
+		if(prot & PROT_WRITE) {
+			fl |= PAGE_WRITABLE;
+		}
 		for(size_t i = 0; i < node->frames->size; i++) {
-			k_mem_paging_map(block->start, (paddr_t) node->frames->data[i], PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER);
+			k_mem_paging_map(block->start, (paddr_t) node->frames->data[i], fl);
 		}
 	}
 
