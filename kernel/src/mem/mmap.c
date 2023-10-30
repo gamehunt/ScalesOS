@@ -6,7 +6,7 @@
 #include "proc/process.h"
 #include "sys/mman.h"
 #include "util/fd.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 // #define MMAP_DEBUG
 #ifndef MMAP_DEBUG
@@ -140,7 +140,11 @@ void k_mem_mmap_free_block(mmap_info_t* info, mmap_block_t* block) {
 		list_delete_element(__shared_mappings, block);
 	}
 	k_debug("mmap: unmapping 0x%.8x - 0x%.8x (%d pages)", block->start, block->end, (block->end - block->start) / 0x1000);
-	k_mem_paging_unmap_and_free_region(block->start, block->size / 0x1000);
+	if(block->type & MAP_SHMEM) {
+		k_mem_paging_unmap_region(block->start, block->size / 0x1000);
+	} else {
+		k_mem_paging_unmap_and_free_region(block->start, block->size / 0x1000);
+	}
 	info->start = block->start;
 	k_free(block);
 }

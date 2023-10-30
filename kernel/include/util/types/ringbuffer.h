@@ -3,13 +3,12 @@
 
 #ifdef __KERNEL
 #include "proc/spinlock.h"
-#include "util/types/list.h"
 #else
 #include "kernel/proc/spinlock.h"
-#include "kernel/util/types/list.h"
 #endif
 
 #include <stdint.h>
+#include "types/list.h"
 
 typedef struct ringbuffer {
 	uint8_t* buffer;

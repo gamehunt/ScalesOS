@@ -4,7 +4,7 @@
 #include "mem/heap.h"
 #include "util/asm_wrappers.h"
 #include "util/log.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 list_t* __pci_device_list;
 

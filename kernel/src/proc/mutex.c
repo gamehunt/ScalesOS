@@ -1,6 +1,6 @@
 #include "proc/mutex.h"
 #include "proc/process.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 void mutex_init(mutex_t* mutex) {
 	mutex->lock       = 0;

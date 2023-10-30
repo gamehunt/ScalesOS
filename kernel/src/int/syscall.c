@@ -12,6 +12,7 @@
 #include "mem/heap.h"
 #include "mem/mmap.h"
 #include "mem/paging.h"
+#include "mem/shm.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
 #include "sys/socket.h"
@@ -35,7 +36,7 @@
 #include "sys/stat.h"
 #include "util/panic.h"
 #include "util/path.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 #include <proc/process.h>
 #include <scales/reboot.h>
@@ -573,6 +574,13 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 
 	block->offset = offs;
 	block->fd     = fd;
+
+	if(flags & MAP_SHMEM) {
+		shm_node_t* node = fdt->node->device;	
+		for(size_t i = 0; i < node->frames->size; i++) {
+			k_mem_paging_map(block->start, (paddr_t) node->frames->data[i], PAGE_PRESENT | PAGE_WRITABLE | PAGE_USER);
+		}
+	}
 
 	return block->start;
 }

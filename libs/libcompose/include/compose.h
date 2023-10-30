@@ -29,6 +29,7 @@ typedef struct {
 typedef struct {
 	id_t       id;
 	pid_t      pid;
+	fb_t       framebuffer;
 	int        socket;
 	flags_t    flags;
 	position_t pos;

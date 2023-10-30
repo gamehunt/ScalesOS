@@ -2,13 +2,11 @@
 #include "dirent.h"
 #include "errno.h"
 #include "kernel.h"
-#include "kernel/util/perf.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "util/path.h"
-#include "util/perf.h"
-#include "util/types/list.h"
-#include "util/types/tree.h"
+#include "types/list.h"
+#include "types/tree.h"
 #include <stdio.h>
 #include <string.h>
 #include <util/log.h>

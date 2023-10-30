@@ -7,7 +7,7 @@
 #include "sys/socket.h"
 #include "sys/un.h"
 #include "util/log.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 #include <string.h>
 #include <stdio.h>

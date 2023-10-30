@@ -96,6 +96,14 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf) {
 	(*buf).info.h   = h;
 	(*buf).info.bpp = size / w / h;
 	(*buf).info.memsz = size;
+
+	if(!mem) {
+		mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+		if(((int32_t)mem) == MAP_FAILED) {
+			return -1;
+		}
+	}
+
 	(*buf).mem  = (void*) mem;
 
 	fb_init_colors();
@@ -263,6 +271,14 @@ void fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font,
 	for(coord_t offs = 0; offs < l; offs++) {
 		if(isgraph(str[offs])) {
 			fb_char(fb, x + offs * (font->width), y, str[offs], font, b, f);
+		}
+	}
+}
+
+void fb_bitmap(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h, color_t* bitmap) {
+	for(coord_t y = y0; y < y0 + h; y++) {
+		for(coord_t x = x0; x < x0 + w; x++) {
+			fb_pixel(fb, x, y, bitmap[y * w + x]);
 		}
 	}
 }

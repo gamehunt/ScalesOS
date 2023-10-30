@@ -8,7 +8,7 @@
 #include "mem/paging.h"
 #include "util/log.h"
 #include "util/path.h"
-#include "util/types/list.h"
+#include "types/list.h"
 #include <string.h>
 
 #define TMPFS_BLOCK_SIZE 4096

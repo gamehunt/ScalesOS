@@ -2,7 +2,9 @@
 #define __K_MEM_MMAP_H
 
 #include "sys/types.h"
-#include "util/types/list.h"
+#include "types/list.h"
+
+#include <stdint.h>
 
 typedef struct {
 	uint32_t start;

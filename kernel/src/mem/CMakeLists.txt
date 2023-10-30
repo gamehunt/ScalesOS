@@ -9,6 +9,7 @@ set(SOURCES
 	mmap.c
 	memory.c
 	dma.c
+	shm.c
 )
 
 target_sources(kernel.bin PRIVATE ${SOURCES})

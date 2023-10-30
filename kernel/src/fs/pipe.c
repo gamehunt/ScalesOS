@@ -3,7 +3,7 @@
 #include "mem/heap.h"
 #include "proc/process.h"
 #include "stdio.h"
-#include "util/types/list.h"
+#include "types/list.h"
 #include <fs/pipe.h>
 #include <string.h>
 

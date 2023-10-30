@@ -1,6 +1,4 @@
 set(SOURCES 
-    tree.c
-	list.c
 	ringbuffer.c
 )
 

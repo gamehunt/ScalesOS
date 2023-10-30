@@ -2,7 +2,7 @@
 #include "kernel/mem/paging.h"
 #include "mem/memory.h"
 #include "mem/paging.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 #include <stddef.h>
 

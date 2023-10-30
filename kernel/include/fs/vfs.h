@@ -2,13 +2,12 @@
 #define __FS_VFS_H
 
 #ifdef __KERNEL
-#include "util/types/tree.h"
 #include "kernel.h"
 #else
-#include "kernel/util/types/tree.h"
 #include "kernel/kernel.h"
 #endif
 
+#include "types/tree.h"
 #include "shared.h"
 #include <stdint.h>
 
@@ -29,7 +28,7 @@ struct process;
 
 typedef uint32_t       (*fs_write_t)    (fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
 typedef uint32_t       (*fs_read_t)     (fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* buffer);
-typedef void           (*fs_open_t)     (fs_node_t* node, uint8_t mode);
+typedef void           (*fs_open_t)     (fs_node_t* node, uint16_t mode);
 typedef void           (*fs_close_t)    (fs_node_t* node);
 typedef fs_node_t*     (*fs_finddir_t)  (fs_node_t* node, const char* name);
 typedef uint32_t       (*fs_readlink_t) (fs_node_t* node, uint8_t* buf, uint32_t size);

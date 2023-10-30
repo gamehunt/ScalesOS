@@ -2,21 +2,21 @@
 #include "dev/fb.h"
 #include "dev/vt.h"
 #include "dirent.h"
-#include "errno.h"
 #include "fs/vfs.h"
 #include "kernel.h"
-#include "kernel/dev/fb.h"
-#include "kernel/fs/vfs.h"
+#include "dev/fb.h"
+#include "fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "proc/process.h"
 #include "sys/tty.h"
 #include "util/log.h"
-#include "util/types/list.h"
+#include "types/list.h"
 #include "util/types/ringbuffer.h"
 #include <ctype.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #define PTY_BUFFER_SIZE 4096
 

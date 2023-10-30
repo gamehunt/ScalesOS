@@ -4,7 +4,6 @@
 #include "int/isr.h"
 #include "int/syscall.h"
 #include "kernel.h"
-#include "kernel/mem/heap.h"
 #include "mem/gdt.h"
 #include "mem/heap.h"
 #include "mem/mmap.h"
@@ -15,9 +14,9 @@
 #include "util/asm_wrappers.h"
 #include "util/log.h"
 #include "util/panic.h"
-#include "util/types/list.h"
+#include "types/list.h"
 #include "util/types/stack.h"
-#include "util/types/tree.h"
+#include "types/tree.h"
 #include <proc/process.h>
 #include <proc/smp.h>
 #include <signal.h>

@@ -9,7 +9,7 @@
 #include "mod/elf.h"
 #include "proc/process.h"
 #include "util/log.h"
-#include "util/types/list.h"
+#include "types/list.h"
 #include "util/types/stack.h"
 
 #include <stdio.h>

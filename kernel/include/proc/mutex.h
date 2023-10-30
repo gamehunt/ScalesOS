@@ -3,7 +3,7 @@
 
 #include "proc/process.h"
 #include "proc/spinlock.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 #include <stddef.h>
 

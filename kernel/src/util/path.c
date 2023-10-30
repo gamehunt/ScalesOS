@@ -3,7 +3,7 @@
 #include <string.h>
 #include "mem/heap.h"
 #include "util/log.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 // /abc/../abc/file.txt -> /abc/file.txt
 char* k_util_path_canonize(const char* root, const char* relative){

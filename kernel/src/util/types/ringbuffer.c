@@ -2,7 +2,7 @@
 #include "errno.h"
 #include "mem/heap.h"
 #include "proc/process.h"
-#include "util/types/list.h"
+#include "types/list.h"
 
 ringbuffer_t* ringbuffer_create(uint32_t size) {
 	ringbuffer_t* rb = k_calloc(1, sizeof(ringbuffer_t));

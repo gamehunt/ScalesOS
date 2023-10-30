@@ -9,8 +9,8 @@
 #include "sys/signal.h"
 #include "signal.h"
 #include "types.h"
-#include "util/types/list.h"
-#include "util/types/tree.h"
+#include "types/list.h"
+#include "types/tree.h"
 #include <stdint.h>
 
 #define PROCESS_STATE_STARTING           0x0
