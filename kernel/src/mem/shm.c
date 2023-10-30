@@ -7,11 +7,6 @@
 
 #include <string.h>
 
-
-static void __k_mem_shm_alloc(shm_node_t* node, size_t pages) {
-
-}
-
 static shm_node_t* __k_mem_shm_create_shm_node(const char* name) {
 	shm_node_t* shm = k_calloc(1, sizeof(shm_node_t));
 	strncpy(shm->name, name, sizeof(shm->name));
@@ -43,7 +38,7 @@ static void __k_mem_shm_close(fs_node_t* node) {
 }
 
 static int __k_mem_shm_truncate(fs_node_t* node, off_t sz) {
-	off_t diff = sz - node->size;
+	int32_t diff = sz - node->size;
 
 	int dir = diff > 0;
 
