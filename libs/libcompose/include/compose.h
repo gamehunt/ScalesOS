@@ -2,6 +2,7 @@
 #define __LIB_COMPOSE_H
 
 #include "fb.h"
+#include "types/list.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
@@ -38,21 +39,23 @@ typedef struct {
 	int  socket;
 	fb_t framebuffer;
 	int  devices[COMPOSE_DEVICE_AMOUNT];
-	compose_client_t** clients;
-	size_t             clients_amount;
+	list_t* clients;
 } compose_server_t;
 
-compose_server_t* compose_server_create(const char* sock);
-compose_client_t* compose_server_accept(compose_server_t* srv);
-compose_client_t* compose_server_create_client(int sock);
-void              compose_server_close(compose_server_t* srv, compose_client_t* cli);
+compose_server_t* compose_sv_create(const char* sock);
+compose_client_t* compose_sv_accept(compose_server_t* srv);
+compose_client_t* compose_create_client(int sock);
+void              compose_sv_close(compose_server_t* srv, compose_client_t* cli);
 
 compose_client_t* compose_connect(const char* sock);
-void              compose_server_tick(compose_server_t* srv);
-void              compose_server_redraw(compose_client_t* client); 
+void              compose_cl_disconnect(compose_client_t* client);
+void              compose_sv_tick(compose_server_t* srv);
 
-int               compose_client_move(compose_client_t* cli, int x, int y);
-int               compose_client_layer(compose_client_t* cli, int z);
-int               compose_client_resize(compose_client_t* cli, size_t w, size_t h);
+int               compose_cl_move(compose_client_t* cli, int x, int y);
+int               compose_cl_layer(compose_client_t* cli, int z);
+int               compose_cl_resize(compose_client_t* cli, size_t w, size_t h);
+
+void              compose_sv_move(compose_client_t* cli, int x, int y, int z);
+void              compose_sv_resize(compose_client_t* cli, size_t w, size_t h);
 
 #endif

@@ -4,15 +4,64 @@
 #include "kernel/dev/ps2.h"
 #include "request.h"
 #include "sys/select.h"
+#include "sys/time.h"
 #include "sys/un.h"
 #include "input/kbd.h"
 #include "input/mouse.h"
 
+#include <errno.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
-compose_server_t* compose_server_create(const char* sock) {
+static position_t mouse_pos = {0};
+
+static void __compose_update_mouse(compose_server_t* srv, int dx, int dy) {
+	position_t old = mouse_pos;
+
+	mouse_pos.x += dx;
+	mouse_pos.y -= dy;
+
+	if(mouse_pos.x < 0) {
+		mouse_pos.x = 0;
+	} 
+
+	if(mouse_pos.y < 0) {
+		mouse_pos.y = 0;
+	} 
+
+	if(mouse_pos.x >= srv->framebuffer.info.w) {
+		mouse_pos.x = srv->framebuffer.info.w - 4;
+	}
+
+	if(mouse_pos.y >= srv->framebuffer.info.h) {
+		mouse_pos.y = srv->framebuffer.info.h - 4;
+	}
+
+	fb_filled_rect(&srv->framebuffer, old.x, old.y, 4, 4, 0xFF000000, 0xFF000000);
+	fb_filled_rect(&srv->framebuffer, mouse_pos.x, mouse_pos.y, 4, 4, 0xFF00FF00, 0xFF00FF00);
+
+	fb_flush(&srv->framebuffer);
+}
+
+compose_client_t* compose_connect(const char* sock) {
+	int sockfd = socket(AF_LOCAL, SOCK_STREAM, 0);
+	if(sockfd < 0) {
+		return NULL;
+	}
+
+	struct sockaddr_un addr;
+	addr.sun_family = AF_LOCAL;
+	strncpy(addr.sun_path, sock, sizeof(addr.sun_path));
+
+	if(connect(sockfd, &addr ,sizeof(addr)) < 0) {
+		return NULL;
+	}
+
+	return compose_create_client(sockfd);
+}
+
+compose_server_t* compose_sv_create(const char* sock) {
 	int sockfd = socket(AF_LOCAL, SOCK_STREAM | SOCK_NONBLOCK, 0);
 	if(sockfd < 0) {
 		return NULL;
@@ -28,10 +77,12 @@ compose_server_t* compose_server_create(const char* sock) {
 
 	compose_server_t* srv = calloc(1, sizeof(compose_server_t));
 	srv->socket           = sockfd;
+	srv->clients          = list_create();
 	
 	int r =	fb_open("/dev/fb", &srv->framebuffer);
 	if(r < 0) {
 		close(srv->socket);
+		list_free(srv->clients);
 		free(srv);
 		return NULL;
 	}
@@ -39,19 +90,22 @@ compose_server_t* compose_server_create(const char* sock) {
 	srv->devices[0] = open("/dev/kbd", O_RDONLY | O_NOBLOCK);
 	srv->devices[1] = open("/dev/mouse", O_RDONLY | O_NOBLOCK);
 	
+	listen(sockfd, 10);
+
 	return srv;
 }
 
-compose_client_t* compose_server_create_client(int sock) {
+compose_client_t* compose_create_client(int sock) {
 	compose_client_t* cli = calloc(1, sizeof(compose_client_t));
 	cli->socket = sock;
 	return cli;
 }
 
 static compose_client_t* __compose_get_client(compose_server_t* srv, int sock) {
-	for(size_t i = 0; i < srv->clients_amount; i++) {
-		if(srv->clients[i]->socket == sock) {
-			return srv->clients[i];
+	for(size_t i = 0; i < srv->clients->size; i++) {
+		compose_client_t* cli = srv->clients->data[i];
+		if(cli->socket == sock) {
+			return cli;
 		}
 	}
 	return NULL;
@@ -61,42 +115,20 @@ static void __compose_add_client(compose_server_t* srv, int clifd) {
 	if(__compose_get_client(srv, clifd) != NULL) {
 		return;
 	}
-	compose_client_t* client = compose_server_create_client(clifd);
-	if(!srv->clients) {
-		srv->clients = malloc(sizeof(compose_client_t) * (srv->clients_amount + 1));	
-	} else {
-		srv->clients = realloc(srv->clients, sizeof(compose_client_t) * (srv->clients_amount + 1));	
-	}
-	srv->clients[srv->clients_amount] = client;
-	srv->clients_amount++;
+	list_push_back(srv->clients, compose_create_client(clifd));	
 }
 
 static void __compose_remove_client(compose_server_t* srv, compose_client_t* cli) {
-    for(uint32_t i = 0; i < srv->clients_amount; i++){
-        if(srv->clients[i] == cli){
-            srv->clients[i] = 0;
-            srv->clients_amount--;
-            if(srv->clients_amount){
-				if(i != srv->clients_amount) {
-                	memmove(srv->clients + i, srv->clients + i + 1, (srv->clients_amount - i) * sizeof(void*));
-				}
-                srv->clients = realloc(srv->clients, srv->clients_amount * sizeof(void*));
-            }else{
-                free(srv->clients);
-				srv->clients = 0;
-            }
-            break;
-        }
-    }
+	list_delete_element(srv->clients, cli);
 }
 
-void compose_server_close(compose_server_t* srv, compose_client_t* cli) {
+void compose_sv_close(compose_server_t* srv, compose_client_t* cli) {
 	__compose_remove_client(srv, cli);
 	close(cli->socket);
 	free(cli);
 }
 
-void compose_server_tick(compose_server_t* srv) {
+void compose_sv_tick(compose_server_t* srv) {
 	fd_set rset;
 	FD_ZERO(&rset);
 
@@ -110,8 +142,8 @@ void compose_server_tick(compose_server_t* srv) {
 		FD_SET(srv->devices[i], &rset);
 	}
 
-	for(size_t i = 0; i < srv->clients_amount; i++) {
-		compose_client_t* cli = srv->clients[i];
+	for(size_t i = 0; i < srv->clients->size; i++) {
+		compose_client_t* cli = srv->clients->data[i];
 		if(cli->socket > n) {
 			n = cli->socket;
 		}
@@ -125,17 +157,17 @@ void compose_server_tick(compose_server_t* srv) {
 
 	if(FD_ISSET(srv->socket, &rset)) {
 		int clifd = 0;
-		while((clifd = accept(srv->socket, NULL, NULL)) > 0) {
+		while((clifd = accept(srv->socket, NULL, NULL)) >= 0) {
 			__compose_add_client(srv, clifd);	
 		}
 	}
 
-	for(size_t i = 0; i < srv->clients_amount; i++) {
-		compose_client_t* cli = srv->clients[i];
+	for(size_t i = 0; i < srv->clients->size; i++) {
+		compose_client_t* cli = srv->clients->data[i];
 		if(FD_ISSET(cli->socket, &rset)) {
 			compose_request_t* req;
-			while((req = compose_server_request_poll(cli))) {
-				compose_server_handle_request(srv, cli, req);
+			while((req = compose_sv_request_poll(cli))) {
+				compose_sv_handle_request(srv, cli, req);
 				free(req);
 			}
 		}
@@ -146,6 +178,7 @@ void compose_server_tick(compose_server_t* srv) {
 			while(1) {
 				compose_event_t* event = NULL;
 				void* raw_data;
+				void* packet;
 				int   e = 0;
 				switch(i) {
 					case COMPOSE_DEVICE_KBD:
@@ -153,7 +186,12 @@ void compose_server_tick(compose_server_t* srv) {
 						if(e <= 0) {
 							break;
 						}
-						event = compose_event_create(COMPOSE_EVENT_KEY, input_kbd_create_packet((int) raw_data));
+						event = malloc(sizeof(compose_key_event_t));
+						event->type = COMPOSE_EVENT_KEY;
+						event->size = sizeof(compose_key_event_t);
+						packet = input_kbd_create_packet((int) raw_data);
+						memcpy(&((compose_key_event_t*)event)->packet, packet, sizeof(keyboard_packet_t));	
+						free(packet);
 						break;
 					case COMPOSE_DEVICE_MOUSE:
 						raw_data = malloc(sizeof(ps_mouse_packet_t));
@@ -162,16 +200,22 @@ void compose_server_tick(compose_server_t* srv) {
 							free(raw_data);
 							break;
 						}
-						event = compose_event_create(COMPOSE_EVENT_MOUSE, input_mouse_create_packet(raw_data));
+						event = malloc(sizeof(compose_mouse_event_t));
+						event->type = COMPOSE_EVENT_MOUSE;
+						event->size = sizeof(compose_mouse_event_t);
+						packet = input_mouse_create_packet(raw_data);
 						free(raw_data);
+						if(!packet) {
+							break;
+						}
+						__compose_update_mouse(srv, ((mouse_packet_t*) packet)->dx, ((mouse_packet_t*) packet)->dy);
+						memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
+						free(packet);
 						break;
 				}
 				if(event) {
-					compose_server_event_send_to_all(srv, event);
-					if(event->data) {
-						free(event->data);
-					}
-					compose_event_release(event);
+					compose_sv_event_send_to_all(srv, event);
+					free(event);
 				} else {
 					break;
 				}
@@ -180,42 +224,74 @@ void compose_server_tick(compose_server_t* srv) {
 	}
 }
 
-void compose_server_redraw(compose_client_t* client) {
-
-}
-
-int compose_client_move(compose_client_t* cli, int x, int y) {
+int compose_cl_move(compose_client_t* cli, int x, int y) {
 	compose_move_req_t* payload = malloc(sizeof(compose_move_req_t));
+	payload->req.type = COMPOSE_REQ_MOVE;
+	payload->req.size = sizeof(compose_move_req_t);
 	payload->x = x;
 	payload->y = y;
 	payload->z = cli->pos.z;
-	compose_request_t* req = compose_client_create_request(COMPOSE_REQ_MOVE, payload);
-	int r = compose_client_send_request(cli, req);
-	compose_client_release_request(req);
+	int r = compose_cl_send_request(cli, payload);
 	free(payload);
 	return r;
 }
 
-int compose_client_layer(compose_client_t* cli, int z) {
+int compose_cl_layer(compose_client_t* cli, int z) {
 	compose_move_req_t* payload = malloc(sizeof(compose_move_req_t));
+	payload->req.type = COMPOSE_REQ_MOVE;
+	payload->req.size = sizeof(compose_move_req_t);
 	payload->x = cli->pos.x;
 	payload->y = cli->pos.y;
 	payload->z = z;
-	compose_request_t* req = compose_client_create_request(COMPOSE_REQ_MOVE, payload);
-	int r = compose_client_send_request(cli, req);
-	compose_client_release_request(req);
+	int r = compose_cl_send_request(cli, payload);
 	free(payload);
 	return r;
 }
 
-int compose_client_resize(compose_client_t* cli, size_t w, size_t h) {
+int compose_cl_resize(compose_client_t* cli, size_t w, size_t h) {
 	compose_resize_req_t* payload = malloc(sizeof(compose_resize_req_t));
+	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.size = sizeof(compose_resize_req_t);
 	payload->w = w;
 	payload->h = h;
-	compose_request_t* req = compose_client_create_request(COMPOSE_REQ_RESIZE, payload);
-	int r = compose_client_send_request(cli, req);
-	compose_client_release_request(req);
+	int r = compose_cl_send_request(cli, payload);
 	free(payload);
 	return r;
 }
 
+void compose_sv_move(compose_client_t* cli, int x, int y, int z) {
+	position_t old_pos = cli->pos;
+
+	cli->pos.x = x;
+	cli->pos.y = y;
+	cli->pos.z = z;
+
+	position_t new_pos = cli->pos;
+
+	compose_move_event_t* ev = malloc(sizeof(compose_move_event_t));
+	ev->event.type = COMPOSE_EVENT_MOVE;
+	ev->event.size = sizeof(compose_move_event_t);
+	ev->old_pos = old_pos;
+	ev->new_pos = new_pos;
+
+	compose_sv_event_send(cli, ev);
+	free(ev);
+}
+
+void compose_sv_resize(compose_client_t* cli, size_t w, size_t h) {
+	sizes_t old_size = cli->sizes;
+
+	cli->sizes.w = w;
+	cli->sizes.h = h;
+
+	sizes_t new_size = cli->sizes;
+
+	compose_resize_event_t* ev = malloc(sizeof(compose_resize_event_t));
+	ev->event.type = COMPOSE_EVENT_RESIZE;
+	ev->event.size = sizeof(compose_resize_event_t);
+	ev->old_size = old_size;
+	ev->new_size = new_size;
+
+	compose_sv_event_send(cli, ev);
+	free(ev);
+}

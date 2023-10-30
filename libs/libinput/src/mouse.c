@@ -12,11 +12,11 @@ mouse_packet_t* input_mouse_create_packet(ps_mouse_packet_t* raw_packet) {
 	packet->dy = raw_packet->my;
 
 	if(raw_packet->data & MOUSE_RAW_DATA_XSGN) {
-		packet->dx -= 0x100;
+		packet->dx |= 0xFFFFFF00;
 	}
 
 	if(raw_packet->data & MOUSE_RAW_DATA_YSGN) {
-		packet->dy -= 0x100;
+		packet->dy |= 0xFFFFFF00;
 	}
 
 	if(raw_packet->data & MOUSE_RAW_DATA_LBTN) {

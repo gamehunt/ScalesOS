@@ -1,6 +1,8 @@
 #ifndef __SYS_MMAN
 #define __SYS_MMAN
 
+#include "sys/types.h"
+
 #define PROT_READ  (1 << 0) // Page can be read.
 #define PROT_WRITE (1 << 1) // Page can be written.
 #define PROT_EXEC  (1 << 2) // Page can be executed.
@@ -19,5 +21,8 @@
 #define MCL_FUTURE  2 // Lock pages that become mapped.
 
 #define MAP_FAILED  -1
+
+int shm_open(const char *name, int oflag, mode_t mode);
+int shm_unlink(const char *name);  
 
 #endif

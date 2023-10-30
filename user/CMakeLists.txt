@@ -32,6 +32,13 @@ ExternalProject_Add(
 )
 
 ExternalProject_Add(
+    lockscreen
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/lockscreen/
+    BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/lockscreen/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+)
+
+ExternalProject_Add(
     terminal
     SOURCE_DIR  ${PROJECT_SOURCE_DIR}/terminal/
     BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/terminal/

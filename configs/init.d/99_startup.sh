@@ -13,4 +13,4 @@ echo !q > /tmp/splash
 /bin/getty 6 &
 
 /bin/chvt 7
-/bin/compositor --startup /bin/lockscreen
+/bin/compositor --startup /bin/lockscreen > /dev/tty0

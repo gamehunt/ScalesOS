@@ -24,6 +24,7 @@ typedef struct {
 	socklen_t        addr_len;
 	void*            bind;
 	void*            connect;
+	fs_node_t*       node;
 	int              domain;
 	int              type;
 	int              listening;
@@ -41,5 +42,5 @@ fs_node_t* k_fs_socket_create(int domain, int type, int protocol);
 int        k_fs_socket_bind(socket_t* socket, struct sockaddr* addr, socklen_t l);
 int        k_fs_socket_connect(socket_t* socket, struct sockaddr* addr, socklen_t l);
 int        k_fs_socket_listen(socket_t* socket);
-fs_node_t* k_fs_socket_accept(socket_t* socket);
+int        k_fs_socket_accept(socket_t* socket, fs_node_t** node);
 #endif

@@ -872,13 +872,13 @@ static uint32_t sys_accept(int fd, struct sockaddr* addr, socklen_t* l) {
 	}
 
 	fs_node_t* node = fdt->node;
+	fs_node_t* new  = NULL;
 
-	int32_t r = (int32_t) k_fs_socket_accept(node->device);
+	int32_t r = k_fs_socket_accept(node->device, &new);
 	if(r < 0) {
 		return r;
 	}
 
-	fs_node_t* new = (fs_node_t*) r;
 	socket_t* sock = new->device;
 
 	if(addr) {
@@ -1009,29 +1009,36 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 	}
 
 	fd_set* sel_set = NULL;
+	fd_set* chk_set = NULL;
 
 	switch(cur->select_wait_event) {
 		case VFS_EVENT_READ:
 			sel_set = rs;
+			chk_set = &wait_read;
 			break;
 		case VFS_EVENT_WRITE:
 			sel_set = ws;
+			chk_set = &wait_write;
 			break;
 		case VFS_EVENT_EXCEPT:
 			sel_set = es;
+			chk_set = &wait_exc;
 			break;
 	}
 
 	if(sel_set) {
 		for(int i = 0; i < n; i++) {
+			if(!FD_ISSET(i, chk_set)) {
+				continue;
+			}
 			fd_t* fd = fd2fdt(fds, i);
 			if(!fd) {
 				continue;
 			}
 			fs_node_t* node = fd->node;
-			if(node == cur->select_wait_node) {
+			if(k_fs_vfs_check(node, cur->select_wait_event)) {
 				FD_SET(i, sel_set);
-				has_result = 1;
+				has_result++;
 				break;
 			}
 		}

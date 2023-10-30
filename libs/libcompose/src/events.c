@@ -6,54 +6,37 @@
 #include <string.h>
 #include <unistd.h>
 
-typedef struct {
-	event_listener* listeners;
-	size_t          listeners_amount;
-} listener_queue;
+static list_t* __listeners[COMPOSE_EVENT_MAX] = {0};
 
-static listener_queue __listeners[COMPOSE_EVENT_MAX] = {0};
-
-compose_event_t* compose_event_create(event_type type, void* data) {
-	compose_event_t* ev = malloc(sizeof(compose_event_t));
-	ev->type = type;
-	ev->data = data;
-	return ev;
-}
-
-void compose_event_release(compose_event_t* ev) {
-	free(ev);
-}
-
-void compose_client_event_send_to_all(compose_client_t* client, compose_event_t* event) {
+void compose_cl_event_send_to_all(compose_client_t* client, compose_event_t* event) {
 	compose_event_req_t* ereq = malloc(sizeof(compose_event_req_t));
 	ereq->target = 0;
 	memcpy(&ereq->event, event, sizeof(compose_event_t));
 
-	compose_request_t* req = compose_client_create_request(COMPOSE_REQ_EVENT, ereq);
-
-	compose_client_send_request(client, req);
+	compose_cl_send_request(client, ereq);
 	free(ereq);
 }
 
-void compose_client_event_send(compose_client_t* client, id_t id, compose_event_t* event) {
+void compose_cl_event_send(compose_client_t* client, id_t id, compose_event_t* event) {
 	compose_event_req_t* ereq = malloc(sizeof(compose_event_req_t));
 	ereq->target = id;
 	memcpy(&ereq->event, event, sizeof(compose_event_t));
 
-	compose_request_t* req = compose_client_create_request(COMPOSE_REQ_EVENT, ereq);
-
-	compose_client_send_request(client, req);
+	compose_cl_send_request(client, ereq);
 	free(ereq);
 }
 
-void compose_server_event_send_to_all(compose_server_t* srv, compose_event_t* event) {
-	for(size_t i = 0; i < srv->clients_amount; i++) {
-		compose_client_t* cli = srv->clients[i];
-		write(cli->socket, event, sizeof(compose_event_t));
+void compose_sv_event_send(compose_client_t* cli, compose_event_t* event) {
+	write(cli->socket, event, event->size);
+}
+
+void compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event) {
+	for(size_t i = 0; i < srv->clients->size; i++) {
+		compose_sv_event_send(srv->clients->data[i], event);
 	}
 }
 
-void compose_client_add_event_handler(int type, event_listener listener) {
+void compose_cl_add_event_handler(int type, event_listener listener) {
 	if(type >= COMPOSE_EVENT_MAX) {
 		return;
 	}
@@ -61,38 +44,53 @@ void compose_client_add_event_handler(int type, event_listener listener) {
 	if(type < 0) {
 		if(type == COMPOSE_EVENT_ALL) {
 			for(int i = 0; i < COMPOSE_EVENT_MAX; i++) {
-				compose_client_add_event_handler(i, listener);
+				compose_cl_add_event_handler(i, listener);
 			}
 		} else {
 			return;
 		}
 	}
 
-	listener_queue queue = __listeners[type];
-	
-	if(!queue.listeners) {
-		queue.listeners = malloc(sizeof(event_listener));
-	} else {
-		queue.listeners = realloc(queue.listeners, sizeof(event_listener) * (queue.listeners_amount + 1));
+	list_t* queue = __listeners[type];
+	if(!queue) {
+		queue = list_create();
+		__listeners[type] = queue;
 	}
-	queue.listeners[queue.listeners_amount] = listener;
-	queue.listeners_amount++;
+	list_push_back(queue, listener);
 }
 
-void compose_client_handle_event(compose_client_t* client, compose_event_t* ev) {
+void compose_cl_handle_event(compose_client_t* client, compose_event_t* ev) {
 	if(ev->type >= COMPOSE_EVENT_MAX) {
 		return;
 	}
 
-	listener_queue listeners = __listeners[ev->type];
-	if(!listeners.listeners_amount) {
+	list_t* listeners = __listeners[ev->type];
+	if(!listeners) {
+		listeners = list_create();
+		__listeners[ev->type] = listeners;
+	}
+
+	if(!listeners->size) {
 		return;
 	}
 
-	for(size_t i = listeners.listeners_amount - 1; i >= 0; i++) {
-		int r = listeners.listeners[i](client, ev);
+	for(int i = listeners->size - 1; i >= 0; i--) {
+		int r = ((event_listener) listeners->data[i])(ev);
 		if(r == COMPOSE_ACTION_BLOCK) {
 			break;
 		}
 	}
+}
+
+compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
+	compose_request_t tmpev;
+
+	if(read(cli->socket, &tmpev, sizeof(compose_request_t)) > 0) {
+		compose_event_t* ev = malloc(tmpev.size);
+		memcpy(ev, &tmpev, sizeof(compose_event_t));
+		read(cli->socket, ev + 1, tmpev.size - sizeof(compose_event_t));
+		return ev;
+	}
+
+	return NULL;
 }

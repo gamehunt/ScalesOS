@@ -143,7 +143,7 @@ static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uin
 
 	k_proc_process_wakeup_queue(client->blocked_processes);
 
-	__k_fs_socket_notify(node, VFS_EVENT_READ);
+	__k_fs_socket_notify(client->node, VFS_EVENT_READ);
 
 	return size;
 }
@@ -158,6 +158,7 @@ fs_node_t* k_fs_socket_create(int domain, int type, int protocol UNUSED) {
 	socket_t* sock    = k_calloc(1, sizeof(socket_t));
 	sock->domain      = domain;
 	sock->type        = type;
+	sock->node        = node;
 	sock->buffer_size = SOCKET_INIT_BUFFER_SIZE;
 	sock->buffer      = k_malloc(sock->buffer_size);
 	sock->backlog     = list_create();
@@ -262,11 +263,11 @@ int k_fs_socket_listen(socket_t* socket) {
 	return 0;
 }
 
-fs_node_t* k_fs_socket_accept(socket_t* socket) {
+int k_fs_socket_accept(socket_t* socket, fs_node_t** nod) {
 	if(socket->domain == AF_LOCAL) {
 		while(!socket->backlog->size) {
 			if(socket->type & SOCK_NONBLOCK) {
-				return (fs_node_t*) -EAGAIN;
+				return -EAGAIN;
 			}
 			k_proc_process_sleep_on_queue(k_proc_process_current(), socket->blocked_processes);
 		}
@@ -284,8 +285,10 @@ fs_node_t* k_fs_socket_accept(socket_t* socket) {
 
 		k_proc_process_wakeup_queue(socket->cnn_blocked_processes);
 
-		return node;
+		*nod = node;
+
+		return 0;
 	}
 
-	return (fs_node_t*) -ENOTSUP;
+	return -ENOTSUP;
 }

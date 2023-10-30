@@ -74,6 +74,7 @@ int    rmdir(const char* path);
 
 #define O_NOFOLLOW (1 << 5)
 #define O_NOBLOCK  (1 << 6)
+#define O_EXCL     (1 << 7)
 
 #define SEEK_SET 0
 #define SEEK_CUR 1

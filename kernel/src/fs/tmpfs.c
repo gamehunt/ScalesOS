@@ -30,8 +30,6 @@ typedef struct tmpfs_node {
 } tmpfs_node_t;
 
 static uint32_t __k_fs_tmpfs_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_t* _buffer) {
-	k_debug("Read +%d. %d bytes. (node size %d)", offset, size, node->size);
-
 	if(!size) {
 		return 0;
 	}
@@ -98,6 +96,7 @@ static uint32_t __k_fs_tmpfs_allocate_blocks(tmpfs_node_t* node, uint32_t blocks
 			break;
 		}
 		k_mem_paging_map_region(node->last_map, 0, 1, PAGE_PRESENT | PAGE_WRITABLE, 0);
+		memset((void*) node->last_map, 0, 0x1000);
 		node->blocks[node->blocks_amount + i] = (uint32_t*) (node->last_map); 
 		node->last_map += TMPFS_BLOCK_SIZE;
 		allocated++;

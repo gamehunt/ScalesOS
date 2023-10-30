@@ -15,13 +15,13 @@ typedef uint8_t buttons_t;
 #define MOUSE_RAW_DATA_MBTN (1 << 2)
 #define MOUSE_RAW_DATA_SIGN (1 << 3)
 #define MOUSE_RAW_DATA_XSGN (1 << 4)
-#define MOUSE_RAW_DATA_YSGN (1 << 4)
+#define MOUSE_RAW_DATA_YSGN (1 << 5)
 #define MOUSE_RAW_DATA_XOVF (1 << 6)
 #define MOUSE_RAW_DATA_YOVF (1 << 7)
 
 typedef struct {
-	int16_t   dx;
-	int16_t   dy;
+	int32_t   dx;
+	int32_t   dy;
 	buttons_t buttons;
 } mouse_packet_t;
 
