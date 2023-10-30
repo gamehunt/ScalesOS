@@ -61,6 +61,7 @@ void   rewind(FILE* stream);
 int    remove(const char* path);
 int    unlink(const char* path);
 int    rmdir(const char* path);
+void   perror(const char *str);
 
 #endif
 
