@@ -1,4 +1,5 @@
 #include "errno.h"
+#include "stdio.h"
 #include "sys/syscall.h"
 #include "unistd.h"
 
@@ -16,4 +17,15 @@ int open(const char *pathname, int flags) {
 
 int close(int fd) {
 	__return_errno(__sys_close(fd));
+}
+
+int truncate(const char *path, off_t length) {
+	int fd = open(path, O_WRONLY);
+	int r = ftruncate(fd, length);
+	close(fd);
+	return r;
+}
+
+int ftruncate(int fd, off_t length) {
+	__return_errno(__sys_truncate(fd, length));
 }

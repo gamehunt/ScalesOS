@@ -43,6 +43,9 @@ size_t write(int fd, void *buf, size_t count);
 int    open(const char *pathname, int flags);
 int    close(int fd);
 
+int truncate(const char *path, off_t length);
+int ftruncate(int fd, off_t length);
+
 #endif
 
 #endif

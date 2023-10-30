@@ -510,6 +510,14 @@ int32_t k_fs_vfs_rmdir(fs_node_t* node) {
 	return 0;
 }
 
+int  k_fs_vfs_truncate(fs_node_t* node, off_t size) {
+	if(!node->fs.truncate) {
+		return -EPERM;
+	}
+
+	return node->fs.truncate(node, size);
+}
+
 void __k_d_fs_vfs_print_entry(vfs_entry_t* entry, uint8_t depth){
     char buffer[1024];
     char prefix[512];

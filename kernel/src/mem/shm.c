@@ -19,11 +19,69 @@ static shm_node_t* __k_mem_shm_create_shm_node(const char* name) {
 	return shm;
 }
 
+static void __k_mem_shm_open(fs_node_t* node, uint16_t flags UNUSED) {
+	shm_node_t* sh = node->device;
+	sh->links++;
+}
+
+static int __k_mem_shm_remove(fs_node_t* node) {
+	shm_node_t* sh = node->device;
+	for(size_t i = 0; i < sh->frames->size; i++) {
+		k_mem_pmm_free((pmm_frame_t) sh->frames->data[i], 1);
+	}
+	list_delete_element(sh->root->device, sh);
+	free(sh);
+	return 0;
+}
+
+static void __k_mem_shm_close(fs_node_t* node) {
+	shm_node_t* sh = node->device;
+	sh->links--;
+	if(sh->links <= 0) {
+		__k_mem_shm_remove(node);
+	}
+}
+
+static int __k_mem_shm_truncate(fs_node_t* node, off_t sz) {
+	off_t diff = sz - node->size;
+
+	int dir = diff > 0;
+
+	if(!dir) {
+		diff = -diff;
+	}
+
+	off_t pages = diff / 0x1000;
+	off_t bytes = diff % 0x1000;
+
+	shm_node_t* shm = node->device;
+
+	node->size = sz;
+
+	if(dir) {
+		for(uint32_t i = 0; i < pages + (bytes > 0); i++) {
+			pmm_frame_t frame = k_mem_pmm_alloc_frames(1);
+			list_push_back(shm->frames, (void*) frame);
+		}
+	} else {
+		for(int32_t i = pages + (bytes > 0) - 1; i >= 0; i--) {
+			pmm_frame_t frame = (pmm_frame_t) shm->frames->data[i];
+			list_delete_element(shm->frames, (void*) frame);
+			k_mem_pmm_free(frame, 1);
+		}
+	}
+
+	return 0;
+}
+
 static fs_node_t* __k_mem_shm_create_node(shm_node_t* shm) {
 	fs_node_t* node = k_fs_vfs_create_node(shm->name);
 
 	node->device = shm;
 	node->flags = VFS_FILE;
+	node->fs.truncate = __k_mem_shm_truncate;
+	node->fs.open     = __k_mem_shm_open;
+	node->fs.close    = __k_mem_shm_close;
 
 	return node;
 }
@@ -77,28 +135,6 @@ static fs_node_t* __k_mem_shm_finddir(fs_node_t* root, const char* path) {
 	return NULL;
 }
 
-static void __k_mem_shm_open(fs_node_t* node, uint16_t flags UNUSED) {
-	shm_node_t* sh = node->device;
-	sh->links++;
-}
-
-static int __k_mem_shm_remove(fs_node_t* node) {
-	shm_node_t* sh = node->device;
-	for(size_t i = 0; i < sh->frames->size; i++) {
-		k_mem_pmm_free((pmm_frame_t) sh->frames->data[i], 1);
-	}
-	list_delete_element(sh->root->device, sh);
-	free(sh);
-	return 0;
-}
-
-static void __k_mem_shm_close(fs_node_t* node) {
-	shm_node_t* sh = node->device;
-	sh->links--;
-	if(sh->links <= 0) {
-		__k_mem_shm_remove(node);
-	}
-}
 
 static fs_node_t* __k_mem_shm_create_root() {
 	fs_node_t* node = k_fs_vfs_create_node("[shm-root]");

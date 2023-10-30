@@ -1062,6 +1062,17 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 	}
 } 
 
+static uint32_t sys_truncate(uint32_t fd, size_t sz) {
+	fd_list_t* fds = &k_proc_process_current()->fds;
+
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt) {
+		return -ENOENT;
+	}
+
+	return k_fs_vfs_truncate(fdt->node, sz);
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -1111,6 +1122,7 @@ DEFN_SYSCALL3(sys_connect, int, struct sockaddr*, socklen_t);
 DEFN_SYSCALL3(sys_accept, int, struct sockaddr*, socklen_t*);
 DEFN_SYSCALL2(sys_listen, int, int);
 DEFN_SYSCALL5(sys_select, int, fd_set*, fd_set*, fd_set*, struct timeval*);
+DEFN_SYSCALL2(sys_truncate, uint32_t, size_t);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -1165,6 +1177,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_LISTEN, REF_SYSCALL(sys_listen));
 	k_int_syscall_setup_handler(SYS_CONNECT, REF_SYSCALL(sys_connect));
 	k_int_syscall_setup_handler(SYS_SELECT, REF_SYSCALL(sys_select));
+	k_int_syscall_setup_handler(SYS_TRUNCATE, REF_SYSCALL(sys_truncate));
     
 	return K_STATUS_OK;
 }

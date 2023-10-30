@@ -1,6 +1,7 @@
 #ifndef __FS_VFS_H
 #define __FS_VFS_H
 
+#include "sys/types.h"
 #ifdef __KERNEL
 #include "kernel.h"
 #else
@@ -9,7 +10,9 @@
 
 #include "types/tree.h"
 #include "shared.h"
+
 #include <stdint.h>
+#include <stddef.h>
 
 #define VFS_FILE       (1 << 0)
 #define VFS_DIR        (1 << 1)
@@ -41,6 +44,7 @@ typedef fs_node_t*     (*fs_mkdir_t)    (fs_node_t* node, const char* name, uint
 typedef int            (*fs_ioctl_t)    (fs_node_t* node, uint32_t request, void* args);
 typedef uint8_t        (*fs_check_t)    (fs_node_t* node, uint8_t mode);
 typedef int            (*fs_wait_t)     (fs_node_t* node, uint8_t event, struct process* process);
+typedef int            (*fs_truncate_t) (fs_node_t* node, off_t sz);
 
 typedef struct fs_ops{
     fs_write_t    write;
@@ -58,6 +62,7 @@ typedef struct fs_ops{
 	fs_ioctl_t    ioctl;
 	fs_check_t    check;
 	fs_wait_t     wait;
+	fs_truncate_t truncate;
 }fs_ops_t;
 
 struct fs_node{
@@ -105,6 +110,7 @@ fs_node_t*       k_fs_vfs_mkdir          (fs_node_t* node, const char* path, uin
 int              k_fs_vfs_ioctl          (fs_node_t* node, uint32_t req, void* args);
 uint8_t          k_fs_vfs_check          (fs_node_t* node, uint8_t mode);
 int              k_fs_vfs_wait           (fs_node_t* node, uint8_t events, struct process* prc);
+int              k_fs_vfs_truncate       (fs_node_t* node, off_t size);
 void             k_d_fs_vfs_print        ();
 void             k_fs_vfs_register_fs    (const char* alias, mount_callback m);
 
