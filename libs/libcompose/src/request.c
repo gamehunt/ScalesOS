@@ -12,25 +12,49 @@ int compose_cl_send_request(compose_client_t* client, compose_request_t* req) {
 }
 
 void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, compose_request_t* req) {
+	compose_window_t*  win;
+	compose_client_t*  trg;
+	compose_win_req_t* wreq;
 	switch(req->type) {
 		case COMPOSE_REQ_MOVE:
-			compose_sv_move(cli, ((compose_move_req_t*)req)->x, ((compose_move_req_t*)req)->y, ((compose_move_req_t*)req)->z);
+			win = compose_sv_get_window(srv, ((compose_move_req_t*)req)->win);
+			if(!win) {
+				break;
+			}
+			compose_sv_move(win, ((compose_move_req_t*)req)->x, ((compose_move_req_t*)req)->y, ((compose_move_req_t*)req)->z);
 			break;
 		case COMPOSE_REQ_RESIZE:
-			compose_sv_resize(cli, ((compose_resize_req_t*)req)->w, ((compose_resize_req_t*)req)->h);
+			win = compose_sv_get_window(srv, ((compose_resize_req_t*)req)->win);
+			if(!win) {
+				break;
+			}
+			compose_sv_resize(win, ((compose_resize_req_t*)req)->w, ((compose_resize_req_t*)req)->h);
 			break;
 		case COMPOSE_REQ_CLOSE:
 			compose_sv_close(srv, cli);
 			break;
 		case COMPOSE_REQ_DRAW:
-			compose_sv_draw(srv, cli, ((compose_draw_req_t*)req)->op, ((compose_draw_req_t*)req)->params);
+			win = compose_sv_get_window(srv, ((compose_draw_req_t*)req)->win);
+			if(!win) {
+				break;
+			}
+			compose_sv_draw(win, ((compose_draw_req_t*)req)->op, ((compose_draw_req_t*)req)->params);
 			break;
 		case COMPOSE_REQ_EVENT:
 			if(!((compose_event_req_t*)req)->target) {
 				compose_sv_event_send_to_all(srv, &((compose_event_req_t*)req)->event);
 			} else {
-
+				trg = compose_sv_get_client(srv,  ((compose_event_req_t*)req)->target);
+				if(!trg) {
+					break;
+				}
+				compose_sv_event_send(trg, &((compose_event_req_t*)req)->event);
 			}
+			break;
+		case COMPOSE_REQ_NEWWIN:
+			wreq = (compose_win_req_t*) req;
+			win  = compose_sv_get_window(srv, wreq->par);
+			compose_sv_create_window(srv, cli, win, wreq->id, wreq->x, wreq->y, wreq->w, wreq->h, 0);
 			break;
 	}
 }

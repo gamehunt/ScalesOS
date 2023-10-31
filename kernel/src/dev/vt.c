@@ -44,11 +44,7 @@ int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
 		fs_node_t*   vt   = __vts[number];
 		vt_buffer_t* buff = vt->device;
 
-		for(uint32_t i = 0; i < buff->occupied_size; i++) {
-			k_dev_fb_putchar(buff->data[i], 0xFFFFFFFF, 0x0);
-		}
-
-		k_dev_fb_sync();
+		k_dev_fb_restore(buff->data, buff->occupied_size);
 	}
 
 	UNLOCK(vt_lock);
@@ -270,9 +266,6 @@ void k_dev_vt_tty_callback(struct tty* tty) {
 		}
 		c = __k_dev_vt_getc(tty);
 	} 
-	if(a->id == tty->id) {
-		k_dev_fb_sync();
-	}
 	UNLOCK(vt_lock);
 }
 

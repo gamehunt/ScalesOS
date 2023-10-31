@@ -7,8 +7,8 @@
 #include "fs/pipe.h"
 #include "fs/socket.h"
 #include "fs/vfs.h"
-#include "kernel/mem/memory.h"
-#include "kernel/mem/paging.h"
+#include "mem/memory.h"
+#include "mem/paging.h"
 #include "mem/heap.h"
 #include "mem/mmap.h"
 #include "mem/paging.h"
@@ -42,6 +42,7 @@
 #include <scales/reboot.h>
 #include <scales/mmap.h>
 #include <scales/prctl.h>
+#include <scales/sched.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -171,6 +172,10 @@ static uint32_t sys_close(uint32_t fd) {
 
 static uint32_t sys_fork() {
 	return k_proc_process_fork();
+}
+
+static uint32_t sys_clone(clone_args_t* args) {
+	return k_proc_process_clone(args);
 }
 
 static uint32_t sys_getpid() {
@@ -575,7 +580,8 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 	block->offset = offs;
 	block->fd     = fd;
 
-	if(flags & MAP_SHMEM) {
+	if(k_mem_is_shm(fdt->node)) {
+		block->flags |= MMAP_FLAG_SHM;
 		shm_node_t* node = fdt->node->device;	
 		int fl = PAGE_PRESENT | PAGE_USER;
 		if(prot & PROT_WRITE) {

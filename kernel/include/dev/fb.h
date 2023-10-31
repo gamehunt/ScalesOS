@@ -9,9 +9,8 @@
 
 #include <stdint.h>
 
-#define FB_IOCTL_SYNC  0
-#define FB_IOCTL_CLEAR 1
-#define FB_IOCTL_STAT  2
+#define FB_IOCTL_CLEAR 0
+#define FB_IOCTL_STAT  1
 
 typedef struct {
 	uint32_t w;
@@ -35,7 +34,6 @@ typedef struct {
 typedef void(*fb_clear)(uint32_t color);
 typedef void(*fb_putpixel)(fb_pos_t pos, uint32_t color);
 typedef void(*fb_scroll)(uint32_t pixels);
-typedef void(*fb_sync)(void);
 typedef void(*fb_release)(void);
 typedef void(*fb_init)(fb_info_t*);
 
@@ -45,7 +43,6 @@ typedef struct {
 	fb_scroll   scroll;
 	fb_putpixel putpixel;
 	fb_clear    clear;	
-	fb_sync     sync;
 	fb_release  release;
 
 	// fsnode hooks
@@ -58,8 +55,8 @@ void k_dev_fb_write(char* buff, uint32_t size);
 void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg);
 void k_dev_fb_putpixel(uint32_t x, uint32_t y, uint32_t color);
 void k_dev_fb_clear(uint32_t color);
-void k_dev_fb_sync();
 int  k_dev_fb_ioctl(fs_node_t*, int op, void* arg);
 void k_dev_fb_terminfo(fb_term_info_t* info);
+void k_dev_fb_restore(char* buff, uint32_t size);
 
 #endif

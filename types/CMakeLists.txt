@@ -15,5 +15,6 @@ add_subdirectory(src)
 install(TARGETS ktypes ARCHIVE DESTINATION lib/)
 install(TARGETS types  ARCHIVE DESTINATION lib/)
 install(TARGETS stypes LIBRARY DESTINATION lib/)
+install(TARGETS stypes LIBRARY DESTINATION ramdisk/lib/)
 install(DIRECTORY include/ DESTINATION include/types/)
 

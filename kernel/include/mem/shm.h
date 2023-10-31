@@ -16,6 +16,7 @@ typedef struct {
 	fs_node_t*  root;
 } shm_node_t;
 
-void k_mem_shm_init();
+void    k_mem_shm_init();
+uint8_t k_mem_is_shm(fs_node_t* node);
 
 #endif

@@ -59,7 +59,7 @@ static void fb_init_colors() {
 	blue  = fb_color(0x00, 0x00, 0xFF, 0xFF);
 }
 
-int fb_open(const char* path, fb_t* buf) {
+int fb_open(const char* path, fb_t* buf, int flag) {
 	FILE* file = fopen(path, "r+");
 	if(!file) {
 		return -1;
@@ -72,6 +72,10 @@ int fb_open(const char* path, fb_t* buf) {
 	if(r < 0) {
 		fclose(file);
 		return -1;
+	}
+
+	if(flag & FB_FLAG_DOUBLEBUFFER) {
+		buf->backbuffer = malloc(info.memsz);
 	}
 
 	r = (int) mmap(NULL, info.memsz, PROT_READ | PROT_WRITE, MAP_SHARED, fileno(file), 0);
@@ -87,17 +91,24 @@ int fb_open(const char* path, fb_t* buf) {
 
 	fb_init_colors();
 
+	buf->flags |= FB_IFLAG_MMAPED;
+
 	return 0;
 }
 
-int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf) {
+int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag) {
 	(*buf).file = NULL;
 	(*buf).info.w   = w;
 	(*buf).info.h   = h;
 	(*buf).info.bpp = size / w / h;
 	(*buf).info.memsz = size;
 
+	if(flag & FB_FLAG_DOUBLEBUFFER) {
+		buf->backbuffer = malloc(buf->info.memsz);
+	}
+	
 	if(!mem) {
+		buf->flags |= FB_IFLAG_MMAPED;
 		mem = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 		if(((int32_t)mem) == MAP_FAILED) {
 			return -1;
@@ -142,7 +153,11 @@ int fb_open_font(const char* path, fb_font_t** font) {
 }
 
 void fb_close(fb_t* buffer) {
-	munmap(buffer->mem, buffer->info.memsz);
+	if(buffer->flags & FB_IFLAG_MMAPED) {
+		munmap(buffer->mem, buffer->info.memsz);
+	} else {
+		free(buffer->mem);
+	}
 	fclose(buffer->file);
 }
 
@@ -150,14 +165,20 @@ void fb_close_font(fb_font_t* font) {
 }
 
 void fb_flush(fb_t* fb) {
+	if(fb->backbuffer) {
+		memcpy(fb->mem, fb->backbuffer, fb->info.memsz);
+	}
 	if(fb->file) {
-		int r = msync(fb->mem, fb->info.memsz, MS_SYNC);
-		ioctl(fileno(fb->file), FB_IOCTL_SYNC, NULL);
+		msync(fb->mem, fb->info.memsz, MS_SYNC);
 	}
 }
 
 void fb_pixel(fb_t* fb, coord_t x0, coord_t y0, color_t color) {
 	VERIFY_POINT(fb, x0, y0)
+
+	if(fb_is_clipped(fb, x0, y0)) {
+		return;
+	}
 
 	uint32_t alpha = ALPHA(color);
 
@@ -165,7 +186,7 @@ void fb_pixel(fb_t* fb, coord_t x0, coord_t y0, color_t color) {
 		return;
 	}
 
-	uint32_t* buf = fb->mem;
+	uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
 
 	if(alpha == 0xFF) {
 		buf[y0 * fb->info.w + x0] = color;
@@ -246,7 +267,8 @@ void fb_fill(fb_t* fb, color_t color) {
 	if(alpha != 0xFF) {
 		fb_filled_rect(fb, 0, 0, fb->info.w, fb->info.h, color, color);
 	} else {
-		memset32(fb->mem, color, fb->info.memsz / 4);
+		uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
+		memset32(buf, color, fb->info.memsz / 4);
 	}
 }
 
@@ -282,3 +304,50 @@ void fb_bitmap(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h, color_t* bi
 		}
 	}
 }
+
+void fb_clip(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h) {
+	clip_t* clip = malloc(sizeof(clip_t));
+	clip->x0 = x0;
+	clip->y0 = y0;
+	clip->w  = w;
+	clip->h  = h;
+
+	if(!fb->clips) {
+		fb->clips = clip;
+	} else {
+		clip_t* cl = fb->clips;
+		clip_t* last = cl;
+		while(cl && cl->x0 > x0) {
+			last = cl;
+			cl = cl->next;
+		}
+
+		last->next = clip;
+		clip->next = cl;
+	}
+}
+
+void fb_unclip(fb_t* fb) {
+	clip_t* cl = fb->clips;
+	while(cl) {
+		clip_t* next = cl->next;
+		free(cl);
+		cl = next;
+	}
+	fb->clips = NULL;
+}
+
+short fb_is_clipped(fb_t* fb, coord_t x0, coord_t y0) {
+	clip_t* cl = fb->clips;
+	while(cl) {
+		if(cl->x0 <= x0 &&
+		   cl->y0 <= y0 && 
+		   cl->x0 + cl->w >= x0 && 
+		   cl->y0 + cl->h >= y0) {
+			return 1;
+		}
+		cl = cl->next;
+	}
+	return 0;
+}
+

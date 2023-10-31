@@ -140,7 +140,7 @@ void k_mem_mmap_free_block(mmap_info_t* info, mmap_block_t* block) {
 		list_delete_element(__shared_mappings, block);
 	}
 	k_debug("mmap: unmapping 0x%.8x - 0x%.8x (%d pages)", block->start, block->end, (block->end - block->start) / 0x1000);
-	if(block->type & MAP_SHMEM) {
+	if(block->flags & MMAP_FLAG_SHM) {
 		k_mem_paging_unmap_region(block->start, block->size / 0x1000);
 	} else {
 		k_mem_paging_unmap_and_free_region(block->start, block->size / 0x1000);

@@ -1,6 +1,7 @@
 #ifndef __UNISTD_H
 #define __UNISTD_H
 
+#include "scales/sched.h"
 #include <sys/types.h>
 #include <stddef.h>
 
@@ -45,6 +46,8 @@ int    close(int fd);
 
 int truncate(const char *path, off_t length);
 int ftruncate(int fd, off_t length);
+
+int clone(clone_args_t* args);
 
 #endif
 

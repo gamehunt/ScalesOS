@@ -65,7 +65,7 @@ int main(int argc, char** argv) {
 	int n = 7;
 	ioctl(fileno(console), VT_ACTIVATE, &n);
 
-	int r = fb_open("/dev/fb", &fb);
+	int r = fb_open("/dev/fb", &fb, FB_FLAG_DOUBLEBUFFER);
 	if(r < 0) {
 		return -2;
 	}	

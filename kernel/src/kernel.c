@@ -30,6 +30,7 @@
 #include "kernel.h"
 #include "mem/heap.h"
 #include "mem/pmm.h"
+#include "mem/shm.h"
 #include "mod/elf.h"
 #include "mod/modules.h"
 #include "mod/symtable.h"
@@ -58,6 +59,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
     k_mem_heap_init();
 
     k_fs_vfs_init();
+	k_mem_shm_init();
 
     k_dev_fb_init();
 	k_video_generic_lfb_init(mb);

@@ -41,6 +41,7 @@ int main(int argc, char** argv) {
 
 	printf("Starting server...\n");
 
+	remove("/tmp/.compose.lock");
 	compose_server_t* srv = compose_sv_create("/tmp/.compose.sock");
 
 	if(startup_app) {

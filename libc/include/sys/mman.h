@@ -12,7 +12,6 @@
 #define MAP_PRIVATE   (1 << 1) // Changes are private.
 #define MAP_FIXED     (1 << 2) // Interpret addr exactly.
 #define MAP_ANONYMOUS (1 << 3) // Don't map to any file
-#define MAP_SHMEM     (1 << 4) // Mapped file is shmem mapping
 					  
 #define MS_ASYNC      (1 << 0) // Perform asynchronous writes.
 #define MS_SYNC       (1 << 1) // Perform synchronous writes.

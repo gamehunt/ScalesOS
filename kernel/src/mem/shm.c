@@ -7,10 +7,13 @@
 
 #include <string.h>
 
+static list_t* __shm_mappings;
+
 static shm_node_t* __k_mem_shm_create_shm_node(const char* name) {
 	shm_node_t* shm = k_calloc(1, sizeof(shm_node_t));
 	strncpy(shm->name, name, sizeof(shm->name));
 	shm->frames = list_create();
+	list_push_back(__shm_mappings, shm);
 	return shm;
 }
 
@@ -25,6 +28,7 @@ static int __k_mem_shm_remove(fs_node_t* node) {
 		k_mem_pmm_free((pmm_frame_t) sh->frames->data[i], 1);
 	}
 	list_delete_element(sh->root->device, sh);
+	list_delete_element(__shm_mappings, sh);
 	free(sh);
 	return 0;
 }
@@ -148,5 +152,10 @@ static fs_node_t* __k_mem_shm_create_root() {
 }
 
 void k_mem_shm_init() {
+	__shm_mappings = list_create();
 	k_fs_vfs_mount_node("/dev/shm", __k_mem_shm_create_root());
+}
+
+uint8_t k_mem_is_shm(fs_node_t* node) {
+	return list_contains(__shm_mappings, node->device);
 }

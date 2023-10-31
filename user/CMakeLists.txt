@@ -70,6 +70,9 @@ add_executable(sleep    sleep.c)
 add_executable(chvt     chvt.c)
 add_executable(mkdir    mkdir.c)
 add_executable(rm       rm.c)
+add_executable(threads  threads.c)
+
+target_link_libraries(threads PRIVATE pthread)
 
 install(TARGETS 
 	getty 
@@ -90,6 +93,7 @@ install(TARGETS
 	chvt
 	mkdir
 	rm
+	threads
 DESTINATION bin/)
 
 install(TARGETS mount DESTINATION ramdisk/bin/)

@@ -6,6 +6,8 @@
 
 #include <stdint.h>
 
+#define MMAP_FLAG_SHM (1 << 0)
+
 typedef struct {
 	uint32_t start;
 	uint32_t end;
@@ -14,6 +16,7 @@ typedef struct {
 	int      fd;
 	int      prot;
 	int      type;
+	int      flags;
 } mmap_block_t;
 
 typedef struct {

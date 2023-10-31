@@ -53,6 +53,8 @@
 #define SYS_ACCEPT       47
 #define SYS_SELECT       48
 #define SYS_TRUNCATE     49
+#define SYS_CLONE        50
+#define SYS_SETTLS       51
 
 #define SYS_DEBUG        255
 
@@ -117,6 +119,8 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_accept(fd, addr, len)                   syscall(SYS_ACCEPT, fd, addr, len, UNUSED2)
 #define __sys_select(n, r, w, e, t)                   syscall(SYS_SELECT, n, r, w, e, t)
 #define __sys_truncate(fd, size)                      syscall(SYS_TRUNCATE, fd, size, UNUSED3)
+#define __sys_clone(args)                             syscall(SYS_CLONE, args, UNUSED4)
+#define __sys_settls(addr)                            syscall(SYS_SETTLS, addr, UNUSED4)
 
 #define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 

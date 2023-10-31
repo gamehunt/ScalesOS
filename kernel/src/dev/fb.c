@@ -1,5 +1,6 @@
 #include <dev/fb.h>
 #include <mem/heap.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "dev/serial.h"
@@ -22,15 +23,16 @@ void k_dev_fb_write(char* buff, uint32_t size) {
     for (uint32_t i = 0; i < size; i++) {
         k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
     }
-	k_dev_fb_sync();
 }
 
 void k_dev_fb_set_impl(fb_impl_t* i) {
 	if(impl) {
-		if(impl->release) {
-			impl->release();
+		fb_impl_t* tmp = impl;
+		impl = NULL;
+		if(tmp->release) {
+			tmp->release();
 		}
-		k_free(impl);
+		k_free(tmp);
 	}
 	impl = i;
 	if(impl->init) {
@@ -41,7 +43,6 @@ void k_dev_fb_set_impl(fb_impl_t* i) {
 	}
 	fb->fs = i->fs;
 	k_dev_fb_clear(0);
-	k_dev_fb_sync();
 }
 
 
@@ -190,12 +191,6 @@ void k_dev_fb_putchar(char c, uint32_t fg, uint32_t bg) {
     }
 }
 
-void k_dev_fb_sync() {
-	if(impl && impl->sync) {
-		impl->sync();
-	}
-}
-
 void k_dev_fb_clear(uint32_t color) {
 	pos.x = 0;
 	pos.y = 0;
@@ -215,9 +210,6 @@ static fs_node_t* __k_dev_fb_create_device() {
 int k_dev_fb_ioctl(fs_node_t* node UNUSED, int request, void* args) {
 	uint32_t arg; 
 	switch(request) {
-		case FB_IOCTL_SYNC:
-			k_dev_fb_sync();
-			return 0;
 		case FB_IOCTL_CLEAR:
 			if(!IS_VALID_PTR((uint32_t) args)) {
 				return -EINVAL;
@@ -250,4 +242,23 @@ void k_dev_fb_terminfo(fb_term_info_t* inf) {
 	inf->ch = ch;
 	inf->rows = info.w / cw;
 	inf->columns = info.h / ch;
+}
+
+void k_dev_fb_restore(char* buff, uint32_t size) {
+	int32_t  offset = 0;
+	uint32_t lines  = 0;
+	for(offset = size - 1; offset >= 0; offset--) {
+		if(buff[offset] == '\n') {
+			lines++;
+			if(lines >= info.h / ch) {
+				break;
+			}
+		}
+	}
+	if(offset < 0) {
+		offset = 0;
+	}
+	for(uint32_t i = offset; i < size; i++) {
+		k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
+	}
 }

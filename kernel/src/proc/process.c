@@ -17,6 +17,8 @@
 #include "types/list.h"
 #include "util/types/stack.h"
 #include "types/tree.h"
+#include "scales/sched.h"
+#include "sched.h"
 #include <proc/process.h>
 #include <proc/smp.h>
 #include <signal.h>
@@ -382,6 +384,92 @@ uint32_t k_proc_process_fork() {
     k_proc_process_mark_ready(new);
 
     return new->pid;
+}
+
+uint32_t k_proc_process_clone(struct clone_args* args) {
+	if (!process_list || !process_list->size) {
+        return 0;
+    }
+
+    process_t* src = (process_t*) current_core->current_process;
+    process_t* new = k_malloc(sizeof(process_t));
+
+    memcpy(new, src, sizeof(process_t));
+
+	new->pid   = __k_proc_process_allocate_pid();
+    new->state = PROCESS_STATE_STARTING;
+
+	new->signals_ignored = 0;
+	new->signal_queue    = 0;
+	memset(new->signals, 0, sizeof(new->signals));
+
+	if(new->wait_node) {
+		new->wait_node = NULL;
+	}
+	if(new->timeout_node) {
+		new->timeout_node = NULL;
+	}
+	new->wait_queue = list_create();
+
+	__k_proc_process_init_block_node(new);
+
+	if(!(args->flags & CLONE_VM)) {
+    	new->image.page_directory = k_mem_paging_clone_page_directory(src->image.page_directory, NULL);
+		new->image.mmap_info.mmap_blocks = list_create();
+
+		for(size_t i = 0; i < src->image.mmap_info.mmap_blocks->size; i++) {
+			mmap_block_t* src_block = src->image.mmap_info.mmap_blocks->data[i];
+			mmap_block_t* block = k_malloc(sizeof(mmap_block_t));
+			memcpy(block, src_block, sizeof(mmap_block_t));
+			list_push_back(new->image.mmap_info.mmap_blocks, block);
+		}
+	}
+
+    __k_proc_process_create_kernel_stack(new);
+
+    new->syscall_state.eax = 0;
+
+    PUSH(new->image.kernel_stack, interrupt_context_t, new->syscall_state)
+
+	new->context.esp = new->image.kernel_stack;
+	new->context.ebp = new->image.kernel_stack;
+    new->context.eip = (uint32_t)&__k_proc_process_fork_return;
+	new->context.fp_regs = k_valloc(512, 16);
+	memcpy(new->context.fp_regs, src->context.fp_regs, 512);
+
+	if(args->stack) {
+		void* stack = (void*) args->stack + args->stack_size;
+
+		if(args->entry) {
+			PUSH(stack, void*, args->arg);			
+			PUSH(stack, void*, args->entry);			
+		}
+
+		new->syscall_state.esp = (uint32_t) stack;
+		new->syscall_state.ebp = (uint32_t) stack;
+		new->image.user_stack  = (uint32_t) stack;
+	}
+
+	if(!(args->flags & CLONE_FILES)) {
+		new->fds.nodes = k_calloc(src->fds.size, sizeof(fd_t*));
+		for(uint32_t i = 0; i < src->fds.size; i++) {
+			fd_t* original_node = src->fds.nodes[i];
+			if(!original_node) {
+				new->fds.nodes[i] = 0;
+			} else {
+				new->fds.nodes[i] = k_malloc(sizeof(fd_t));
+				memcpy(new->fds.nodes[i], original_node, sizeof(fd_t));
+				new->fds.nodes[i]->node->links++;
+				new->fds.nodes[i]->links = 1;
+			}
+		}
+	}
+
+    __k_proc_process_spawn(new, src);
+    k_proc_process_mark_ready(new);
+
+    return new->pid;
+
 }
 
 uint32_t k_proc_process_open_node(process_t* process, fs_node_t* node){
@@ -931,7 +1019,7 @@ void k_proc_process_return_from_signal(interrupt_context_t* ctx) {
 		k_proc_process_process_signals(proc, ctx);
 	}
 
-	//TODO restart syscall
+	__k_proc_process_try_restart_syscalls(proc, sig, ctx);
 }
 
 extern void __k_proc_process_enter_tasklet(void);

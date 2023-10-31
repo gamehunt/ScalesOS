@@ -25,17 +25,11 @@
 #define VBE_DISPI_INDEX_X_OFFSET    (8)
 #define VBE_DISPI_INDEX_Y_OFFSET    (9)
 
-#define BACKBUFFER_SOFT 0
-#define BACKBUFFER_HARD 1
-
 typedef struct {
 	fb_impl_t  impl;
 	uint32_t   buffer_phys;
 	uint32_t   buffer_size;
 	uint8_t*   buffer;
-	uint8_t*   backbuffer;
-	uint8_t    backbuffer_type;
-	uint8_t    offset;
 	uint32_t   width;
 	uint32_t   height;
 	uint32_t   bpp;
@@ -69,7 +63,7 @@ static void __qemu_fb_clear(uint32_t color) {
 		return;
 	}
 	LOCK(__impl.buffer_lock);
-	memset32(__impl.backbuffer, color, __impl.buffer_size / 4);
+	memset32(__impl.buffer, color, __impl.buffer_size / 4);
 	UNLOCK(__impl.buffer_lock);
 }
 
@@ -78,7 +72,7 @@ static void __qemu_fb_putpixel(fb_pos_t pos, uint32_t color) {
 		return;
 	}
 	LOCK(__impl.buffer_lock);
-    uint32_t* fb = (uint32_t*) __impl.backbuffer;
+    uint32_t* fb = (uint32_t*) __impl.buffer;
     if (pos.x < __impl.width && pos.y < __impl.height) {
         fb[__impl.width * pos.y + pos.x] = color;
     }
@@ -90,27 +84,8 @@ static void __qemu_fb_scroll(uint32_t pixels) {
 		return;
 	}
 	LOCK(__impl.buffer_lock);
-    memmove(__impl.backbuffer, __impl.backbuffer + pixels * __impl.pitch, (__impl.height - pixels) * __impl.pitch);
-    memset(__impl.backbuffer + (__impl.height - pixels) * __impl.pitch, 0, pixels * __impl.pitch);
-	UNLOCK(__impl.buffer_lock);
-}
-
-static void __qemu_fb_sync() {
-	if(!__impl.initialized) {
-		return;
-	}
-	LOCK(__impl.buffer_lock);
-	memcpy(__impl.buffer, __impl.backbuffer, __impl.buffer_size);
-	if(__impl.backbuffer_type == BACKBUFFER_HARD) {
-		if(__impl.offset) {
-			__impl.buffer = (uint8_t*) (__impl.buffer + __impl.buffer_size);
-			__bga_write(VBE_DISPI_INDEX_Y_OFFSET, 0);
-		} else {
-			__impl.buffer = (uint8_t*) (__impl.buffer - __impl.buffer_size);
-			__bga_write(VBE_DISPI_INDEX_Y_OFFSET, __impl.height);
-		}
-		__impl.offset = !__impl.offset;
-	}
+    memmove(__impl.buffer, __impl.buffer + pixels * __impl.pitch, (__impl.height - pixels) * __impl.pitch);
+    memset(__impl.buffer + (__impl.height - pixels) * __impl.pitch, 0, pixels * __impl.pitch);
 	UNLOCK(__impl.buffer_lock);
 }
 
@@ -118,12 +93,7 @@ static void __qemu_fb_release() {
 	if(!__impl.initialized) {
 		return;
 	}
-	k_free(__impl.backbuffer);
-	if(__impl.backbuffer_type == BACKBUFFER_SOFT) {
-		k_unmap(__impl.buffer, __impl.buffer_size / 0x1000);
-	} else {
-		k_unmap(__impl.buffer, __impl.buffer_size * 2 / 0x1000);
-	}
+	k_unmap(__impl.buffer, __impl.buffer_size / 0x1000);
 }
 
 static void __qemu_fb_init(fb_info_t* info) {
@@ -131,12 +101,7 @@ static void __qemu_fb_init(fb_info_t* info) {
 	info->h     = __impl.height;
 	info->bpp   = __impl.bpp;
 	info->memsz = __impl.buffer_size;
-	if(__impl.backbuffer_type == BACKBUFFER_SOFT) {
-		__impl.buffer = k_map(__impl.buffer_phys, __impl.buffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
-	} else {
-		__impl.buffer = k_map(__impl.buffer_phys, __impl.buffer_size * 2 / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
-		__impl.buffer += __impl.buffer_size;
-	}
+	__impl.buffer = k_map(__impl.buffer_phys, __impl.buffer_size / 0x1000, PAGE_PRESENT | PAGE_WRITABLE);
 	__impl.initialized = 1;
 }
 
@@ -160,7 +125,7 @@ static uint32_t __qemu_fb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_
 	}
 	
 	LOCK(__impl.buffer_lock);
-	memcpy(__impl.backbuffer + offset, buffer, size);
+	memcpy(__impl.buffer + offset, buffer, size);
 	UNLOCK(__impl.buffer_lock);
 
 	return size;
@@ -186,7 +151,7 @@ static uint32_t __qemu_fb_read(fs_node_t* node UNUSED, uint32_t offset, uint32_t
 	}
 
 	LOCK(__impl.buffer_lock);
-	memcpy(buffer, __impl.backbuffer + offset, size);
+	memcpy(buffer, __impl.buffer + offset, size);
 	UNLOCK(__impl.buffer_lock);
 
 	return size;
@@ -203,7 +168,6 @@ static void __init_fb_impl(pci_device_t* device) {
 	uint16_t w   = __bga_read(VBE_DISPI_INDEX_XRES);
 	uint16_t h   = __bga_read(VBE_DISPI_INDEX_YRES);
 	uint16_t bpp = __bga_read(VBE_DISPI_INDEX_BPP);
-	uint16_t vh  = __bga_read(VBE_DISPI_INDEX_VIRT_HEIGHT);
 
 	__impl.width  = w;
 	__impl.height = h;
@@ -213,17 +177,9 @@ static void __init_fb_impl(pci_device_t* device) {
 	__impl.buffer_size = w * h * bpp / 8;
 	__impl.buffer_phys = device->bars[0] & 0xFFFFFFF0;
 
-	__impl.backbuffer = k_malloc(__impl.buffer_size);
-	if(vh >= __impl.height * 2) {
-		__impl.backbuffer_type = BACKBUFFER_HARD;
-	} else {
-		__impl.backbuffer_type = BACKBUFFER_SOFT;
-	}
-
 	__impl.impl.clear    = &__qemu_fb_clear;
 	__impl.impl.putpixel = &__qemu_fb_putpixel;
 	__impl.impl.scroll   = &__qemu_fb_scroll;
-	__impl.impl.sync     = &__qemu_fb_sync;
 	__impl.impl.release  = &__qemu_fb_release;
 	__impl.impl.init     = &__qemu_fb_init;
 

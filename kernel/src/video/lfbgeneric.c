@@ -6,7 +6,6 @@
 #include "mem/memory.h"
 #include "mem/paging.h"
 #include "scales/memory.h"
-#include "util/asm_wrappers.h"
 #include "util/log.h"
 #include <stddef.h>
 #include <string.h>
@@ -24,20 +23,19 @@ static lfb_info_t info;
 static uint32_t framebuffer_size = 0;
 static uint32_t framebuffer_frame = 0;
 static uint8_t* framebuffer = NULL;
-static uint8_t* backbuffer  = NULL;
 
 static void __k_video_lfb_scroll(uint32_t pixels) {
     if (info.type == 2) {
-        memmove(backbuffer, backbuffer + info.pitch * (info.height - 1), info.pitch * info.height);
-        memset(backbuffer + (info.height - 1) * info.pitch, 0, info.pitch);
+        memmove(framebuffer, framebuffer + info.pitch * (info.height - 1), info.pitch * info.height);
+        memset(framebuffer + (info.height - 1) * info.pitch, 0, info.pitch);
     } else {
-        memmove(backbuffer, backbuffer + pixels * info.pitch, (info.height - pixels) * info.pitch);
-        memset(backbuffer + (info.height - pixels) * info.pitch, 0, pixels * info.pitch);
+        memmove(framebuffer, framebuffer + pixels * info.pitch, (info.height - pixels) * info.pitch);
+        memset(framebuffer + (info.height - pixels) * info.pitch, 0, pixels * info.pitch);
     }
 }
 
 static void __k_video_lfb_putpixel(fb_pos_t pos, uint32_t color) {
-    uint32_t* fb = (uint32_t*) backbuffer;
+    uint32_t* fb = (uint32_t*) framebuffer;
     if (pos.x < info.width && pos.y < info.height && info.type != 2) {
         fb[info.width * pos.y + pos.x] = color;
     }
@@ -52,7 +50,7 @@ static void __k_video_lfb_init(fb_info_t* fb_info) {
 }
 
 static void __k_video_lfb_clear(uint32_t color) {
-	memset32(backbuffer, color, framebuffer_size / 4);
+	memset32(framebuffer, color, framebuffer_size / 4);
 }
 
 static uint32_t __k_video_lfb_write(fs_node_t* node UNUSED, uint32_t offset, uint32_t size, uint8_t* buffer) {
@@ -70,18 +68,13 @@ static uint32_t __k_video_lfb_write(fs_node_t* node UNUSED, uint32_t offset, uin
 		size = max - offset;
 	}
 
-	memcpy(backbuffer + offset, buffer, size);
+	memcpy(framebuffer + offset, buffer, size);
 
 	return size;
 }
 
-static void __k_video_lfb_sync() {
-	memcpy(framebuffer, backbuffer, framebuffer_size);
-}
-
 static void __k_video_lfb_release() {
 	k_unmap(framebuffer, framebuffer_size / 0x1000);
-	k_free(backbuffer);
 }
 
 void k_video_generic_lfb_init(multiboot_info_t* mb) {
@@ -105,8 +98,6 @@ void k_video_generic_lfb_init(multiboot_info_t* mb) {
 	framebuffer_frame = mb->framebuffer_addr;
 	framebuffer_size  = info.width * info.height * info.bpp / 8;
 
-	backbuffer = k_malloc(framebuffer_size);
-
     k_info("Framebuffer info: %dx%dx%d, type=%d", info.width, info.height,
            info.bpp, info.type);
 
@@ -115,10 +106,8 @@ void k_video_generic_lfb_init(multiboot_info_t* mb) {
 	fb_impl->scroll   = &__k_video_lfb_scroll;
 	fb_impl->putpixel = &__k_video_lfb_putpixel;
 	fb_impl->clear    = &__k_video_lfb_clear;
-	fb_impl->sync     = &__k_video_lfb_sync;
 	fb_impl->release  = &__k_video_lfb_release;
 	fb_impl->init     = &__k_video_lfb_init;
-
 	fb_impl->fs.write = &__k_video_lfb_write;
 	fb_impl->fs.ioctl = (fs_ioctl_t) &k_dev_fb_ioctl;
 

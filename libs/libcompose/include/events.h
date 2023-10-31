@@ -18,6 +18,7 @@
 #define COMPOSE_EVENT_MOUSE  2
 #define COMPOSE_EVENT_RESIZE 3
 #define COMPOSE_EVENT_MOVE   4
+#define COMPOSE_EVENT_WIN    5
 
 #define COMPOSE_EVENT_MAX    255
 
@@ -43,15 +44,22 @@ typedef struct {
 
 typedef struct {
 	compose_event_t event;
+	id_t       win;
 	position_t old_pos;
 	position_t new_pos;
 } compose_move_event_t;
 
 typedef struct {
 	compose_event_t event;
+	id_t       win;
 	sizes_t old_size;
 	sizes_t new_size;
 } compose_resize_event_t;
+
+typedef struct {
+	compose_event_t event;
+	id_t win;
+} compose_win_event_t;
 
 typedef int (*event_listener)(compose_event_t* ev);
 

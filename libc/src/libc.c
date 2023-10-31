@@ -76,8 +76,11 @@ void libc_exit(int code) {
 	exit(code);
 }
 
+extern void __init_tls();
+
 void libc_init(int argc, char** argv, int envc, char** envp) {
 	__mem_init_heap();
+	__init_tls();
 	__init_stdio();
 	__init_arguments(argc, argv, envc, envp);
 	__parse_env();

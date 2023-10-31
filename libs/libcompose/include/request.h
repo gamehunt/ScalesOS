@@ -8,11 +8,12 @@
 #include "compose/compose.h"
 #endif
 
-#define COMPOSE_REQ_DRAW   1
-#define COMPOSE_REQ_MOVE   2
-#define COMPOSE_REQ_CLOSE  3
-#define COMPOSE_REQ_RESIZE 4
-#define COMPOSE_REQ_EVENT  5
+#define COMPOSE_REQ_MOVE   1
+#define COMPOSE_REQ_CLOSE  2
+#define COMPOSE_REQ_RESIZE 3
+#define COMPOSE_REQ_EVENT  4
+#define COMPOSE_REQ_NEWWIN 5
+#define COMPOSE_REQ_DRAW   6
 
 typedef struct {
 	int    type;
@@ -21,6 +22,7 @@ typedef struct {
 
 typedef struct {
 	compose_request_t req;
+	id_t win;
 	int x;
 	int y;
 	int z;
@@ -28,6 +30,7 @@ typedef struct {
 
 typedef struct {
 	compose_request_t req;
+	id_t win;
 	int w;
 	int h;
 } compose_resize_req_t;
@@ -40,6 +43,16 @@ typedef struct {
 
 typedef struct {
 	compose_request_t req;
+	id_t id;
+	id_t par;
+	int x, y;
+	int w, h;
+	int flags;
+} compose_win_req_t;
+
+typedef struct {
+	compose_request_t req;
+	id_t              win;
 	uint32_t          op;
 	uint32_t          params[];
 } compose_draw_req_t;

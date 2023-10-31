@@ -5,7 +5,7 @@ set(SHARED_SOURCES
 )
 
 target_sources(k PRIVATE ${SHARED_SOURCES})
-target_sources(c PRIVATE ${SHARED_SOURCES} libc.c)
+target_sources(c PRIVATE ${SHARED_SOURCES} libc.c tls.c)
 
 add_subdirectory(arch/${CMAKE_SYSTEM_PROCESSOR})
 add_subdirectory(stdio)

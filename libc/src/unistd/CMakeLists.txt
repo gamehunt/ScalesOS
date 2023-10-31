@@ -10,6 +10,7 @@ set(SOURCES
 	getuid.c
 	mmap.c
 	fs.c
+	clone.c
 )
 
 target_sources(c PRIVATE ${SOURCES})

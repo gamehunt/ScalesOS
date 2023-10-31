@@ -132,11 +132,14 @@ typedef struct block_node {
 	list_t*              owners;
 } block_node_t;
 
+struct clone_args;
+
 void       k_proc_process_yield();
 void       k_proc_process_switch() __attribute__((noreturn));
 void       k_proc_process_update_timings();
 void       k_proc_process_init();
 uint32_t   k_proc_process_fork();
+uint32_t   k_proc_process_clone(struct clone_args* args);
 void       k_proc_process_init_core();
 
 void       k_proc_process_mark_ready(process_t* process);
