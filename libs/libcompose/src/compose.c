@@ -101,6 +101,7 @@ compose_server_t* compose_sv_create(const char* sock) {
 compose_client_t* compose_create_client(int sock) {
 	compose_client_t* cli = calloc(1, sizeof(compose_client_t));
 	cli->socket = sock;
+	cli->win_id = 1;
 	return cli;
 }
 
@@ -270,22 +271,25 @@ int compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h) {
 }
 
 id_t compose_cl_create_window(compose_client_t* client, id_t par, int x, int y, size_t w, size_t h, int flags) {
-	compose_win_req_t req;
+	compose_win_req_t* req = malloc(sizeof(compose_win_req_t));
 
-	req.req.type = COMPOSE_REQ_NEWWIN;
-	req.req.size = sizeof(compose_win_req_t);
+	req->req.type = COMPOSE_REQ_NEWWIN;
+	req->req.size = sizeof(compose_win_req_t);
 
-	req.id    = ++client->win_id;
-	req.par   = par;
-	req.x     = x;
-	req.y     = y;
-	req.w     = w;
-	req.h     = h;
-	req.flags = flags;
+	req->id    = ++client->win_id;
+	req->par   = par;
+	req->x     = x;
+	req->y     = y;
+	req->w     = w;
+	req->h     = h;
+	req->flags = flags;
 
-	compose_cl_send_request(client, &req);
+	compose_cl_send_request(client, req);
 
-	return req.id;
+	id_t id = req->id;
+	free(req);
+
+	return id;
 }
 
 void compose_sv_move(compose_window_t* win, int x, int y, int z) {
