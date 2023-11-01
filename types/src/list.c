@@ -109,3 +109,19 @@ uint8_t list_contains(list_t* list, void* data) {
 	}
 	return 0;
 }
+
+
+void list_sort(list_t* list, uint8_t (*predicate) (void* a, void* b)) {
+    int i, j;
+	void* key;
+    for (i = 1; i < list->size; i++) {
+        key = list->data[i];
+        j = i - 1;
+ 
+        while (j >= 0 && predicate(list->data[j],key)) {
+            list->data[j + 1] = list->data[j];
+            j = j - 1;
+        }
+        list->data[j + 1] = key;
+    }
+}

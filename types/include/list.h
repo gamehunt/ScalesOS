@@ -20,5 +20,6 @@ void*   list_head(list_t* list);
 void*   list_tail(list_t* list);
 void    list_delete_element(list_t* list, void* data);
 uint8_t list_contains(list_t* list, void* data);
+void    list_sort(list_t* list, uint8_t (*predicate) (void* a, void* b));
 
 #endif

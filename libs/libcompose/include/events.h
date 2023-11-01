@@ -34,11 +34,13 @@ typedef struct {
 
 typedef struct {
 	compose_event_t   event;
+	id_t              win;
 	keyboard_packet_t packet;
 } compose_key_event_t;
 
 typedef struct {
 	compose_event_t event;
+	id_t            win;
 	mouse_packet_t  packet;
 } compose_mouse_event_t;
 

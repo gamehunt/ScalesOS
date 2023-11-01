@@ -54,7 +54,7 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 		case COMPOSE_REQ_NEWWIN:
 			wreq = (compose_win_req_t*) req;
 			win  = compose_sv_get_window(srv, wreq->par);
-			compose_sv_create_window(srv, cli, win, wreq->id, wreq->x, wreq->y, wreq->w, wreq->h, 0);
+			compose_sv_create_window(srv, cli, win, wreq->id, wreq->x, wreq->y, wreq->w, wreq->h, wreq->flags);
 			break;
 	}
 }

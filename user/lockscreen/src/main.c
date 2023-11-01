@@ -27,7 +27,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	win = compose_cl_create_window(client, 0, 100, 100, 200, 100, 0);
+	win = compose_cl_create_window(client, 0, 100, 100, 200, 100, COMPOSE_WIN_FLAGS_MOVABLE | COMPOSE_WIN_FLAGS_RESIZABLE);
 
 	while(1) {
 		compose_event_t* ev = compose_cl_event_poll(client);

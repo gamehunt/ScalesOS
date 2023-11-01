@@ -15,6 +15,9 @@ typedef uint32_t flags_t;
 
 #define COMPOSE_DEVICE_AMOUNT 2
 
+#define COMPOSE_WIN_FLAGS_MOVABLE   (1 << 0)
+#define COMPOSE_WIN_FLAGS_RESIZABLE (1 << 1)
+
 typedef struct {
 	int x;
 	int y;
@@ -40,6 +43,7 @@ typedef struct window {
 	fb_t       		  ctx;
 	flags_t    		  flags;
 	position_t 		  pos;
+	int               layer;
 	sizes_t    		  sizes;
 	list_t*    		  children;
 } compose_window_t;
@@ -74,5 +78,10 @@ void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);
 compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client_t* client, compose_window_t* par, id_t win, int x, int y, size_t w, size_t h, int flags);
 compose_window_t* compose_sv_get_window(compose_server_t* srv, id_t win);
 void              compose_sv_redraw(compose_server_t* srv);
+compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y);
+void              compose_sv_restack(list_t* windows);
+void              compose_sv_raise(compose_window_t* win);
+void              compose_sv_sunk(compose_window_t* win);
+void              compose_sv_focus(compose_window_t* win);
 
 #endif
