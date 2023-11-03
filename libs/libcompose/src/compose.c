@@ -543,3 +543,4 @@ void compose_sv_sunk(compose_window_t* win) {
 
 	compose_sv_move(win, 0, 0, lowest - 1);
 }
+

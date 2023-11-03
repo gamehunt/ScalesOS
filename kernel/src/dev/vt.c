@@ -1,14 +1,17 @@
 #include "dev/vt.h"
 #include "dev/fb.h"
+#include "dev/serial.h"
 #include "dev/tty.h"
 #include "errno.h"
 #include "fs/vfs.h"
-#include "mem/heap.h"
 #include "mem/paging.h"
+#include "mem/heap.h"
+#include "proc/process.h"
 #include "proc/spinlock.h"
 #include "stdio.h"
 #include "util/log.h"
 #include "util/types/ringbuffer.h"
+#include "sys/tty.h"
 #include <ctype.h>
 #include <stddef.h>
 #include <string.h>
@@ -24,9 +27,49 @@ typedef struct {
 	uint32_t occupied_size;
 } vt_buffer_t;
 
+typedef struct {
+	struct vt_mode mode;
+	char        display_mode;
+	fs_node_t*  vcs;
+	tty_t*      tty;
+	vt_buffer_t buffer;
+	uint8_t     next;
+} vt_t;
+
 extern void _libk_set_print_callback(void (*pk)(char* a, uint32_t size));
 
-int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
+static int32_t __k_dev_vt_finish_switch(vt_t* old_vt) {
+	LOCK(vt_lock);
+
+	uint8_t number = old_vt->next - 1;
+	old_vt->next = 0;
+
+	fs_node_t* tty = __ttys[number];
+	__atty = tty;
+
+	vt_t* vt   = __vts[number]->device;
+
+	if(vt->mode.mode == VT_MODE_AUTO) {
+		if(vt->display_mode == VT_DISP_MODE_TEXT) {
+			k_dev_fb_clear(0);
+			vt_buffer_t buff = vt->buffer;
+			k_dev_fb_restore_text(buff.data, buff.occupied_size);
+		} else {
+			fb_save_data_t* dat = vt->vcs->device;
+			k_dev_fb_restore(dat);
+		}
+	} else {
+		process_t* process = k_proc_process_find_by_pid(vt->tty->process);
+		if(process) {
+			k_proc_process_send_signal(process, vt->mode.acqsig);
+		}
+	}
+
+	UNLOCK(vt_lock);
+	return 0;
+}
+
+int32_t k_dev_vt_change(uint8_t number) {
 	LOCK(vt_lock);
 
 	if(number >= TTY_AMOUNT) {
@@ -34,21 +77,30 @@ int32_t k_dev_vt_change(uint8_t number, uint8_t clear) {
 		return -EINVAL;
 	}
 
-	fs_node_t* tty = __ttys[number];
+	vt_t* old_vt = NULL;
 
-	__atty = tty;
-
-	if(clear) {
-		k_dev_fb_clear(0);
-
-		fs_node_t*   vt   = __vts[number];
-		vt_buffer_t* buff = vt->device;
-
-		k_dev_fb_restore(buff->data, buff->occupied_size);
+	if(__atty) {
+		tty_t* atty_dev = __atty->device;
+		old_vt   = __vts[atty_dev->id]->device;
+		if(old_vt->mode.mode == VT_MODE_AUTO) {
+			k_dev_fb_save(old_vt->vcs->device);
+		} else {
+			old_vt->next = number + 1;
+			process_t* process = k_proc_process_find_by_pid(old_vt->tty->process);
+			if(process) {
+				k_proc_process_send_signal(process, old_vt->mode.relsig);
+			}
+			UNLOCK(vt_lock);
+			return 0;
+		}
+	} else {
+		old_vt = __vts[number]->device;
 	}
 
+	old_vt->next = number + 1;
+
 	UNLOCK(vt_lock);
-	return 0;
+	return __k_dev_vt_finish_switch(old_vt);
 }
 
 static char __k_dev_vt_getc(tty_t* tty) {
@@ -219,8 +271,8 @@ void k_dev_vt_handle_scancode(uint8_t v) {
 				}
 				break;
 		}
-		if((mods & MOD_ALT) && (mods & MOD_CTRL) && (v >= 0x3B && v <= 0x44)) {
-			k_dev_vt_change(v - 0x3B, 1);
+		if(!is_up && (mods & MOD_ALT) && (mods & MOD_CTRL) && (v >= 0x3B && v <= 0x44)) {
+			k_dev_vt_change(v - 0x3B);
 		}
 		return;
 	} else {
@@ -260,9 +312,13 @@ void k_dev_vt_tty_callback(struct tty* tty) {
 	tty_t* a = __atty->device;
 	char c = __k_dev_vt_getc(tty);
 	while(c) {
-		k_fs_vfs_write(__vts[tty->id], 0, 1, &c);
-		if(a->id == tty->id) {
+		vt_t* c_vt = __vts[a->id]->device;
+		vt_t* i_vt = __vts[tty->id]->device;
+		if(a->id == tty->id && c_vt->display_mode != VT_DISP_MODE_GRAPHIC) {
 			k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
+		}
+		if(i_vt->display_mode != VT_DISP_MODE_GRAPHIC) {
+			k_fs_vfs_write(__vts[tty->id], 0, 1, &c);
 		}
 		c = __k_dev_vt_getc(tty);
 	} 
@@ -281,13 +337,45 @@ static uint32_t __k_dev_vt_console_readlink(fs_node_t* node UNUSED, uint8_t* buf
 	return strlen(buf) + 1;
 }
 
-static int __k_dev_vt_console_ioctl(fs_node_t* node UNUSED, uint32_t req, void* args) {
+#define CHECK_OWNER(vt) \
+	if(vt->mode.mode == VT_MODE_PROCESS && vt->tty->process && vt->tty->process != k_proc_process_current()->pid) { \
+		return -EPERM; \
+	}
+
+static int __k_dev_vt_ioctl(fs_node_t* node, uint32_t req, void* args) {
+	vt_t* vt = node->device;
 	switch(req) {
 		case VT_ACTIVATE:
-			if(!IS_VALID_PTR((uint32_t) args)) {
+			CHECK_OWNER(vt)
+			return k_dev_vt_change(node->inode);
+		case VT_GETMODE:
+			if(!IS_VALID_PTR(args)) {
 				return -EINVAL;
 			}
-			return k_dev_vt_change(*((uint8_t*) args), 1);
+			*((struct vt_mode*)args) = vt->mode;
+			return 0;
+		case VT_SETMODE:
+			if(!IS_VALID_PTR(args)) {
+				return -EINVAL;
+			}
+			CHECK_OWNER(vt)
+			vt->mode = *((struct vt_mode*)args);
+			return 0;
+		case VT_RELDISP:
+			CHECK_OWNER(vt)
+			if(!vt->next) {
+				return 0;
+			}
+			if(((char) args) == 1) {
+				__k_dev_vt_finish_switch(vt);
+			}
+			break;
+		case KDGETMODE:
+			return vt->display_mode;
+		case KDSETMODE:
+			CHECK_OWNER(vt)
+			vt->display_mode = (char) args;
+			return 0;
 		default:
 			return -EINVAL;
 	}
@@ -296,8 +384,31 @@ static int __k_dev_vt_console_ioctl(fs_node_t* node UNUSED, uint32_t req, void* 
 static fs_node_t* __k_dev_vt_create_console() {
 	fs_node_t* node = k_fs_vfs_create_node("console");
 	node->flags = VFS_SYMLINK;
-	node->fs.ioctl    = &__k_dev_vt_console_ioctl;	
 	node->fs.readlink = &__k_dev_vt_console_readlink;
+	return node;
+}
+
+static uint32_t __k_dev_vt_cvt_readlink(fs_node_t* node UNUSED, uint8_t* buf, uint32_t size) {
+	snprintf(buf, size, "/dev/vt%d", ((tty_t*)__atty->device)->id);
+	return strlen(buf) + 1;
+}
+
+static fs_node_t* __k_dev_vt_create_current_vt() {
+	fs_node_t* node = k_fs_vfs_create_node("vt");
+	node->flags = VFS_SYMLINK;
+	node->fs.readlink = &__k_dev_vt_cvt_readlink;
+	return node;
+}
+
+static uint32_t __k_dev_vt_cvcs_readlink(fs_node_t* node UNUSED, uint8_t* buf, uint32_t size) {
+	snprintf(buf, size, "/dev/vcs%d", ((tty_t*)__atty->device)->id);
+	return strlen(buf) + 1;
+}
+
+static fs_node_t* __k_dev_vt_create_current_vcs() {
+	fs_node_t* node = k_fs_vfs_create_node("vcs");
+	node->flags = VFS_SYMLINK;
+	node->fs.readlink = &__k_dev_vt_cvcs_readlink;
 	return node;
 }
 
@@ -306,7 +417,8 @@ static uint32_t __k_dev_vt_read(fs_node_t* node, uint32_t offs, uint32_t size, u
 		return 0;
 	}
 
-	vt_buffer_t* buff = node->device;
+	vt_t* vt = node->device;
+	vt_buffer_t* buff = &vt->buffer;
 
 	if(offs >= buff->occupied_size) {
 		return 0;
@@ -326,7 +438,8 @@ static uint32_t __k_dev_vt_read(fs_node_t* node, uint32_t offs, uint32_t size, u
 }
 
 static uint32_t __k_dev_vt_write(fs_node_t* node, uint32_t offs, uint32_t size, uint8_t* buffer) {
-	vt_buffer_t* buff = node->device;
+	vt_t* vt = node->device;
+	vt_buffer_t* buff = &vt->buffer;
 
 	offs = buff->occupied_size;
 
@@ -344,6 +457,19 @@ static uint32_t __k_dev_vt_write(fs_node_t* node, uint32_t offs, uint32_t size, 
 	return size;
 }
 
+static fs_node_t* __k_dev_vcs_create(uint8_t number) {
+	char buffer[5];
+	snprintf(buffer, 5, "vcs%d", number);
+	fs_node_t* vcs = k_fs_vfs_create_node(buffer);
+	vcs->inode = number;
+	vcs->flags = VFS_CHARDEV;
+	
+	fb_save_data_t* b   = k_malloc(sizeof(fb_save_data_t));
+	vcs->device = b;
+
+	return vcs;
+}
+
 static fs_node_t* __k_dev_vt_create(uint8_t number) {
 	char buffer[5];
 	snprintf(buffer, 5, "vt%d", number);
@@ -355,31 +481,47 @@ static fs_node_t* __k_dev_vt_create(uint8_t number) {
 	b->occupied_size = 0;
 	b->data          = malloc(32);
 
-	vt->device = b;
+	vt_t* vtd   = k_malloc(sizeof(vt_t));
+	vtd->display_mode   = VT_DISP_MODE_TEXT;
+	vtd->buffer = *b;
+	vtd->vcs    = __k_dev_vcs_create(number);
+	vtd->mode.mode   = VT_MODE_AUTO;
+	vtd->mode.relsig = SIGUSR1;
+	vtd->mode.acqsig = SIGUSR1;
+
+	vt->device = vtd;
 	vt->size   = 32;
 
 	vt->fs.read  = __k_dev_vt_read;
 	vt->fs.write = __k_dev_vt_write;
+	vt->fs.ioctl = __k_dev_vt_ioctl;	
 
 	return vt;
 }
 
 int k_dev_vt_init() {
-	k_fs_vfs_mount_node("/dev/console", __k_dev_vt_create_console());
 	for(int i = 0; i < TTY_AMOUNT; i++) {
 		char path[32];
 
+		snprintf(path, 32, "/dev/tty%d", i);
+		__ttys[i] = k_fs_vfs_open(path, O_RDWR);
+
 		snprintf(path, 32, "/dev/vt%d", i);
 		__vts[i] =  __k_dev_vt_create(i);
+		((vt_t*) __vts[i]->device)->tty = __ttys[i]->device;
 		k_fs_vfs_mount_node(path, __vts[i]);
 		__vts[i] = k_fs_vfs_dup(__vts[i]);
 		__vts[i]->mode = O_RDWR;
 
-		snprintf(path, 32, "/dev/tty%d", i);
-		__ttys[i] = k_fs_vfs_open(path, O_RDWR);
+		snprintf(path, 32, "/dev/vcs%d", i);
+		k_fs_vfs_mount_node(path, ((vt_t*)__vts[i]->device)->vcs);
+
 	}
 	__tty0 = __ttys[0];
-	k_dev_vt_change(0, 0);
+	k_fs_vfs_mount_node("/dev/console", __k_dev_vt_create_console());
+	k_fs_vfs_mount_node("/dev/vt", __k_dev_vt_create_current_vt());
+	k_fs_vfs_mount_node("/dev/vcs", __k_dev_vt_create_current_vcs());
+	k_dev_vt_change(0);
     _libk_set_print_callback(&__k_dev_vt_klog_write);
 	return 0;
 }

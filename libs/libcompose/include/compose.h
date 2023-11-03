@@ -58,6 +58,10 @@ typedef struct {
 	list_t*    windows;
 } compose_server_t;
 
+typedef struct {
+	fb_save_data_t data;
+} compose_save_ctx_t;
+
 compose_client_t* compose_create_client(int sock);
 
 compose_server_t* compose_sv_create(const char* sock);

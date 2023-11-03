@@ -79,8 +79,8 @@ static uint8_t __k_dev_ps2_read_byte(void) {
 }
 
 static void __k_dev_ps2_handle_keyboard(uint8_t byte) {
-    k_fs_vfs_write(kbd_pipe, 0, 1, &byte);
 	k_dev_vt_handle_scancode(byte);
+    k_fs_vfs_write(kbd_pipe, 0, 1, &byte);
 }
 
 static uint8_t           mouse_packet_counter = 0;

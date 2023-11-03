@@ -14,7 +14,6 @@
 #include <kernel/dev/fb.h>
 
 static FILE* pipe;
-static FILE* console;
 
 static fb_t       fb;
 static fb_font_t* font;
@@ -57,13 +56,14 @@ int main(int argc, char** argv) {
 
 	setbuf(pipe, 0);
 
-	FILE* console = fopen("/dev/console", "r");
-	if(!console) {
+	int vt = open("/dev/vt7", O_RDONLY);
+	if(!vt) {
 		return -1;
 	}
 
-	int n = 7;
-	ioctl(fileno(console), VT_ACTIVATE, &n);
+	ioctl(vt, VT_ACTIVATE, NULL);
+	ioctl(vt, KDSETMODE, (void*) VT_DISP_MODE_GRAPHIC);
+	close(vt);
 
 	int r = fb_open("/dev/fb", &fb, FB_FLAG_DOUBLEBUFFER);
 	if(r < 0) {

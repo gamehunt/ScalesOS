@@ -152,7 +152,27 @@
 #define TCGETAW  TCGETSW
 #define TCGETAF  TCGETSF
 
+#define VT_GETMODE	0x5600
+#define VT_SETMODE	0x5601
+#define VT_RELDISP  0x5603
 #define VT_ACTIVATE	0x5606
+
+#define KDGETMODE   0x5700
+#define KDSETMODE   0x5701
+
+#define VT_DISP_MODE_TEXT    0
+#define VT_DISP_MODE_GRAPHIC 1
+
+#define VT_MODE_AUTO    0
+#define VT_MODE_PROCESS 1
+
+
+
+struct vt_mode {
+  char mode;   /* VT mode */
+  short relsig;/* signal to use for release request */
+  short acqsig;/* signal to use for display acquired */
+};
 
 struct termios {
 	tcflag_t c_iflag;

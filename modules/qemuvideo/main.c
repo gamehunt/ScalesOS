@@ -96,6 +96,25 @@ static void __qemu_fb_release() {
 	k_unmap(__impl.buffer, __impl.buffer_size / 0x1000);
 }
 
+static void __k_video_lfb_save(fb_save_data_t* dat) {
+	dat->info.w = __impl.width;
+	dat->info.h = __impl.height;
+	dat->info.bpp = 32;
+	dat->info.memsz = dat->info.w * dat->info.h * 4;
+	dat->data = malloc(dat->info.memsz);
+
+	memcpy(dat->data, __impl.buffer, dat->info.memsz);
+}
+
+static void __k_video_lfb_restore(fb_save_data_t* dat) {
+	if(!dat->data) {
+		return;
+	} 
+	memcpy(__impl.buffer, dat->data, dat->info.memsz);
+	free(dat->data);
+	dat->data = NULL;
+}
+
 static void __qemu_fb_init(fb_info_t* info) {
 	info->w     = __impl.width;
 	info->h     = __impl.height;

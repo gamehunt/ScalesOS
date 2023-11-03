@@ -10,11 +10,12 @@
 #include <kernel/util/log.h>
 #include <kernel/util/path.h>
 #include <kernel/util/asm_wrappers.h>
-#include <kernel/util/types/list.h>
 #include <kernel/fs/vfs.h>
 #include <kernel/dev/pci.h>
 #include <kernel/int/pic.h>
 #include <kernel/int/irq.h>
+
+#include <types/list.h>
 
 #include <stdio.h>
 #include <string.h>
