@@ -45,10 +45,17 @@ static void __k_fs_vfs_maybe_free(fs_node_t* node) {
 }
 
 static fs_node_t* __k_fs_vfs_find_node(const char* path, uint16_t flags){
+	if(!strcmp(path, "/")) {
+		return __k_fs_vfs_root_node();
+	}
+
+	fs_node_t* result = NULL;
+
     tree_node_t* cur_node  = vfs_tree->root;
     uint32_t len   = k_util_path_length(path);
     char* filename = k_util_path_filename(path);
-    for(uint32_t i = 0; i < len; i++){
+    
+	for(uint32_t i = 0; i < len; i++){
         char* part = k_util_path_segment(path, i);
         if(!part){
             continue;
@@ -84,24 +91,27 @@ static fs_node_t* __k_fs_vfs_find_node(const char* path, uint16_t flags){
 				__k_fs_vfs_maybe_free(to_free);
                 i++;
             }
-            if(fsnode && strcmp(filename, fsnode->name)){
-				__k_fs_vfs_maybe_free(fsnode);
-                fsnode = 0;
-            }
-            k_free(filename);
-			if(fsnode && (fsnode->flags & VFS_SYMLINK) && !(flags & O_NOFOLLOW)) {
-				fs_node_t* to_free = fsnode;
-				fsnode = __k_fs_vfs_follow_symlink(fsnode);
-				__k_fs_vfs_maybe_free(to_free);
-			}
-            return fsnode;
-        }
+        	result = fsnode; 
+    		if(result && strcmp(filename, result->name)){
+				__k_fs_vfs_maybe_free(result);
+    		    result = NULL;
+    		}
+			break;
+		} else if(!strcmp(((vfs_entry_t*) cur_node->value)->name, filename)) {
+			result = ((vfs_entry_t*) cur_node->value)->node;
+		}
         k_free(part);
     }
-    if(filename){
-        k_free(filename);
-    }
-    return ((vfs_entry_t*)cur_node->value)->node;
+
+    k_free(filename);
+
+	if(result && (result->flags & VFS_SYMLINK) && !(flags & O_NOFOLLOW)) {
+		fs_node_t* to_free = result;
+		result = __k_fs_vfs_follow_symlink(result);
+		__k_fs_vfs_maybe_free(to_free);
+	}
+
+    return result;
 }
 
 static struct dirent* __k_fs_virtual_readdir(fs_node_t* node, uint32_t index) {

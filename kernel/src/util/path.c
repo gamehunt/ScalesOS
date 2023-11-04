@@ -7,8 +7,8 @@
 
 // /abc/../abc/file.txt -> /abc/file.txt
 char* k_util_path_canonize(const char* root, const char* relative){
-    if(!strcmp(relative, "/")){
-        return strdup(relative);
+    if(!strcmp(root, "/")){
+        return strdup(root);
     }
 
 	list_t* stack = list_create();
@@ -141,6 +141,9 @@ char* k_util_path_filename(const char* path){
 
 char* k_util_path_folder(const char* path){
 	char* fold = strdup(path);
+	if(!strcmp(path, "/")) {
+		return fold;
+	}
 	size_t l = strlen(fold) - 1;
 	while(l >= 0) {
 		if(fold[l] == '/') {

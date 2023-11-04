@@ -20,9 +20,9 @@ typedef struct lfb_info{
 } lfb_info_t;
 
 static lfb_info_t info;
-static uint32_t framebuffer_size = 0;
-static uint32_t framebuffer_frame = 0;
-static uint8_t* framebuffer = NULL;
+static uint32_t  framebuffer_size = 0;
+static uint32_t  framebuffer_frame = 0;
+static uint8_t*  framebuffer = NULL;
 
 static void __k_video_lfb_scroll(uint32_t pixels) {
     if (info.type == 2) {
@@ -77,6 +77,25 @@ static void __k_video_lfb_release() {
 	k_unmap(framebuffer, framebuffer_size / 0x1000);
 }
 
+static void __k_video_lfb_save(fb_save_data_t* dat) {
+	dat->info.w = info.width;
+	dat->info.h = info.height;
+	dat->info.bpp = 32;
+	dat->info.memsz = dat->info.w * dat->info.h * 4;
+	dat->data = malloc(dat->info.memsz);
+
+	memcpy(dat->data, framebuffer, dat->info.memsz);
+}
+
+static void __k_video_lfb_restore(fb_save_data_t* dat) {
+	if(!dat->data) {
+		return;
+	} 
+	memcpy(framebuffer, dat->data, dat->info.memsz);
+	free(dat->data);
+	dat->data = NULL;
+}
+
 void k_video_generic_lfb_init(multiboot_info_t* mb) {
 	if (!(mb->flags & MULTIBOOT_INFO_FRAMEBUFFER_INFO)) {
         k_warn("Framebuffer info unavailable");
@@ -108,6 +127,8 @@ void k_video_generic_lfb_init(multiboot_info_t* mb) {
 	fb_impl->clear    = &__k_video_lfb_clear;
 	fb_impl->release  = &__k_video_lfb_release;
 	fb_impl->init     = &__k_video_lfb_init;
+	fb_impl->restore  = &__k_video_lfb_restore;
+	fb_impl->save     = &__k_video_lfb_save;
 	fb_impl->fs.write = &__k_video_lfb_write;
 	fb_impl->fs.ioctl = (fs_ioctl_t) &k_dev_fb_ioctl;
 

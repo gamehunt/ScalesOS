@@ -629,3 +629,4 @@ void compose_sv_translate(compose_window_t* win, int sx, int sy, int* x, int* y)
 	*x = sx - win->pos.x;
 	*y = sy - win->pos.y;
 }
+

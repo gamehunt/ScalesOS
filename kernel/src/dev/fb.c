@@ -45,7 +45,6 @@ void k_dev_fb_set_impl(fb_impl_t* i) {
 	k_dev_fb_clear(0);
 }
 
-
 void k_dev_fb_putpixel(uint32_t x, uint32_t y, uint32_t color) {
 	if(impl && impl->putpixel) {
 		fb_pos_t pos = {x, y};
@@ -244,7 +243,7 @@ void k_dev_fb_terminfo(fb_term_info_t* inf) {
 	inf->columns = info.h / ch;
 }
 
-void k_dev_fb_restore(char* buff, uint32_t size) {
+void k_dev_fb_restore_text(char* buff, uint32_t size) {
 	int32_t  offset = 0;
 	uint32_t lines  = 0;
 	for(offset = size - 1; offset >= 0; offset--) {
@@ -260,5 +259,17 @@ void k_dev_fb_restore(char* buff, uint32_t size) {
 	}
 	for(uint32_t i = offset; i < size; i++) {
 		k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
+	}
+}
+
+void k_dev_fb_restore(fb_save_data_t* sav) {
+	if(impl && impl->restore) {
+		impl->restore(sav);
+	}
+}
+
+void k_dev_fb_save(fb_save_data_t* sav) {
+	if(impl && impl->save) {
+		impl->save(sav);
 	}
 }

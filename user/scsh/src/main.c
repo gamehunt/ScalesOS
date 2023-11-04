@@ -183,9 +183,7 @@ int execute_line(char* line) {
 			exit(1);
 		}
 		if(!run_in_bg) {
-			if(is_interactive) {
-				tcsetpgrp(STDIN_FILENO, child);
-			}
+			tcsetpgrp(STDIN_FILENO, child);
 			waitpid(child, &status, 0);
 			tcsetpgrp(STDIN_FILENO, my_pid);
 		} else if(is_interactive) {
