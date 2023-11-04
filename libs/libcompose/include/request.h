@@ -42,12 +42,9 @@ typedef struct {
 } compose_event_req_t;
 
 typedef struct {
-	compose_request_t req;
-	id_t id;
-	id_t par;
-	int x, y;
-	int w, h;
-	int flags;
+	compose_request_t   req;
+	id_t                parent;
+	window_properties_t props;	
 } compose_win_req_t;
 
 typedef struct {

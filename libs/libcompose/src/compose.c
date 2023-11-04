@@ -15,8 +15,9 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-static position_t        mouse_pos   = {0};
-static compose_window_t* input_focus = NULL;
+static position_t        mouse_pos     = {0};
+static compose_window_t* input_focus   = NULL;
+static uint8_t           resize_handle = 0;
 
 #define MOVING   (1 << 0)
 #define RESIZING (1 << 1)
@@ -94,7 +95,12 @@ compose_server_t* compose_sv_create(const char* sock) {
 		return NULL;
 	}
 
-	srv->root = compose_sv_create_window(srv, NULL, NULL, 0, 0, 0, srv->framebuffer.info.w, srv->framebuffer.info.h, 0);
+	window_properties_t props;
+	memset(&props, 0, sizeof(window_properties_t));
+	props.w = srv->framebuffer.info.w;
+	props.h = srv->framebuffer.info.h;
+
+	srv->root = compose_sv_create_window(srv, NULL, NULL, props);
 
 	srv->devices[0] = open("/dev/kbd", O_RDONLY | O_NOBLOCK);
 	srv->devices[1] = open("/dev/mouse", O_RDONLY | O_NOBLOCK);
@@ -150,20 +156,58 @@ static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet
 	if(g_flags & MOVING) {
 		compose_sv_move(input_focus, input_focus->pos.x + packet->dx, input_focus->pos.y - packet->dy, -1);
 	}
+	else if(g_flags & RESIZING) {
+		switch(resize_handle) {
+			case COMPOSE_BORDER_UP:
+				input_focus->pos.y -= packet->dy;
+				compose_sv_resize(input_focus, input_focus->sizes.w, input_focus->sizes.h + packet->dy);
+				break;
+			case COMPOSE_BORDER_DOWN:
+				compose_sv_resize(input_focus, input_focus->sizes.w, input_focus->sizes.h - packet->dy);
+				break;
+			case COMPOSE_BORDER_LEFT:
+				input_focus->pos.x += packet->dx;
+				compose_sv_resize(input_focus, input_focus->sizes.w - packet->dx, input_focus->sizes.h);
+				break;
+			case COMPOSE_BORDER_RIGHT:
+				compose_sv_resize(input_focus, input_focus->sizes.w + packet->dx, input_focus->sizes.h);
+				break;
+		}
+	} 
 
 	if((packet->buttons & MOUSE_BUTTON_LEFT)) {
 		if(g_flags & MOVING) {
 			return;
 		}
+
+		if(g_flags & RESIZING) {
+			return;
+		}
+
 		compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
+
 		if(win) {
 			compose_sv_focus(win);
-			if(win->flags & COMPOSE_WIN_FLAGS_MOVABLE) {
-				g_flags |= MOVING;
+
+			int x, y;
+			compose_sv_translate(win, mouse_pos.x, mouse_pos.y, &x, &y);
+
+			uint8_t border = compose_sv_is_at_border(win, x, y);
+			
+			if(border == COMPOSE_BORDER_NONE) {
+				if(win->flags & COMPOSE_WIN_FLAGS_MOVABLE) {
+					g_flags |= MOVING;
+				}
+			} else {
+				if(win->flags & COMPOSE_WIN_FLAGS_RESIZABLE) {
+					g_flags |= RESIZING;
+					resize_handle = border;
+				}
 			}
 		}
 	} else {
 		g_flags &= ~MOVING;
+		g_flags &= ~RESIZING;
 	}
 }
 
@@ -318,23 +362,19 @@ int compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h) {
 	return r;
 }
 
-id_t compose_cl_create_window(compose_client_t* client, id_t par, int x, int y, size_t w, size_t h, int flags) {
+id_t compose_cl_create_window(compose_client_t* client, id_t par, window_properties_t props) {
 	compose_win_req_t* req = malloc(sizeof(compose_win_req_t));
 
 	req->req.type = COMPOSE_REQ_NEWWIN;
 	req->req.size = sizeof(compose_win_req_t);
 
-	req->id    = ++client->win_id;
-	req->par   = par;
-	req->x     = x;
-	req->y     = y;
-	req->w     = w;
-	req->h     = h;
-	req->flags = flags;
+	req->parent   = par;
+	req->props    = props;
+	req->props.id = ++client->win_id;
 
 	compose_cl_send_request(client, req);
 
-	id_t id = req->id;
+	id_t id = req->props.id;
 	free(req);
 
 	return id;
@@ -381,7 +421,10 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 
 	fb_close(&win->ctx);
 
-	size_t bufsz = w * h * 4;
+	uint32_t wb = w + win->sizes.b;
+	uint32_t hb = h + win->sizes.b;
+
+	size_t bufsz = wb * hb * 4;
 	void* buf = malloc(bufsz);
 	fb_open_mem(buf, bufsz, w, h, &win->ctx, 0);
 
@@ -418,25 +461,29 @@ static uint8_t __compose_sort_windows_list(compose_window_t* a, compose_window_t
 }
 
 compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client_t* client, 
-		compose_window_t* par, id_t win_id, int x, int y, size_t w, size_t h, int flags) {
+		compose_window_t* par, window_properties_t props) {
 
 	compose_window_t* win = calloc(1, sizeof(compose_window_t));
 
-	win->id       = win_id;
+	win->id       = props.id;
 	win->parent   = par;
 	win->client   = client;
-	win->pos.x    = x;
-	win->pos.y    = y;
+	win->pos.x    = props.x;
+	win->pos.y    = props.y;
 	win->pos.z    = 0;
-	win->sizes.w  = w;
-	win->sizes.h  = h;
+	win->sizes.w  = props.w;
+	win->sizes.h  = props.h;
+	win->sizes.b  = props.border_width;
 	win->children = list_create();
-	win->flags    = flags;
+	win->flags    = props.flags;
 
-	size_t buffer_size = w * h * 4;
+	uint32_t wb = props.w + props.border_width;
+	uint32_t wh = props.h + props.border_width;
+
+	size_t buffer_size = wb * wh * 4;
 	void*  buffer = calloc(1, buffer_size);
 
-	fb_open_mem(buffer, buffer_size, w, h, &win->ctx, 0);
+	fb_open_mem(buffer, buffer_size, wb, wh, &win->ctx, 0);
 
 	list_push_back(srv->windows, win);
 	if(par) {
@@ -493,7 +540,10 @@ compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y) 
 	}
 	for(int32_t i = srv->windows->size - 1; i >= 0; i--) {
 		compose_window_t* win = srv->windows->data[i];
-		if(x >= win->pos.x && y >= win->pos.y && x <= win->pos.x + win->sizes.w && y <= win->pos.y + win->sizes.h) {
+		if(x >= win->pos.x && 
+		   y >= win->pos.y && 
+		   x <= win->pos.x + win->sizes.w + win->sizes.b && 
+		   y <= win->pos.y + win->sizes.h + win->sizes.b) {
 			return win;
 		}
 	}
@@ -526,7 +576,7 @@ void compose_sv_raise(compose_window_t* win) {
 
 	int highest = top->pos.z;
 
-	compose_sv_move(win, 0, 0, highest + 1);
+	compose_sv_move(win, -1, -1, highest + 1);
 }
 
 void compose_sv_sunk(compose_window_t* win) {
@@ -541,5 +591,41 @@ void compose_sv_sunk(compose_window_t* win) {
 		lowest = 0;
 	}
 
-	compose_sv_move(win, 0, 0, lowest - 1);
+	compose_sv_move(win, -1, -1, lowest - 1);
+}
+
+uint8_t compose_sv_is_at_border(compose_window_t* win, int x, int y) {
+	if(!win->sizes.b) {
+		return COMPOSE_BORDER_NONE;
+	}
+	if(x <= win->sizes.b) {
+		if(y <= win->sizes.b) {
+			return COMPOSE_BORDER_CORNER_LU;
+		} if(y >= win->sizes.h + win->sizes.b) {
+			return COMPOSE_BORDER_CORNER_LB;
+		} else {
+			return COMPOSE_BORDER_LEFT;
+		}
+	} else if (x >= win->sizes.w + win->sizes.b) {
+		if(y <= win->sizes.b) {
+			return COMPOSE_BORDER_CORNER_RU;
+		} if(y >= win->sizes.h + win->sizes.b) {
+			return COMPOSE_BORDER_CORNER_RB;
+		} else {
+			return COMPOSE_BORDER_RIGHT;
+		}
+	} else {
+		if(y <= win->sizes.b) {
+			return COMPOSE_BORDER_UP;
+		} if(y >= win->sizes.h + win->sizes.b) {
+			return COMPOSE_BORDER_DOWN;
+		} else {
+			return COMPOSE_BORDER_NONE;
+		}
+	}
+}
+
+void compose_sv_translate(compose_window_t* win, int sx, int sy, int* x, int* y) {
+	*x = sx - win->pos.x;
+	*y = sy - win->pos.y;
 }

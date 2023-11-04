@@ -97,17 +97,17 @@ void compose_cl_flush(compose_client_t* cli, id_t ctx){
 
 void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 	if(op == COMPOSE_RENDER_PIXEL) {
-		uint32_t x = data[0];
-		uint32_t y = data[1];
+		uint32_t x = data[0] + ctx->sizes.b;
+		uint32_t y = data[1] + ctx->sizes.b;
 		VERIFY_POS(ctx, x, y)
 
 
 		fb_pixel(&ctx->ctx, x, y, data[2]);
 	} else if(op == COMPOSE_RENDER_LINE) {
-		uint32_t x0 = data[0];
-		uint32_t y0 = data[1];
-		uint32_t x1 = data[2];
-		uint32_t y1 = data[3];
+		uint32_t x0 = data[0] + ctx->sizes.b;
+		uint32_t y0 = data[1] + ctx->sizes.b;
+		uint32_t x1 = data[2] + ctx->sizes.b;
+		uint32_t y1 = data[3] + ctx->sizes.b;
 
 		VERIFY_POS(ctx, x0, y0)
 		VERIFY_POS(ctx, x1, y1)
@@ -115,8 +115,8 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 
 		fb_line(&ctx->ctx, x0, y0, x1, y1, data[4]);
 	} else if(op == COMPOSE_RENDER_RECT) {
-		uint32_t x0 = data[0];
-		uint32_t y0 = data[1];
+		uint32_t x0 = data[0] + ctx->sizes.b;
+		uint32_t y0 = data[1] + ctx->sizes.b;
 	
 		uint32_t w = data[2];
 		uint32_t h = data[3];
@@ -129,8 +129,8 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 
 		fb_rect(&ctx->ctx, x0, y0, w, h, data[4]);
 	} else if (op == COMPOSE_RENDER_FRECT) {
-		uint32_t x0 = data[0];
-		uint32_t y0 = data[1];
+		uint32_t x0 = data[0] + ctx->sizes.b;
+		uint32_t y0 = data[1] + ctx->sizes.b;
 	
 		uint32_t w = data[2];
 		uint32_t h = data[3];
