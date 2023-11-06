@@ -9,6 +9,8 @@
 
 typedef uint32_t id_t;
 typedef uint32_t flags_t;
+typedef uint64_t event_mask_t;
+typedef uint32_t grab_type;
 
 #define COMPOSE_DEVICE_KBD    0
 #define COMPOSE_DEVICE_MOUSE  1
@@ -43,7 +45,6 @@ typedef struct {
 typedef struct {
 	id_t       id;
 	pid_t      pid;
-	id_t       win_id;
 	int        socket;
 } compose_client_t;
 
@@ -51,30 +52,40 @@ typedef struct window {
 	id_t              id;
 	compose_client_t* client;
 	struct window*    parent;
+	struct window*    root;
 	fb_t       		  ctx;
 	flags_t    		  flags;
 	position_t 		  pos;
 	int               layer;
 	sizes_t    		  sizes;
 	list_t*    		  children;
+	event_mask_t      event_mask;
 } compose_window_t;
 
 typedef struct {
-	id_t       client_id;
-	int  	   socket;
-	fb_t 	   framebuffer;
-	int  	   devices[COMPOSE_DEVICE_AMOUNT];
-	list_t*    clients;
+	grab_type         type;
+	compose_client_t* client;
+	compose_window_t* window;
+} grab_t;
+
+typedef struct {
+	id_t       		  client_id;
+	id_t       		  window_id;
+	int  	   		  socket;
+	fb_t 	   		  framebuffer;
+	int  	   		  devices[COMPOSE_DEVICE_AMOUNT];
 	compose_window_t* root;
-	list_t*    windows;
+	list_t*    		  clients;
+	list_t*           windows;
+	list_t*           grabs;
 } compose_server_t;
 
 typedef struct {
-	id_t    id;
-	int     x, y;
-	size_t  w, h;
-	int     flags;
-	size_t  border_width;
+	int     	 x, y;
+	size_t  	 w, h;
+	int     	 flags;
+	size_t  	 border_width;
+	event_mask_t event_mask;
 } window_properties_t;
 
 compose_client_t* compose_create_client(int sock);
@@ -91,6 +102,8 @@ id_t              compose_cl_create_window(compose_client_t* client, id_t par, w
 int               compose_cl_move(compose_client_t* cli, id_t win, int x, int y);
 int               compose_cl_layer(compose_client_t* cli, id_t win, int z);
 int               compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
+int               compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);
+int               compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
 void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);

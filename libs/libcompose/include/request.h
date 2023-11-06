@@ -8,12 +8,14 @@
 #include "compose/compose.h"
 #endif
 
-#define COMPOSE_REQ_MOVE   1
-#define COMPOSE_REQ_CLOSE  2
-#define COMPOSE_REQ_RESIZE 3
-#define COMPOSE_REQ_EVENT  4
-#define COMPOSE_REQ_NEWWIN 5
-#define COMPOSE_REQ_DRAW   6
+#define COMPOSE_REQ_MOVE    1
+#define COMPOSE_REQ_CLOSE   2
+#define COMPOSE_REQ_RESIZE  3
+#define COMPOSE_REQ_EVENT   4
+#define COMPOSE_REQ_NEWWIN  5 
+#define COMPOSE_REQ_DRAW    6
+#define COMPOSE_REQ_EVMASK  7
+#define COMPOSE_REQ_GRAB    8
 
 typedef struct {
 	int    type;
@@ -53,6 +55,18 @@ typedef struct {
 	uint32_t          op;
 	uint32_t          params[];
 } compose_draw_req_t;
+
+typedef struct {
+	compose_request_t req;
+	id_t 			  win;
+	uint64_t          mask;
+} compose_evmask_req_t;
+
+typedef struct {
+	compose_request_t req;
+	id_t       		  win;
+	grab_type 		  type;
+} compose_grab_req_t;
 
 int                compose_cl_send_request(compose_client_t* client, compose_request_t* req);
 

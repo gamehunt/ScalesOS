@@ -125,13 +125,6 @@ time_t k_dev_timer_now() {
 	return (time_t) __k_dev_timer_to_timestamp(time);
 }
 
-void  k_dev_timer_sleep(uint32_t msec){
-    counter = msec;
-    while(counter){
-        halt();
-    }
-}
-
 uint64_t k_dev_timer_get_initial_timestamp() {
 	return initial_timestamp;
 }

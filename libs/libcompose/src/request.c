@@ -15,6 +15,7 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 	compose_window_t*  win;
 	compose_client_t*  trg;
 	compose_win_req_t* wreq;
+	grab_t* grab;
 	switch(req->type) {
 		case COMPOSE_REQ_MOVE:
 			win = compose_sv_get_window(srv, ((compose_move_req_t*)req)->win);
@@ -55,6 +56,17 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			wreq = (compose_win_req_t*) req;
 			win  = compose_sv_get_window(srv, wreq->parent);
 			compose_sv_create_window(srv, cli, win, wreq->props);
+			break;
+		case COMPOSE_REQ_EVMASK:
+			win  = compose_sv_get_window(srv, wreq->parent);
+			win->event_mask = ((compose_evmask_req_t*) req)->mask;
+			break;
+		case COMPOSE_REQ_GRAB:
+			grab         = malloc(sizeof(grab_t));
+			grab->type   = ((compose_grab_req_t*) req)->type;
+			grab->window = compose_sv_get_window(srv, ((compose_grab_req_t*) req)->win);
+			grab->client = cli;
+			list_push_back(srv->grabs, grab);
 			break;
 	}
 }

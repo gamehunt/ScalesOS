@@ -12,6 +12,7 @@
 #include <tga.h>
 
 #include <kernel/dev/fb.h>
+#include <kernel/dev/speaker.h>
 
 static FILE* pipe;
 
@@ -116,6 +117,13 @@ int main(int argc, char** argv) {
 
 	fclose(pipe);
 	remove("/tmp/splash");
+
+	int spkr = open("/dev/pcspkr", O_RDONLY);
+	if(spkr < 0) {
+		return 0;
+	}
+
+	ioctl(spkr, KDMKTONE, 100000);
 
 	return 0;
 }

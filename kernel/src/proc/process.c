@@ -1044,8 +1044,13 @@ pid_t k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* dat
 	proc->context.ebp = proc->image.kernel_stack;
 	proc->context.esp = proc->image.kernel_stack;
 	proc->context.eip = (uintptr_t) &__k_proc_process_enter_tasklet;
+	proc->context.fp_regs = k_valloc(512, 16);
+	memset(proc->context.fp_regs, 0, 512);
 
-	proc->wait_queue = list_create();
+	proc->wait_queue 				  = list_create();
+	proc->image.mmap_info.mmap_blocks = list_create();
+	
+	__k_proc_process_init_block_node(proc);
 
 	__k_proc_process_spawn(proc, process_tree->root->value);
 	k_proc_process_mark_ready(proc);

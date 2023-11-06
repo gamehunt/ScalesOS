@@ -51,6 +51,9 @@ __k_proc_process_fork_return:
     add esp, 8
     iret
 
+extern k_proc_process_current
+extern k_proc_process_exit
+
 [global __k_proc_process_enter_tasklet]
 __k_proc_process_enter_tasklet:
 	pushf
@@ -58,5 +61,10 @@ __k_proc_process_enter_tasklet:
 	or eax, 0x200
 	push eax
 	popf
-	pop eax
-	jmp eax
+	pop  eax
+	call eax
+	call k_proc_process_current
+	push 0
+	push eax
+	call k_proc_process_exit
+

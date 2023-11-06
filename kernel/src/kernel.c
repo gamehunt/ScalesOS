@@ -19,6 +19,7 @@
 #include "dev/pci.h"
 #include "dev/ps2.h"
 #include "dev/random.h"
+#include "dev/speaker.h"
 #include "dev/timer.h"
 #include "dev/null.h"
 #include "dev/tty.h"
@@ -78,6 +79,7 @@ void kernel_main(uint32_t magic UNUSED, multiboot_info_t* mb) {
 	k_dev_null_init();
 	k_dev_random_init();
 	k_dev_tty_init();
+	k_dev_speaker_init();
 
     k_mod_symtable_init();
     k_mod_load_modules(mb);

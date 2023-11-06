@@ -7,7 +7,7 @@
 
 // /abc/../abc/file.txt -> /abc/file.txt
 char* k_util_path_canonize(const char* root, const char* relative){
-    if(!strcmp(root, "/")){
+    if(!strcmp(root, "/") && !strlen(relative)){
         return strdup(root);
     }
 

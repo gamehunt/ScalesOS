@@ -86,6 +86,7 @@ compose_server_t* compose_sv_create(const char* sock) {
 	srv->socket           = sockfd;
 	srv->clients          = list_create();
 	srv->windows          = list_create();
+	srv->grabs            = list_create();
 	
 	int r =	fb_open("/dev/fb", &srv->framebuffer, FB_FLAG_DOUBLEBUFFER);
 	if(r < 0) {
@@ -113,7 +114,6 @@ compose_server_t* compose_sv_create(const char* sock) {
 compose_client_t* compose_create_client(int sock) {
 	compose_client_t* cli = calloc(1, sizeof(compose_client_t));
 	cli->socket = sock;
-	cli->win_id = 1;
 	return cli;
 }
 
@@ -278,13 +278,19 @@ void compose_sv_tick(compose_server_t* srv) {
 						}
 						packet = input_kbd_create_packet((int) raw_data);
 						__compose_handle_key(srv, packet);
-						if(input_focus && input_focus->client) {
+						if(input_focus) {
 							event = malloc(sizeof(compose_key_event_t));
 							event->type = COMPOSE_EVENT_KEY;
 							event->size = sizeof(compose_key_event_t);
-							((compose_key_event_t*)event)->win  = input_focus->id;
+							event->win  = input_focus->id;
+							if(input_focus->root) {
+								event->root = input_focus->root->id;
+							} else {
+								event->root = input_focus->id;
+							}
 							memcpy(&((compose_key_event_t*)event)->packet, packet, sizeof(keyboard_packet_t));	
-							compose_sv_event_send(input_focus->client, event);
+							compose_sv_event_propagate(input_focus, event);
+							compose_sv_event_propagate_to_grabs(srv->grabs, event);
 							free(event);
 						}
 						free(packet);
@@ -302,15 +308,21 @@ void compose_sv_tick(compose_server_t* srv) {
 							break;
 						}
 						__compose_handle_mouse(srv, packet);
-						if(input_focus && input_focus->client) {
-							event = malloc(sizeof(compose_mouse_event_t));
-							event->type = COMPOSE_EVENT_MOUSE;
-							event->size = sizeof(compose_mouse_event_t);
-							((compose_mouse_event_t*)event)->win  = input_focus->id;
-							memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
-							compose_sv_event_send(input_focus->client, event);
-							free(event);
-						}
+						event = malloc(sizeof(compose_mouse_event_t));
+						event->type = COMPOSE_EVENT_MOUSE;
+						event->size = sizeof(compose_mouse_event_t);
+						compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
+						event->win  = win->id;
+						event->root = srv->root->id;
+						memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
+						((compose_mouse_event_t*)event)->abs_x = mouse_pos.x;
+						((compose_mouse_event_t*)event)->abs_y = mouse_pos.y;
+						compose_sv_translate(win, mouse_pos.x, mouse_pos.y, 
+								&((compose_mouse_event_t*)event)->x,
+								&((compose_mouse_event_t*)event)->y);
+						compose_sv_event_propagate(win, event);
+						compose_sv_event_propagate_to_grabs(srv->grabs, event);
+						free(event);
 						free(packet);
 						break;
 				}
@@ -370,14 +382,29 @@ id_t compose_cl_create_window(compose_client_t* client, id_t par, window_propert
 
 	req->parent   = par;
 	req->props    = props;
-	req->props.id = ++client->win_id;
 
 	compose_cl_send_request(client, req);
-
-	id_t id = req->props.id;
 	free(req);
 
-	return id;
+	while(1) {
+		compose_event_t* ev = compose_cl_event_poll(client);
+		event_type type = ev->type;
+		free(ev);
+		if(ev->type == COMPOSE_EVENT_WIN) {
+			return ev->win;
+		}
+	}
+}
+
+int compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask) {
+	compose_evmask_req_t* payload = malloc(sizeof(compose_evmask_req_t));
+	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.size = sizeof(compose_evmask_req_t);
+	payload->win = win;
+	payload->mask = mask;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
 }
 
 void compose_sv_move(compose_window_t* win, int x, int y, int z) {
@@ -404,7 +431,7 @@ void compose_sv_move(compose_window_t* win, int x, int y, int z) {
 		compose_move_event_t* ev = malloc(sizeof(compose_move_event_t));
 		ev->event.type = COMPOSE_EVENT_MOVE;
 		ev->event.size = sizeof(compose_move_event_t);
-		ev->win = win->id;
+		ev->event.win = win->id;
 		ev->old_pos = old_pos;
 		ev->new_pos = new_pos;
 
@@ -434,7 +461,7 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 		compose_resize_event_t* ev = malloc(sizeof(compose_resize_event_t));
 		ev->event.type = COMPOSE_EVENT_RESIZE;
 		ev->event.size = sizeof(compose_resize_event_t);
-		ev->win = win->id;
+		ev->event.win = win->id;
 		ev->old_size = old_size;
 		ev->new_size = new_size;
 
@@ -465,8 +492,9 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 
 	compose_window_t* win = calloc(1, sizeof(compose_window_t));
 
-	win->id       = props.id;
+	win->id       = ++srv->window_id;
 	win->parent   = par;
+	win->root     = srv->root;
 	win->client   = client;
 	win->pos.x    = props.x;
 	win->pos.y    = props.y;
@@ -499,7 +527,7 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 		compose_win_event_t* ev = malloc(sizeof(compose_win_event_t));
 		ev->event.type = COMPOSE_EVENT_WIN;
 		ev->event.size = sizeof(compose_win_event_t);
-		ev->win = win->id;
+		ev->event.win = win->id;
 		compose_sv_event_send(client, ev);
 		free(ev);
 	}
@@ -630,3 +658,14 @@ void compose_sv_translate(compose_window_t* win, int sx, int sy, int* x, int* y)
 	*y = sy - win->pos.y;
 }
 
+
+int compose_cl_grab(compose_client_t* cli, id_t win, grab_type type) {
+	compose_grab_req_t* payload = malloc(sizeof(compose_grab_req_t));
+	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.size = sizeof(compose_grab_req_t);
+	payload->win  = win;
+	payload->type = type;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}

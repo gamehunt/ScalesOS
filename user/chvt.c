@@ -14,13 +14,16 @@ int main(int argc, char** argv) {
 		return 0;
 	}
 
-	FILE* console = fopen("/dev/console", "r");
-	if(!console) {
+	char path[256];
+	int n = atoi(argv[1]);
+	snprintf(path, 256, "/dev/vt%d", n);
+
+	int vt = open(path, O_RDONLY);
+	if(vt < 0) {
 		return 1;
 	}
 
-	int n = atoi(argv[1]);
-	ioctl(fileno(console), VT_ACTIVATE, &n);
+	ioctl(vt, VT_ACTIVATE, NULL);
 
 	return 0;
 }

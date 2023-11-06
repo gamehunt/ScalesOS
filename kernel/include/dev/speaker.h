@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#define KDMKTONE  0
+#define KIOCSOUND 1
+
 void k_dev_speaker_beep(uint32_t freq, uint32_t dur);
+void k_dev_speaker_init();
 
 #endif

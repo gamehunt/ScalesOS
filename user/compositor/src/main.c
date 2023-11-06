@@ -84,7 +84,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	fb_fill(&srv->framebuffer, 0xFF111111);
+	fb_fill(&srv->framebuffer, 0x0);
 	fb_flush(&srv->framebuffer);
 
 	printf("Server started.\n");
