@@ -636,12 +636,11 @@ static uint32_t sys_munmap(void* start, size_t length) {
 	process_t* proc = k_proc_process_current();
 	mmap_block_t* block = k_mem_mmap_get_mapping(&proc->image.mmap_info, (uint32_t) start);
 
-	if(!block || block->size < length) {
+	if(!block) {
 		return -EINVAL;
 	}
 
 	k_mem_mmap_sync_block(block, 0);
-
 	k_mem_mmap_free_block(&proc->image.mmap_info, block);
 
 	return 0;

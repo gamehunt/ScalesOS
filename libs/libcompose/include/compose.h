@@ -44,6 +44,7 @@ typedef struct {
 
 typedef struct {
 	id_t       id;
+	id_t       root;
 	pid_t      pid;
 	int        socket;
 } compose_client_t;
@@ -116,6 +117,7 @@ void              compose_sv_restack(list_t* windows);
 void              compose_sv_raise(compose_window_t* win);
 void              compose_sv_sunk(compose_window_t* win);
 void              compose_sv_focus(compose_window_t* win);
-void              compose_sv_translate(compose_window_t* win, int sx, int sy, int* x, int* y);
+void              compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y);
+void              compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, int y);
 
 #endif

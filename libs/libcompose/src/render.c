@@ -56,7 +56,7 @@ void compose_cl_filled_rect(compose_client_t* cli, id_t ctx, coord_t x0, coord_t
 	data[2] = w;
 	data[3] = h;
 	data[4] = border;
-	data[5] = border;
+	data[5] = fill;
 
 	compose_cl_draw(cli, ctx, COMPOSE_RENDER_FRECT, data, 6);
 }

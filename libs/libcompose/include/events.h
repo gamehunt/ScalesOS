@@ -18,6 +18,7 @@
 #define COMPOSE_EVENT_RESIZE (1 << 3)
 #define COMPOSE_EVENT_MOVE   (1 << 4)
 #define COMPOSE_EVENT_WIN    (1 << 5)
+#define COMPOSE_EVENT_CNN    (1 << 6)
 
 typedef uint16_t event_type;
 
@@ -25,6 +26,7 @@ typedef struct {
 	event_type type;
 	size_t     size;
 	id_t       win;
+	id_t       child;
 	id_t       root;
 } compose_event_t;
 

@@ -118,12 +118,14 @@ int main(int argc, char** argv) {
 	fclose(pipe);
 	remove("/tmp/splash");
 
+	fb_close(&fb);
+
 	int spkr = open("/dev/pcspkr", O_RDONLY);
 	if(spkr < 0) {
 		return 0;
 	}
 
-	ioctl(spkr, KDMKTONE, 100000);
+	ioctl(spkr, KDMKTONE, (void*) 100000);
 
 	return 0;
 }

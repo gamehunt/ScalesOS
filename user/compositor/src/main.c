@@ -8,6 +8,7 @@
 #include <sys/signal.h>
 #include <unistd.h>
 #include <input/mouse.h>
+
 #include <compose/compose.h>
 
 static const char* startup_app = NULL;
@@ -84,7 +85,7 @@ int main(int argc, char** argv) {
 		}
 	}
 
-	fb_fill(&srv->framebuffer, 0x0);
+	fb_fill(&srv->framebuffer, 0xFF000000);
 	fb_flush(&srv->framebuffer);
 
 	printf("Server started.\n");

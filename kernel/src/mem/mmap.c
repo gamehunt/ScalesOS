@@ -7,6 +7,7 @@
 #include "sys/mman.h"
 #include "util/fd.h"
 #include "types/list.h"
+#include <string.h>
 
 // #define MMAP_DEBUG
 #ifndef MMAP_DEBUG
@@ -28,7 +29,7 @@ mmap_block_t*  k_mem_mmap_allocate_block(mmap_info_t* info, void* start, uint32_
 		pages = size / 0x1000;
 	}
 
-	k_debug("mmap: allocating %d pages. Type: %d, start=0x%.8x", pages, flags, start);
+	k_debug("%s mmap: allocating %d pages. Type: %d, start=0x%.8x", k_proc_process_current()->name, pages, flags, start);
 
 	if(flags & MAP_FIXED) {
 		if(!start) {
@@ -242,7 +243,10 @@ uint8_t k_mem_mmap_handle_pagefault(uint32_t address, int code) {
 	k_debug("mmap: reading %d bytes from +%d to 0x%.8x", 0x1000, offset, page);
 #endif
 
-	k_fs_vfs_read(fdt->node, offset, 0x1000, (void*) page);
+	int32_t data = k_fs_vfs_read(fdt->node, offset, 0x1000, (void*) page);
+	if(data <= 0) {
+		memset((void*) page, 0, 0x1000);
+	}
 
 	return 0;
 }

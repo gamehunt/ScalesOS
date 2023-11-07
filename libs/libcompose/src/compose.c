@@ -1,10 +1,8 @@
 #include "compose.h"
 #include "events.h"
-#include "fb.h"
-#include "kernel/dev/ps2.h"
 #include "request.h"
+#include "fb.h"
 #include "sys/select.h"
-#include "sys/time.h"
 #include "sys/mman.h"
 #include "sys/un.h"
 #include "input/kbd.h"
@@ -15,9 +13,12 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-static position_t        mouse_pos     = {0};
-static compose_window_t* input_focus   = NULL;
-static uint8_t           resize_handle = 0;
+#include "kernel/dev/ps2.h"
+
+static position_t        mouse_pos         = {0};
+static buttons_t         last_buttons      = {0};
+static compose_window_t* input_focus       = NULL;
+static uint8_t           resize_handle     = 0;
 
 #define MOVING   (1 << 0)
 #define RESIZING (1 << 1)
@@ -65,7 +66,18 @@ compose_client_t* compose_cl_connect(const char* sock) {
 		return NULL;
 	}
 
-	return compose_create_client(sockfd);
+	compose_client_t* cli = compose_create_client(sockfd);
+
+	while(1) {
+		compose_event_t* ev = compose_cl_event_poll(cli);
+		event_type type = ev->type;
+		id_t win = ev->win;
+		free(ev);
+		if(type == COMPOSE_EVENT_CNN) {
+			cli->root = ev->root;
+			return cli;
+		}
+	}
 }
 
 compose_server_t* compose_sv_create(const char* sock) {
@@ -127,13 +139,14 @@ static compose_client_t* __compose_get_client(compose_server_t* srv, int sock) {
 	return NULL;
 }
 
-static void __compose_add_client(compose_server_t* srv, int clifd) {
+static compose_client_t* __compose_add_client(compose_server_t* srv, int clifd) {
 	if(__compose_get_client(srv, clifd) != NULL) {
-		return;
+		return NULL;
 	}
 	compose_client_t* client = compose_create_client(clifd);
 	client->id = ++srv->client_id;
 	list_push_back(srv->clients, client);	
+	return client;
 }
 
 static void __compose_remove_client(compose_server_t* srv, compose_client_t* cli) {
@@ -190,7 +203,7 @@ static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet
 			compose_sv_focus(win);
 
 			int x, y;
-			compose_sv_translate(win, mouse_pos.x, mouse_pos.y, &x, &y);
+			compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, &x, &y);
 
 			uint8_t border = compose_sv_is_at_border(win, x, y);
 			
@@ -213,9 +226,6 @@ static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet
 
 void compose_sv_focus(compose_window_t* win) {
 	input_focus = win;
-	if(win) {
-		compose_sv_raise(win);
-	}
 }
 
 void compose_sv_tick(compose_server_t* srv) {
@@ -248,7 +258,15 @@ void compose_sv_tick(compose_server_t* srv) {
 	if(FD_ISSET(srv->socket, &rset)) {
 		int clifd = 0;
 		while((clifd = accept(srv->socket, NULL, NULL)) >= 0) {
-			__compose_add_client(srv, clifd);	
+			compose_client_t* cli = __compose_add_client(srv, clifd);	
+			if(!cli) {
+				continue;
+			}
+			compose_event_t event;
+			event.type = COMPOSE_EVENT_CNN;
+			event.size = sizeof(compose_event_t);
+			event.root = srv->root->id;
+			compose_sv_event_send(cli, &event);
 		}
 	}
 
@@ -317,11 +335,20 @@ void compose_sv_tick(compose_server_t* srv) {
 						memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
 						((compose_mouse_event_t*)event)->abs_x = mouse_pos.x;
 						((compose_mouse_event_t*)event)->abs_y = mouse_pos.y;
-						compose_sv_translate(win, mouse_pos.x, mouse_pos.y, 
+						compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, 
 								&((compose_mouse_event_t*)event)->x,
 								&((compose_mouse_event_t*)event)->y);
 						compose_sv_event_propagate(win, event);
 						compose_sv_event_propagate_to_grabs(srv->grabs, event);
+
+						if(((mouse_packet_t*)packet)->buttons != last_buttons) {
+							event->type = COMPOSE_EVENT_BUTTON;
+							compose_sv_event_propagate(win, event);
+							compose_sv_event_propagate_to_grabs(srv->grabs, event);
+						}
+
+						last_buttons = ((mouse_packet_t*)packet)->buttons;
+
 						free(event);
 						free(packet);
 						break;
@@ -389,9 +416,10 @@ id_t compose_cl_create_window(compose_client_t* client, id_t par, window_propert
 	while(1) {
 		compose_event_t* ev = compose_cl_event_poll(client);
 		event_type type = ev->type;
+		id_t win = ev->win;
 		free(ev);
-		if(ev->type == COMPOSE_EVENT_WIN) {
-			return ev->win;
+		if(type == COMPOSE_EVENT_WIN) {
+			return win;
 		}
 	}
 }
@@ -492,18 +520,19 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 
 	compose_window_t* win = calloc(1, sizeof(compose_window_t));
 
-	win->id       = ++srv->window_id;
-	win->parent   = par;
-	win->root     = srv->root;
-	win->client   = client;
-	win->pos.x    = props.x;
-	win->pos.y    = props.y;
-	win->pos.z    = 0;
-	win->sizes.w  = props.w;
-	win->sizes.h  = props.h;
-	win->sizes.b  = props.border_width;
-	win->children = list_create();
-	win->flags    = props.flags;
+	win->id       	= ++srv->window_id;
+	win->parent   	= par;
+	win->root     	= srv->root;
+	win->client   	= client;
+	win->pos.x    	= props.x;
+	win->pos.y    	= props.y;
+	win->pos.z    	= 0;
+	win->sizes.w  	= props.w;
+	win->sizes.h  	= props.h;
+	win->sizes.b  	= props.border_width;
+	win->children 	= list_create();
+	win->flags    	= props.flags;
+	win->event_mask = props.event_mask;
 
 	uint32_t wb = props.w + props.border_width;
 	uint32_t wh = props.h + props.border_width;
@@ -527,7 +556,8 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 		compose_win_event_t* ev = malloc(sizeof(compose_win_event_t));
 		ev->event.type = COMPOSE_EVENT_WIN;
 		ev->event.size = sizeof(compose_win_event_t);
-		ev->event.win = win->id;
+		ev->event.win  = win->id;
+		ev->event.root = win->root->id;
 		compose_sv_event_send(client, ev);
 		free(ev);
 	}
@@ -547,17 +577,23 @@ compose_client_t* compose_sv_get_client(compose_server_t* srv, id_t id) {
 	return NULL;
 }
 
-static void __compose_draw_window(compose_server_t* srv, compose_window_t* win) {
-	fb_bitmap(&srv->framebuffer, win->pos.x, win->pos.y, win->sizes.w, win->sizes.h, win->ctx.mem);
+static void __compose_draw_window(compose_server_t* srv, compose_window_t* win, position_t* off) {
+	position_t pos = win->pos;
+	if(off) {
+		pos.x += off->x;
+		pos.y += off->y;
+	}
+	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w, win->sizes.h, win->ctx.mem);
+	off = &pos;
 	for(size_t i = 0; i < win->children->size; i++) {
-		__compose_draw_window(srv, win->children->data[i]);
+		__compose_draw_window(srv, win->children->data[i], off);
 	}
 }
 
 void compose_sv_redraw(compose_server_t* srv) {
 	compose_sv_restack(srv->root->children);
 	fb_fill(&srv->framebuffer, 0xFF000000);	
-	__compose_draw_window(srv, srv->root);
+	__compose_draw_window(srv, srv->root, NULL);
 	__compose_draw_mouse(srv);
 	fb_flush(&srv->framebuffer);
 }
@@ -568,10 +604,12 @@ compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y) 
 	}
 	for(int32_t i = srv->windows->size - 1; i >= 0; i--) {
 		compose_window_t* win = srv->windows->data[i];
-		if(x >= win->pos.x && 
-		   y >= win->pos.y && 
-		   x <= win->pos.x + win->sizes.w + win->sizes.b && 
-		   y <= win->pos.y + win->sizes.h + win->sizes.b) {
+		int sx, sy;
+		compose_sv_translate_abs(win, &sx, &sy, 0, 0);
+		if(x >= sx && 
+		   y >= sy && 
+		   x <= sx + win->sizes.w + win->sizes.b && 
+		   y <= sy + win->sizes.h + win->sizes.b) {
 			return win;
 		}
 	}
@@ -653,11 +691,33 @@ uint8_t compose_sv_is_at_border(compose_window_t* win, int x, int y) {
 	}
 }
 
-void compose_sv_translate(compose_window_t* win, int sx, int sy, int* x, int* y) {
-	*x = sx - win->pos.x;
-	*y = sy - win->pos.y;
+void compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y) {
+	int ox = win->pos.x;
+	int oy = win->pos.y;
+
+	while(win->parent) {
+		ox += win->parent->pos.x;
+		oy += win->parent->pos.y;
+		win = win->parent;
+	}
+
+	*x = sx - ox;
+	*y = sy - oy;
 }
 
+void compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, int y) {
+	int ox = win->pos.x;
+	int oy = win->pos.y;
+
+	while(win->parent) {
+		ox += win->parent->pos.x;
+		oy += win->parent->pos.y;
+		win = win->parent;
+	}
+
+	*sx = x + ox;
+	*sy = y + oy;
+}
 
 int compose_cl_grab(compose_client_t* cli, id_t win, grab_type type) {
 	compose_grab_req_t* payload = malloc(sizeof(compose_grab_req_t));

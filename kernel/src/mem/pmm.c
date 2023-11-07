@@ -9,6 +9,7 @@
 #include "util/panic.h"
 
 #include <mem/pmm.h>
+#include <stdio.h>
 
 #define BITMAP_INDEX(frame) (frame / 0x1000 / 32)
 #define BITMAP_BIT_NUMBER(frame) ((frame / 0x1000) % 32)
@@ -24,6 +25,10 @@ static uint32_t first_free_index = 0xFFFFFFFF;
 static uint8_t  init = 0;
 
 static spinlock_t lock = 0;
+
+static uint32_t __allocated = 0;
+static uint32_t __freed     = 0;
+static uint32_t __total     = 0;
 
 void k_mem_pmm_init(multiboot_info_t *mb) {
     bitmap = (uint32_t *)(ALIGN((uint32_t)&_kernel_end, 0x1000) + 0x100000);
@@ -56,6 +61,9 @@ void k_mem_pmm_init(multiboot_info_t *mb) {
 	}
 
     init = 1;
+	__total     = __freed;
+	__freed 	= 0;
+	__allocated = 0;
     k_debug("Final bitmap size: %d bytes", k_mem_pmm_bitmap_size() * 4);
 }
 
@@ -71,7 +79,9 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
 	}
 
     if (first_free_index >= bitmap_size) {
-		k_panic("Out of physical memory.", 0);
+		char buffer[256];
+		snprintf(buffer, 256, "Out of physical memory. Tried to allocate %d frames. %d/%d", frames, __allocated - __freed, __total);
+		k_panic(buffer, 0);
     }
 
     uint32_t found_frames = 0;
@@ -109,13 +119,25 @@ pmm_frame_t k_mem_pmm_alloc_frames(uint32_t frames) {
         while (first_free_index < bitmap_size && !bitmap[first_free_index]) {
             first_free_index++;
         }
+		
+		if(first_free_index >= bitmap_size) {
+			first_free_index = 0;
+		}
+
+        while (first_free_index < bitmap_size && !bitmap[first_free_index]) {
+            first_free_index++;
+        }
 
 		UNLOCK(lock)
 
+		__allocated += frames;
         return frame;
     }
 
-	k_panic("Out of physical memory.", 0);
+
+	char buffer[256];
+	snprintf(buffer, 256, "Out of physical memory. Tried to allocate %d frames. %d/%d", frames, __allocated - __freed, __total);
+	k_panic(buffer, 0);
 	__builtin_unreachable();
 }
 
@@ -136,6 +158,7 @@ void k_mem_pmm_free(pmm_frame_t frame, uint32_t size) {
 			break;
 		}
         bitmap[index] |= BITMAP_BIT_MASK(f);
+		__freed++;
         if (index < first_free_index) {
             first_free_index = index;
         }

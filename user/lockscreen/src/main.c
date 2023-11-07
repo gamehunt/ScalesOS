@@ -1,54 +1,48 @@
 #include "compose/compose.h"
-#include "compose/events.h"
-#include "compose/render.h"
+
+#include "kernel/dev/speaker.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+
+#include <widgets/widget.h>
+#include <widgets/button.h>
 
 static compose_client_t* client = NULL;
-static id_t winA = 0;
-static id_t winB = 0;
+int beeper = 0;
 
-void paint() {
-	compose_cl_fill(client, winA, 0xFFFF0000);
-	compose_cl_flush(client, winA);
-	compose_cl_fill(client, winB, 0xFF0000FF);
-	compose_cl_flush(client, winB);
+void click(widget* w) {
+	if(beeper >= 0) {
+		ioctl(beeper, KDMKTONE, (void*) 100000);
+	}
 }
 
 int main(int argc, char** argv) {
+	beeper = open("/dev/pcspkr", O_RDONLY);
+
 	client = compose_cl_connect("/tmp/.compose.sock");
 	if(!client) {
 		perror("Failed to connect to compose server.");
 		return 1;
 	}
 
-	window_properties_t props;
-	props.x = 100;
-	props.y = 100;
-	props.w = 200;
-	props.h = 100;
-	props.border_width = 10;
-	props.flags = COMPOSE_WIN_FLAGS_MOVABLE | COMPOSE_WIN_FLAGS_RESIZABLE;
+	widgets_init();
 
-	winA = compose_cl_create_window(client, 0, props);
+	widget* login = widget_create(client, WIDGET_TYPE_WINDOW, NULL, NULL);
 
-	
-	props.x = 150;
-	props.y = 150;
-	
-	winB = compose_cl_create_window(client, 0, props);
+	button* butt = malloc(sizeof(button));
+	butt->flags = 0;
+	butt->click = click;
 
-	paint();
+	widget_create(client, WIDGET_TYPE_BUTTON, login, butt);
+
+	widget_draw(login);
 
 	while(1) {
-		compose_event_t* ev = compose_cl_event_poll(client);
-		if(ev) {
-			paint();
-			free(ev);
-		}
+		widgets_tick(login);
 	}
 
 	return 0;

@@ -8,5 +8,7 @@
 
 void k_dev_speaker_beep(uint32_t freq, uint32_t dur);
 void k_dev_speaker_init();
+void k_dev_speaker_start(uint32_t nFrequence);
+void k_dev_speaker_end();
 
 #endif

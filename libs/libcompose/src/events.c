@@ -35,12 +35,14 @@ void compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event)
 }
 
 compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
-	compose_request_t tmpev;
+	compose_event_t tmpev;
 
-	if(read(cli->socket, &tmpev, sizeof(compose_request_t)) > 0) {
+	if(read(cli->socket, &tmpev, sizeof(compose_event_t)) > 0) {
 		compose_event_t* ev = malloc(tmpev.size);
 		memcpy(ev, &tmpev, sizeof(compose_event_t));
-		read(cli->socket, ev + 1, tmpev.size - sizeof(compose_event_t));
+		if(tmpev.size > sizeof(compose_event_t)) {
+			read(cli->socket, ev + 1, tmpev.size - sizeof(compose_event_t));
+		}
 		return ev;
 	}
 
@@ -48,15 +50,13 @@ compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
 }
 
 void compose_sv_event_propagate(compose_window_t* root, compose_event_t* event) {
-	if(root->event_mask & event->type && root->client) {
+	if((root->event_mask & event->type) && root->client) {
 		compose_sv_event_send(root->client, event);
 	}
 	for(size_t i = 0; i < root->children->size; i++) {
 		compose_window_t* win = root->children->data[i];
-		if(win->event_mask & event->type) {
-			event->win = win->id;
-			compose_sv_event_propagate(root, event);
-		}
+		event->child = win->id;
+		compose_sv_event_propagate(win, event);
 	}
 }
 
