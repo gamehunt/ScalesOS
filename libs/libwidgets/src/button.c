@@ -14,10 +14,10 @@ void button_init(widget* button_w) {
 		par = button_w->parent->win;
 	}
 	window_properties_t props;
-	props.x = 25;
-	props.y = 25;
-	props.w = 150;
-	props.h = 50;
+	props.x = button_w->props.pos.x;
+	props.y = button_w->props.pos.y;
+	props.w = button_w->props.size.w;
+	props.h = button_w->props.size.h;
 	props.border_width = 0;
 	props.flags = 0;
 	props.event_mask = COMPOSE_EVENT_BUTTON;
@@ -28,7 +28,6 @@ void button_init(widget* button_w) {
 }
 
 void button_release(widget* button) {
-	free(button->data);
 }
 
 void button_draw(widget* buttn) {
@@ -38,6 +37,8 @@ void button_draw(widget* buttn) {
 	} else {
 		compose_cl_fill(buttn->client, buttn->win, 0xFF0000FF);
 	}
+
+	compose_cl_string(buttn->client, buttn->win, 5, 5, 0x00, 0xFF000000, b->label);
 }
 
 void button_process_events(widget* buttn, compose_event_t* ev) {
@@ -45,6 +46,7 @@ void button_process_events(widget* buttn, compose_event_t* ev) {
 	if(ev->type == COMPOSE_EVENT_BUTTON) {
 		compose_mouse_event_t* mev = (compose_mouse_event_t*) ev;
 		if(mev->packet.buttons & MOUSE_BUTTON_LEFT) {
+			compose_cl_focus(buttn->client, buttn->win);
 			if(!(b->flags & BUTTON_FLAG_CLICKED)) {
 				b->flags |= BUTTON_FLAG_CLICKED;
 				if(b->click) {

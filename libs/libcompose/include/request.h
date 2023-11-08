@@ -16,6 +16,7 @@
 #define COMPOSE_REQ_DRAW    6
 #define COMPOSE_REQ_EVMASK  7
 #define COMPOSE_REQ_GRAB    8
+#define COMPOSE_REQ_FOCUS   9
 
 typedef struct {
 	int    type;
@@ -67,6 +68,11 @@ typedef struct {
 	id_t       		  win;
 	grab_type 		  type;
 } compose_grab_req_t;
+
+typedef struct {
+	compose_request_t req;
+	id_t       		  win;
+} compose_focus_req_t;
 
 int                compose_cl_send_request(compose_client_t* client, compose_request_t* req);
 

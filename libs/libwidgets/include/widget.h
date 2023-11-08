@@ -19,9 +19,15 @@ typedef struct {
 	void (*process_event)(struct _widget* w, compose_event_t* ev);
 } widget_ops;
 
+typedef struct {
+	position_t pos;
+	sizes_t    size;
+} widget_properties;
+
 typedef struct _widget{
 	uint16_t   type;
 	id_t       win;
+	widget_properties props;
 	compose_client_t* client;
 	widget_ops ops;
 	void*      data;
@@ -33,7 +39,7 @@ typedef void(*widget_init)(widget*);
 
 void    widget_register(uint16_t type, widget_init init);
 
-widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, void* data);
+widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, widget_properties prop, void* data);
 void    widget_release(widget* w);
 void    widget_draw(widget* w);
 

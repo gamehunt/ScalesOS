@@ -68,6 +68,10 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			grab->client = cli;
 			list_push_back(srv->grabs, grab);
 			break;
+		case COMPOSE_REQ_FOCUS:
+			win  = compose_sv_get_window(srv, ((compose_focus_req_t*)req)->win);
+			compose_sv_focus(win);
+			break;
 	}
 }
 
@@ -77,7 +81,9 @@ compose_request_t* compose_sv_request_poll(compose_client_t* cli) {
 	if(read(cli->socket, &tmpreq, sizeof(compose_request_t)) > 0) {
 		compose_request_t* req = malloc(tmpreq.size);
 		memcpy(req, &tmpreq, sizeof(compose_request_t));
-		read(cli->socket, req + 1, tmpreq.size - sizeof(compose_request_t));
+		if(tmpreq.size > sizeof(compose_request_t)) {
+			read(cli->socket, req + 1, tmpreq.size - sizeof(compose_request_t));
+		}
 		return req;
 	}
 

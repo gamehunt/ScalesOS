@@ -3,6 +3,7 @@
 #include "compose/compose.h"
 #include "compose/events.h"
 #include "win.h"
+#include "input.h"
 #include <stdlib.h>
 
 static widget_init* __initializers = NULL;
@@ -17,11 +18,12 @@ void widget_register(uint16_t type, widget_init init) {
 	printf("Set 0x%.8x initializer for type %d\n", init, type);
 }
 
-widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, void* data) {
+widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, widget_properties prop, void* data) {
 	widget* w = calloc(1, sizeof(widget));
 	w->type = type;
 	w->data = data;
 	w->parent = parent;
+	w->props  = prop;
 	w->client = cli;
 	w->children = list_create();
 	if(parent) {
@@ -58,6 +60,7 @@ void widget_draw(widget* w) {
 void widgets_init() {
 	widget_register(WIDGET_TYPE_BUTTON, button_init);
 	widget_register(WIDGET_TYPE_WINDOW, window_init);
+	widget_register(WIDGET_TYPE_INPUT,  input_init);
 }
 
 int __widget_try_event(widget* w, compose_event_t* ev) {

@@ -50,13 +50,14 @@ compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
 }
 
 void compose_sv_event_propagate(compose_window_t* root, compose_event_t* event) {
-	if((root->event_mask & event->type) && root->client) {
-		compose_sv_event_send(root->client, event);
-	}
-	for(size_t i = 0; i < root->children->size; i++) {
-		compose_window_t* win = root->children->data[i];
-		event->child = win->id;
-		compose_sv_event_propagate(win, event);
+	if(root->event_mask & event->type) {
+		event->win = root->id;
+		if(root->client) {
+			compose_sv_event_send(root->client, event);
+		}
+	} else if(root->parent) {
+		event->child = root->id;
+		compose_sv_event_propagate(root->parent, event);
 	}
 }
 

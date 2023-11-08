@@ -105,6 +105,8 @@ int               compose_cl_layer(compose_client_t* cli, id_t win, int z);
 int               compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
 int               compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);
 int               compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
+int               compose_cl_focus(compose_client_t* cli, id_t win);
+int               compose_cl_unfocus(compose_client_t* cli, id_t win);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
 void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);
@@ -119,5 +121,6 @@ void              compose_sv_sunk(compose_window_t* win);
 void              compose_sv_focus(compose_window_t* win);
 void              compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y);
 void              compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, int y);
+uint8_t           compose_sv_is_child(compose_window_t* win, compose_window_t* par);
 
 #endif

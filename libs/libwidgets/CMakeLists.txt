@@ -16,7 +16,7 @@ set_target_properties(widgets PROPERTIES PUBLIC_HEADER
 	"include/widget.h;include/label.h;include/input.h;include/button.h;include/win.h;"
 )
 
-target_link_libraries(widgets PRIVATE compose types)
+target_link_libraries(widgets PRIVATE compose input types)
 
 install(TARGETS widgets
 	PUBLIC_HEADER DESTINATION include/widgets/

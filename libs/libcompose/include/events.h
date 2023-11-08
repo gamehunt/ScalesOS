@@ -20,6 +20,10 @@
 #define COMPOSE_EVENT_WIN    (1 << 5)
 #define COMPOSE_EVENT_CNN    (1 << 6)
 
+#define COMPOSE_KBD_MOD_ALT    (1 << 0)
+#define COMPOSE_KBD_MOD_SHIFT  (1 << 1)
+#define COMPOSE_KBD_MOD_CTRL   (1 << 2)
+
 typedef uint16_t event_type;
 
 typedef struct {
@@ -33,6 +37,8 @@ typedef struct {
 typedef struct {
 	compose_event_t   event;
 	keyboard_packet_t packet;
+	char              translated;
+	uint8_t           modifiers;
 } compose_key_event_t;
 
 typedef struct {

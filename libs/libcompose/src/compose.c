@@ -1,9 +1,9 @@
 #include "compose.h"
 #include "events.h"
+#include "input/keys.h"
 #include "request.h"
 #include "fb.h"
 #include "sys/select.h"
-#include "sys/mman.h"
 #include "sys/un.h"
 #include "input/kbd.h"
 #include "input/mouse.h"
@@ -15,15 +15,10 @@
 
 #include "kernel/dev/ps2.h"
 
-static position_t        mouse_pos         = {0};
-static buttons_t         last_buttons      = {0};
-static compose_window_t* input_focus       = NULL;
-static uint8_t           resize_handle     = 0;
-
-#define MOVING   (1 << 0)
-#define RESIZING (1 << 1)
-
-static uint8_t           g_flags = 0;
+static position_t        mouse_pos    = {0};
+static buttons_t         last_buttons = {0};
+static compose_window_t* input_focus  = NULL;
+static uint8_t           kbd_mods     = 0;
 
 static void __compose_update_mouse(compose_server_t* srv, int dx, int dy) {
 	position_t old = mouse_pos;
@@ -160,68 +155,81 @@ void compose_sv_close(compose_server_t* srv, compose_client_t* cli) {
 }
 
 static void __compose_handle_key(compose_server_t* srv, keyboard_packet_t* packet) {
+	if(input_focus) {
+		compose_key_event_t* event = malloc(sizeof(compose_key_event_t));
+		event->event.type = COMPOSE_EVENT_KEY;
+		event->event.size = sizeof(compose_key_event_t);
+		event->event.win  = input_focus->id;
+		if(input_focus->root) {
+			event->event.root = input_focus->root->id;
+		} else {
+			event->event.root = input_focus->id;
+		}
+		memcpy(&event->packet, packet, sizeof(keyboard_packet_t));	
 
+		uint8_t is_up = event->packet.flags & KBD_EVENT_FLAG_UP;
+		if(event->packet.scancode == KEY_LEFTSHIFT ||
+		   event->packet.scancode == KEY_RIGHTSHIFT) {
+			if(is_up) {
+				kbd_mods &= ~KBD_MOD_SHIFT;
+			} else {
+				kbd_mods |= KBD_MOD_SHIFT;
+			}
+		} else if(event->packet.scancode == KEY_LEFTALT ||
+		   event->packet.scancode == KEY_RIGHTALT) {
+			if(is_up) {
+				kbd_mods &= ~KBD_MOD_ALT;
+			} else {
+				kbd_mods |= KBD_MOD_ALT;
+			}
+		} else if(event->packet.scancode == KEY_LEFTCTRL ||
+		   event->packet.scancode == KEY_RIGHTCTRL) {
+			if(is_up) {
+				kbd_mods &= ~KBD_MOD_CTRL;
+			} else {
+				kbd_mods |= KBD_MOD_CTRL;
+			}
+		} else if(event->packet.scancode == KEY_CAPSLOCK) {
+			if(kbd_mods & KBD_MOD_CAPS) {
+				kbd_mods &= ~KBD_MOD_CAPS;
+			} else {
+				kbd_mods |= KBD_MOD_CAPS;
+			}
+		}
+
+		event->translated = input_kbd_translate(event->packet.scancode, kbd_mods);
+		event->modifiers  = kbd_mods;
+		compose_sv_event_propagate(input_focus, event);
+		compose_sv_event_propagate_to_grabs(srv->grabs, event);
+		free(event);
+	}
 }
 
 static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet) {
 	__compose_update_mouse(srv, packet->dx, packet->dy);
+	compose_mouse_event_t* event = malloc(sizeof(compose_mouse_event_t));
+	event->event.type = COMPOSE_EVENT_MOUSE;
+	event->event.size = sizeof(compose_mouse_event_t);
+	compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
+	event->event.win  = win->id;
+	event->event.root = srv->root->id;
+	memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
+	((compose_mouse_event_t*)event)->abs_x = mouse_pos.x;
+	((compose_mouse_event_t*)event)->abs_y = mouse_pos.y;
+	compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, 
+			&((compose_mouse_event_t*)event)->x,
+			&((compose_mouse_event_t*)event)->y);
+	compose_sv_event_propagate(win, event);
+	compose_sv_event_propagate_to_grabs(srv->grabs, event);
 
-	if(g_flags & MOVING) {
-		compose_sv_move(input_focus, input_focus->pos.x + packet->dx, input_focus->pos.y - packet->dy, -1);
+	if(((mouse_packet_t*)packet)->buttons != last_buttons) {
+		event->event.type = COMPOSE_EVENT_BUTTON;
+		compose_sv_event_propagate(win, event);
+		compose_sv_event_propagate_to_grabs(srv->grabs, event);
 	}
-	else if(g_flags & RESIZING) {
-		switch(resize_handle) {
-			case COMPOSE_BORDER_UP:
-				input_focus->pos.y -= packet->dy;
-				compose_sv_resize(input_focus, input_focus->sizes.w, input_focus->sizes.h + packet->dy);
-				break;
-			case COMPOSE_BORDER_DOWN:
-				compose_sv_resize(input_focus, input_focus->sizes.w, input_focus->sizes.h - packet->dy);
-				break;
-			case COMPOSE_BORDER_LEFT:
-				input_focus->pos.x += packet->dx;
-				compose_sv_resize(input_focus, input_focus->sizes.w - packet->dx, input_focus->sizes.h);
-				break;
-			case COMPOSE_BORDER_RIGHT:
-				compose_sv_resize(input_focus, input_focus->sizes.w + packet->dx, input_focus->sizes.h);
-				break;
-		}
-	} 
 
-	if((packet->buttons & MOUSE_BUTTON_LEFT)) {
-		if(g_flags & MOVING) {
-			return;
-		}
-
-		if(g_flags & RESIZING) {
-			return;
-		}
-
-		compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
-
-		if(win) {
-			compose_sv_focus(win);
-
-			int x, y;
-			compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, &x, &y);
-
-			uint8_t border = compose_sv_is_at_border(win, x, y);
-			
-			if(border == COMPOSE_BORDER_NONE) {
-				if(win->flags & COMPOSE_WIN_FLAGS_MOVABLE) {
-					g_flags |= MOVING;
-				}
-			} else {
-				if(win->flags & COMPOSE_WIN_FLAGS_RESIZABLE) {
-					g_flags |= RESIZING;
-					resize_handle = border;
-				}
-			}
-		}
-	} else {
-		g_flags &= ~MOVING;
-		g_flags &= ~RESIZING;
-	}
+	last_buttons = ((mouse_packet_t*)packet)->buttons;
+	free(event);
 }
 
 void compose_sv_focus(compose_window_t* win) {
@@ -296,21 +304,6 @@ void compose_sv_tick(compose_server_t* srv) {
 						}
 						packet = input_kbd_create_packet((int) raw_data);
 						__compose_handle_key(srv, packet);
-						if(input_focus) {
-							event = malloc(sizeof(compose_key_event_t));
-							event->type = COMPOSE_EVENT_KEY;
-							event->size = sizeof(compose_key_event_t);
-							event->win  = input_focus->id;
-							if(input_focus->root) {
-								event->root = input_focus->root->id;
-							} else {
-								event->root = input_focus->id;
-							}
-							memcpy(&((compose_key_event_t*)event)->packet, packet, sizeof(keyboard_packet_t));	
-							compose_sv_event_propagate(input_focus, event);
-							compose_sv_event_propagate_to_grabs(srv->grabs, event);
-							free(event);
-						}
 						free(packet);
 						break;
 					case COMPOSE_DEVICE_MOUSE:
@@ -326,30 +319,7 @@ void compose_sv_tick(compose_server_t* srv) {
 							break;
 						}
 						__compose_handle_mouse(srv, packet);
-						event = malloc(sizeof(compose_mouse_event_t));
-						event->type = COMPOSE_EVENT_MOUSE;
-						event->size = sizeof(compose_mouse_event_t);
-						compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
-						event->win  = win->id;
-						event->root = srv->root->id;
-						memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
-						((compose_mouse_event_t*)event)->abs_x = mouse_pos.x;
-						((compose_mouse_event_t*)event)->abs_y = mouse_pos.y;
-						compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, 
-								&((compose_mouse_event_t*)event)->x,
-								&((compose_mouse_event_t*)event)->y);
-						compose_sv_event_propagate(win, event);
-						compose_sv_event_propagate_to_grabs(srv->grabs, event);
 
-						if(((mouse_packet_t*)packet)->buttons != last_buttons) {
-							event->type = COMPOSE_EVENT_BUTTON;
-							compose_sv_event_propagate(win, event);
-							compose_sv_event_propagate_to_grabs(srv->grabs, event);
-						}
-
-						last_buttons = ((mouse_packet_t*)packet)->buttons;
-
-						free(event);
 						free(packet);
 						break;
 				}
@@ -534,8 +504,8 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	win->flags    	= props.flags;
 	win->event_mask = props.event_mask;
 
-	uint32_t wb = props.w + props.border_width;
-	uint32_t wh = props.h + props.border_width;
+	uint32_t wb = props.w + 2 * props.border_width;
+	uint32_t wh = props.h + 2 * props.border_width;
 
 	size_t buffer_size = wb * wh * 4;
 	void*  buffer = calloc(1, buffer_size);
@@ -583,7 +553,7 @@ static void __compose_draw_window(compose_server_t* srv, compose_window_t* win, 
 		pos.x += off->x;
 		pos.y += off->y;
 	}
-	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w, win->sizes.h, win->ctx.mem);
+	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, win->ctx.mem);
 	off = &pos;
 	for(size_t i = 0; i < win->children->size; i++) {
 		__compose_draw_window(srv, win->children->data[i], off);
@@ -721,11 +691,42 @@ void compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, in
 
 int compose_cl_grab(compose_client_t* cli, id_t win, grab_type type) {
 	compose_grab_req_t* payload = malloc(sizeof(compose_grab_req_t));
-	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.type = COMPOSE_REQ_GRAB;
 	payload->req.size = sizeof(compose_grab_req_t);
 	payload->win  = win;
 	payload->type = type;
 	int r = compose_cl_send_request(cli, payload);
 	free(payload);
 	return r;
+}
+
+int compose_cl_focus(compose_client_t* cli, id_t win) {
+	compose_focus_req_t* payload = malloc(sizeof(compose_focus_req_t));
+	payload->req.type = COMPOSE_REQ_FOCUS;
+	payload->req.size = sizeof(compose_focus_req_t);
+	payload->win  = win;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}
+
+int compose_cl_unfocus(compose_client_t* cli, id_t win) {
+	compose_focus_req_t* payload = malloc(sizeof(compose_focus_req_t));
+	payload->req.type = COMPOSE_REQ_FOCUS;
+	payload->req.size = sizeof(compose_focus_req_t);
+	payload->win = -1;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}
+
+uint8_t compose_sv_is_child(compose_window_t* win, compose_window_t* par) {
+	while(win) {
+		if(win->parent == par) {
+			return 1;
+		}
+		win = win->parent;
+	}
+
+	return 0;
 }
