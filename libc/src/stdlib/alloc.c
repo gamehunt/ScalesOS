@@ -102,7 +102,7 @@ static uint32_t __mem_heap_end() {
 
 uint8_t __mem_heap_is_valid_block(mem_block_t* block){
     uint32_t addr = (uint32_t) block;
-    return addr >= __mem_heap_start() && addr < __mem_heap_end() && block->size;
+    return addr >= __mem_heap_start() && addr <= __mem_heap_end() && block->size && addr + sizeof(mem_block_t) + block->size <= __mem_heap_end();
 }
 
 void __mem_heap_init_block(mem_block_t* block, uint32_t size){
@@ -128,6 +128,10 @@ static uint8_t __mem_split_block(mem_block_t* src, mem_block_t** splitted, uint3
 
     if(src->size < size){
         return 2;
+    }
+
+    if(src->size < size + sizeof(mem_block_t) + 1){
+        return 0;
     }
 
     uint32_t diff = src->size - size;

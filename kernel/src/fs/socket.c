@@ -126,24 +126,36 @@ static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uin
 
 	mutex_lock(&client->lock);
 
-	if(client->available_data >= client->buffer_size) {
-		if(client->available_data >= SOCKET_MAX_BUFFER_SIZE) {
-			__k_fs_socket_notify(node, VFS_EVENT_EXCEPT);
-			return -ENOBUFS;
+	uint32_t to_write = size;
+
+	while(to_write) {
+		if(client->available_data >= client->buffer_size) {
+			while(client->available_data >= SOCKET_MAX_BUFFER_SIZE) {
+				if(!(node->mode & O_NOBLOCK)) {
+					k_proc_process_sleep_on_queue(k_proc_process_current(), sock->blocked_processes);
+				}else {
+					__k_fs_socket_notify(node, VFS_EVENT_EXCEPT);
+					return -ENOBUFS;
+				}
+			}
+			client->buffer_size += SOCKET_INIT_BUFFER_SIZE;
+			client->buffer = k_realloc(client->buffer, client->buffer_size);
 		}
 
-		client->buffer_size += SOCKET_INIT_BUFFER_SIZE;
-		client->buffer = k_realloc(client->buffer, client->buffer_size);
+		uint32_t sz = to_write;
+		if(client->buffer_size - client->available_data < sz) {
+			sz = client->buffer_size - client->available_data;
+		}
+		to_write -= sz;
+
+		memcpy(client->buffer + client->available_data, buffer, sz);
+		client->available_data += sz;
+
+		k_proc_process_wakeup_queue(client->blocked_processes);
+		__k_fs_socket_notify(client->node, VFS_EVENT_READ);
 	}
 
-	memcpy(client->buffer + client->available_data, buffer, size);
-	client->available_data += size;
-
 	mutex_unlock(&client->lock);
-
-	k_proc_process_wakeup_queue(client->blocked_processes);
-
-	__k_fs_socket_notify(client->node, VFS_EVENT_READ);
 
 	return size;
 }

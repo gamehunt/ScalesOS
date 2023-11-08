@@ -105,6 +105,22 @@ void compose_cl_string(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, 
 	free(d);
 }
 
+void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, color_t* bitmap) {
+	size_t sz = sizeof(compose_draw_req_t) + (4 + w * h) * sizeof(uint32_t);
+	compose_draw_req_t* d = malloc(sz);
+	d->req.type = COMPOSE_REQ_DRAW;
+	d->req.size = sz;
+	d->win = ctx;
+	d->op = COMPOSE_RENDER_BITMAP;
+	d->params[0] = x0;
+	d->params[1] = y0;
+	d->params[2] = w;
+	d->params[3] = h;
+	memcpy((void*) &d->params[4], bitmap, w * h * 4);
+	compose_cl_send_request(cli, d);
+	free(d);
+}
+
 #define VERIFY_POS(ctx, x, y) \
 	if( x >= ctx->sizes.w || \
 		y >= ctx->sizes.h  \
@@ -174,5 +190,7 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 			fb_open_font("/res/fonts/system.psf", &__font);
 		}	
 		fb_string(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], (void*) &data[4], __font, data[2], data[3]);
+	} else if (op == COMPOSE_RENDER_BITMAP) {
+		fb_bitmap(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], data[2], data[3], &data[4]);
 	}
 }

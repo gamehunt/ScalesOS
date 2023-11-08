@@ -1,6 +1,7 @@
 #include "compose/compose.h"
 
 #include "kernel/dev/speaker.h"
+#include "tga.h"
 
 #include <stdio.h>
 #include <stdlib.h>
