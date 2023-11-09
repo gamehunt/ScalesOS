@@ -90,10 +90,9 @@
 #define DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * SINGLE_INDIRECT_BLOCK_CAPACITY(superblock)
 #define TRIPLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock)
 
-#define INODES_PER_CACHE 128
-#define BLOCKS_PER_CACHE 1024
-
-#define READAHEAD_SIZE   8
+#define INODES_PER_CACHE 256
+#define BLOCKS_PER_CACHE 4096
+#define READAHEAD_SIZE   32
 
 typedef struct {
 	uint32_t total_inodes;
@@ -732,7 +731,7 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs->device           = dev;
 	fs->inode_cache      = list_create();
 	fs->block_cache      = list_create();
-	fs->readahead_buffer = k_mem_dma_alloc(READAHEAD_SIZE * BLOCK_SIZE(fs->superblock) / 0x1000, NULL);
+	fs->readahead_buffer = k_malloc(READAHEAD_SIZE * BLOCK_SIZE(fs->superblock));
 
 	fs->bgds_amount = fs->superblock->total_blocks / fs->superblock->blocks_per_group;
 	while(fs->bgds_amount * fs->superblock->blocks_per_group < fs->superblock->total_blocks) {

@@ -241,12 +241,19 @@ static void __ata_prepare_prdt(drive_t* device, uint8_t* buffer, uint32_t dma_si
 	uint32_t prdt_entries = dma_size * 512 / KB(64) + 1;
 	for(uint32_t i = 0; i < prdt_entries; i++) {
 		uint32_t left = dma_size * 512 - i * KB(64);
+		if(!left) {
+			break;
+		}
 		device->prdt[i].address = k_mem_paging_virt2phys((uint32_t) buffer + i * KB(64));
 		if(left > KB(64)) {
 			device->prdt[i].size = 0;
 			device->prdt[i].last = 0;
-		} else {
-			device->prdt[i].size = left;
+		} else{
+			if(left == KB(64)) {
+				device->prdt[i].size = 0;
+			} else {
+				device->prdt[i].size = left;
+			}
 			device->prdt[i].last = 0x8000;
 		}
 	}

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <sys/mman.h>
 
 #include <widgets/widget.h>
 #include <widgets/button.h>
@@ -29,6 +30,21 @@ int main(int argc, char** argv) {
 	if(!client) {
 		perror("Failed to connect to compose server.");
 		return 1;
+	}
+
+	tga_t* tga = tga_open("/res/test.tga");
+
+	if(tga) {
+		int node = shm_open("__lockscreen_bg", O_RDWR | O_CREAT, 0);
+		if(node >= 0) {
+			size_t sz = tga->w * tga->h * 4;
+			ftruncate(node, sz);
+			void* mem = mmap(NULL, sz, PROT_WRITE, MAP_SHARED, node, 0);
+			memcpy(mem, tga->data, sz);
+			msync(mem, sz, MS_SYNC);
+			compose_cl_bitmap(client, client->root, 0, 0, tga->w, tga->h, "__lockscreen_bg");
+		}
+		tga_close(tga);
 	}
 
 	widgets_init();

@@ -2,8 +2,13 @@
 #include "compose.h"
 #include "fb.h"
 #include "request.h"
+#include "stdio.h"
+#include "tga.h"
+
+#include <sys/mman.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 void compose_cl_draw(compose_client_t* cli, id_t ctx, int op, uint32_t* data, int params_amount) {
 	size_t sz = sizeof(compose_draw_req_t) + params_amount * sizeof(uint32_t);
@@ -105,8 +110,8 @@ void compose_cl_string(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, 
 	free(d);
 }
 
-void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, color_t* bitmap) {
-	size_t sz = sizeof(compose_draw_req_t) + (4 + w * h) * sizeof(uint32_t);
+void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, const char* key) {
+	size_t sz = sizeof(compose_draw_req_t) + 4 * sizeof(uint32_t) + strlen(key) + 1;
 	compose_draw_req_t* d = malloc(sz);
 	d->req.type = COMPOSE_REQ_DRAW;
 	d->req.size = sz;
@@ -116,7 +121,7 @@ void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, 
 	d->params[1] = y0;
 	d->params[2] = w;
 	d->params[3] = h;
-	memcpy((void*) &d->params[4], bitmap, w * h * 4);
+	strcpy((void*) &d->params[4], key);
 	compose_cl_send_request(cli, d);
 	free(d);
 }
@@ -191,6 +196,21 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 		}	
 		fb_string(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], (void*) &data[4], __font, data[2], data[3]);
 	} else if (op == COMPOSE_RENDER_BITMAP) {
-		fb_bitmap(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], data[2], data[3], &data[4]);
+		int node = shm_open((void*) &data[4], O_RDONLY, 0);
+		if(node < 0) {
+			return;
+		}
+
+		size_t sz = data[2] * data[3] * 4;
+		color_t* map = (color_t*) mmap(NULL, sz, PROT_READ, MAP_PRIVATE, node, 0);
+		if(((int32_t) map) == MAP_FAILED) {
+			close(node);
+			return;
+		}
+
+		fb_bitmap(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], data[2], data[3], map);
+
+		munmap(map, sz);
+		close(node);
 	}
 }

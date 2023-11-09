@@ -144,9 +144,6 @@ static fs_node_t* __k_mem_shm_create_root() {
 	node->fs.readdir = __k_mem_shm_readdir;
 	node->fs.finddir = __k_mem_shm_finddir;
 	node->fs.create  = __k_mem_shm_create;
-	node->fs.open    = __k_mem_shm_open;
-	node->fs.close   = __k_mem_shm_close;
-	node->fs.rm      = __k_mem_shm_remove;
 
 	return node;
 }

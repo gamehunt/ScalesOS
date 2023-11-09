@@ -588,7 +588,7 @@ static uint32_t sys_mmap(void* start, size_t length, int prot, int flags, file_a
 			fl |= PAGE_WRITABLE;
 		}
 		for(size_t i = 0; i < node->frames->size; i++) {
-			k_mem_paging_map(block->start, (paddr_t) node->frames->data[i], fl);
+			k_mem_paging_map(block->start + i * 0x1000, (paddr_t) node->frames->data[i], fl);
 		}
 	}
 
