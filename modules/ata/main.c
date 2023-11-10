@@ -130,7 +130,7 @@ static drive_t* ata_get_device(uint8_t bus, uint8_t driv) {
 
 static void ata_wait(drive_t* device) {
 	while (1) {
-		uint8_t status = inb(ATA_STATUS(device->bus));
+		uint8_t status = inb(ATA_ALT_STATUS(device->bus));
 		if (!(status & ATA_STATUS_BSY) && (status & ATA_STATUS_RDY)) break;
 	}
 }
@@ -237,28 +237,36 @@ static void ata_initialize(drive_t* device) {
 	list_push_back(ata_device_list, device);
 }
 
+#define BYTES_PER_PRD     (KB(64))
+#define PRDS_PER_CLUSTER  (256 * 512 / BYTES_PER_PRD) 
+
+// TODO FIXME
+// This won't work for any dma_size exceeding one prd
 static void __ata_prepare_prdt(drive_t* device, uint8_t* buffer, uint32_t dma_size) {
-	uint32_t prdt_entries = dma_size * 512 / KB(64) + 1;
+	uint32_t prdt_entries = dma_size * 512 / BYTES_PER_PRD + 1;
 	for(uint32_t i = 0; i < prdt_entries; i++) {
-		uint32_t left = dma_size * 512 - i * KB(64);
+		uint32_t left = dma_size * 512 - i * BYTES_PER_PRD;
 		if(!left) {
 			break;
 		}
-		device->prdt[i].address = k_mem_paging_virt2phys((uint32_t) buffer + i * KB(64));
-		if(left > KB(64)) {
+		device->prdt[i].address = k_mem_paging_virt2phys((uint32_t) buffer + i * BYTES_PER_PRD);
+		if(left > BYTES_PER_PRD) {
 			device->prdt[i].size = 0;
-			device->prdt[i].last = 0;
+			device->prdt[i].last = 0x0;
 		} else{
-			if(left == KB(64)) {
+			if(left == BYTES_PER_PRD) {
 				device->prdt[i].size = 0;
 			} else {
 				device->prdt[i].size = left;
 			}
 			device->prdt[i].last = 0x8000;
 		}
+		// k_debug("prdt[%d] = 0x%.8x +%d 0x%x", i, device->prdt[i].address, device->prdt[i].size, device->prdt[i].last);
 	}
 }
 
+// TODO FIXME
+// This won't work for any dma_size exceeding one prd
 static uint32_t __ata_read_internal(drive_t* device, uint32_t lba, uint32_t dma_size, uint8_t* buffer) {
 	mutex_lock(&device->lock);
 
@@ -277,19 +285,31 @@ static uint32_t __ata_read_internal(drive_t* device, uint32_t lba, uint32_t dma_
 	ata_wait(device);
 
 	outb(ATA_FEAT(device->bus), 0);
-
-	outb(ATA_SECCOUNT(device->bus), dma_size);
-	outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba & 0xFF));
-	outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba & 0xFF00) >> 8));
-	outb(ATA_LBA_HI(device->bus),  (uint8_t) ((lba & 0xFF0000) >> 16));
-	
-	ata_wait(device);
-
-	outb(ATA_COMMAND(device->bus), 0xC8);
-
 	ata_write_busmaster_command(device->bus, 0x8 | 0x1);
 
-	k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
+	int i = 0;
+	while(dma_size) {
+		size_t read = (device->prdt[i].size ? device->prdt[i].size : BYTES_PER_PRD) / 512;
+
+		// k_debug("read: %d, dma left: %d, lba: +%d", read, dma_size, lba);
+		// k_debug("reading 0x%.8x - 0x%.8x", device->prdt[i].address, device->prdt[i].address + read * 512);
+
+		outb(ATA_SECCOUNT(device->bus), read);
+		outb(ATA_LBA_LO(device->bus),  (uint8_t) (lba & 0xFF));
+		outb(ATA_LBA_MID(device->bus), (uint8_t) ((lba & 0xFF00) >> 8));
+		outb(ATA_LBA_HI(device->bus),  (uint8_t) ((lba & 0xFF0000) >> 16));
+		ata_wait(device);
+
+		outb(ATA_COMMAND(device->bus), 0xC8);
+
+		k_proc_process_sleep_on_queue(k_proc_process_current(), device->blocked_processes);
+
+		dma_size -= read;
+		lba += read;
+		i++;
+	}
+
+	ata_write_busmaster_command(device->bus, 0x0);
 
 	mutex_unlock(&device->lock);
 	
@@ -319,13 +339,32 @@ static uint32_t ata_read(fs_node_t* node, uint32_t offset, uint32_t size, uint8_
 
 	uint32_t dma_size = full_sectors + (last_sector > 0) + (part_offset > 0);
 
-	void* internal_buffer = k_mem_dma_alloc(dma_size * 512 / 0x1000 + 1, NULL);
+	uint32_t internal_buffer_size = 0;
+	void*    internal_buffer = NULL;
 
-	__ata_read_internal(device, lba_offset, dma_size, internal_buffer);
+	if(size <= BYTES_PER_PRD) {
+		internal_buffer_size = size;
+	} else {
+		internal_buffer_size = BYTES_PER_PRD;
+	}
 
-	memcpy(buffer, &internal_buffer[part_offset], size);
+	internal_buffer =  k_mem_dma_alloc(internal_buffer_size / 0x1000 + 1, NULL);
 
-	k_mem_dma_free(internal_buffer, dma_size * 512 / 0x1000 + 1);
+	uint32_t buffer_offset = 0;
+
+	while(dma_size) {
+		uint32_t read_size = internal_buffer_size / 512;
+		if(read_size > dma_size) {
+			read_size = dma_size;	
+		}
+		__ata_read_internal(device, lba_offset + buffer_offset / 512, read_size, internal_buffer);
+		memcpy(&buffer[buffer_offset], &internal_buffer[part_offset], read_size * 512);
+		part_offset   = 0;
+		buffer_offset += read_size * 512;
+		dma_size      -= read_size;
+	}
+
+	k_mem_dma_free(internal_buffer, internal_buffer_size / 0x1000 + 1);
 
 	return size;
 }
@@ -464,22 +503,17 @@ static interrupt_context_t* ata_handle_irq(uint8_t bus, interrupt_context_t* ctx
 		return ctx;
 	}
 
-	uint8_t transfer_done = !(status & 1);
+	// k_debug("ATA IRQ, done=%d (%d status)", !(status & 1), status);
+	ata_write_busmaster_status(bus, 0x4 | 0x2);
 
 	do {
 		status = inb(ATA_STATUS(bus));
 	} while(status & ATA_STATUS_BSY);
 
-	ata_write_busmaster_command(bus, 0);
-	ata_write_busmaster_status(bus, 0x4 | 0x2);
-
 	uint8_t drive_selected = inb(ATA_DRIVE(bus)) & (1 << 4);
-
-	if(transfer_done) {
-		drive_t* drive = ata_get_device(bus, drive_selected ? ATA_SLAVE : ATA_MASTER);
-		if(drive) {
-			k_proc_process_wakeup_queue(drive->blocked_processes);
-		}
+	drive_t* drive = ata_get_device(bus, drive_selected ? ATA_SLAVE : ATA_MASTER);
+	if(drive) {
+		k_proc_process_wakeup_queue(drive->blocked_processes);
 	}
 
 	return ctx;

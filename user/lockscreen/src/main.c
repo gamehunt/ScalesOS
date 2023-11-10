@@ -1,4 +1,5 @@
 #include "compose/compose.h"
+#include "compose/render.h"
 
 #include "kernel/dev/speaker.h"
 #include "tga.h"
@@ -35,15 +36,8 @@ int main(int argc, char** argv) {
 	tga_t* tga = tga_open("/res/test.tga");
 
 	if(tga) {
-		int node = shm_open("__lockscreen_bg", O_RDWR | O_CREAT, 0);
-		if(node >= 0) {
-			size_t sz = tga->w * tga->h * 4;
-			ftruncate(node, sz);
-			void* mem = mmap(NULL, sz, PROT_WRITE, MAP_SHARED, node, 0);
-			memcpy(mem, tga->data, sz);
-			msync(mem, sz, MS_SYNC);
-			compose_cl_bitmap(client, client->root, 0, 0, tga->w, tga->h, "__lockscreen_bg");
-		}
+		compose_bitmap* bmap = compose_create_bitmap(tga->w, tga->h, tga->bpp, "__lockscreen_bg", tga->data);
+		compose_cl_bitmap(client, client->root, 0, 0, bmap);
 		tga_close(tga);
 	}
 

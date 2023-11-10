@@ -68,7 +68,7 @@ void 	fb_filled_ellipse(fb_t* fb, coord_t x0, coord_t y0, size_t a, size_t b, co
 void 	fb_fill(fb_t* fb, color_t color);
 void    fb_char(fb_t* fb, coord_t x, coord_t y, char c, fb_font_t* font, color_t bg, color_t fg);
 void    fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font, color_t bg, color_t fg);
-void    fb_bitmap(fb_t* fb, coord_t x, coord_t y, size_t w, size_t h, color_t* bitmap);
+void    fb_bitmap(fb_t* fb, coord_t x, coord_t y, size_t w, size_t h, uint8_t bpp, void* bitmap);
 void    fb_clip(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h);
 void    fb_unclip(fb_t* fb);
 short   fb_is_clipped(fb_t* fb, coord_t x0, coord_t y0);

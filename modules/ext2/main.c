@@ -6,6 +6,7 @@
 #include <kernel/kernel.h>
 #include <kernel/util/log.h>
 #include <kernel/util/path.h>
+#include <kernel/util/perf.h>
 #include <kernel/dev/timer.h>
 
 #include <types/list.h>
@@ -91,8 +92,9 @@
 #define TRIPLE_INDIRECT_BLOCK_CAPACITY(superblock) (BLOCK_SIZE(superblock) / sizeof(uint32_t)) * DOUBLE_INDIRECT_BLOCK_CAPACITY(superblock)
 
 #define INODES_PER_CACHE 256
-#define BLOCKS_PER_CACHE 4096
-#define READAHEAD_SIZE   32
+#define BLOCKS_PER_CACHE 2048
+
+#define MAX_READAHEAD MB(8)
 
 typedef struct {
 	uint32_t total_inodes;
@@ -281,7 +283,7 @@ void __ext2_cache_block(ext2_fs_t* fs, uint32_t block, void* data) {
 	} 
 }
 
-static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* buffer, uint8_t readahead) {
+static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* buffer, uint32_t readahead) {
 	if(start_block > fs->superblock->total_blocks) {
 		k_warn("ext2_read_block(): tried to read invalid block %d", start_block);
 		return 0;
@@ -293,7 +295,10 @@ static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* 
 		return block_size; 
 	} else {
 		if(readahead) {
-			uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, block_size * READAHEAD_SIZE, fs->readahead_buffer);	
+			if(readahead > MAX_READAHEAD) {
+				readahead = MAX_READAHEAD;
+			}
+			uint32_t read = k_fs_vfs_read(fs->device, start_block * block_size, readahead, fs->readahead_buffer);	
 			for(size_t i = 0; i < read; i += block_size) {
 				__ext2_cache_block(fs, start_block + i / block_size, fs->readahead_buffer + i);
 			}
@@ -314,7 +319,7 @@ static uint32_t __ext2_resolve_single_indirect_block(ext2_fs_t* fs, uint32_t poi
 		return 0;
 	}
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer, 1);
+	__ext2_read_block(fs, pointer, block_buffer, 0);
 	uint32_t target_block = ((uint32_t*) block_buffer) [block_offset - (DIRECT_BLOCK_CAPACITY)]; 
 	k_free(block_buffer);
 	return target_block;
@@ -326,7 +331,7 @@ static uint32_t __ext2_resolve_double_indirect_block(ext2_fs_t* fs, uint32_t poi
 	}
 	uint32_t extra_offset = block_offset - (SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer, 1);
+	__ext2_read_block(fs, pointer, block_buffer, 0);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 
 	k_free(block_buffer);
 	return __ext2_resolve_single_indirect_block(fs, target_block, extra_offset % SINGLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
@@ -338,7 +343,7 @@ static uint32_t __ext2_resolve_triple_indirect_block(ext2_fs_t* fs, uint32_t poi
 	}
 	uint32_t extra_offset = block_offset - (DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
 	void* block_buffer = k_malloc(BLOCK_SIZE(fs->superblock));
-	__ext2_read_block(fs, pointer, block_buffer, 1);
+	__ext2_read_block(fs, pointer, block_buffer, 0);
 	uint32_t target_block = ((uint32_t*) block_buffer) [extra_offset / DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock)]; 
 	k_free(block_buffer);
 	return __ext2_resolve_double_indirect_block(fs, target_block, extra_offset % DOUBLE_INDIRECT_BLOCK_CAPACITY(fs->superblock));
@@ -384,7 +389,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 			break;
 		}
 
-		__ext2_read_block(fs, target_block, block_buffer, 1);
+		__ext2_read_block(fs, target_block, block_buffer, (inode->size_low / block_size + 1) * block_size);
 		
 		if(size <= block_size - part_offset) {
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], size);
@@ -731,7 +736,7 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	fs->device           = dev;
 	fs->inode_cache      = list_create();
 	fs->block_cache      = list_create();
-	fs->readahead_buffer = k_malloc(READAHEAD_SIZE * BLOCK_SIZE(fs->superblock));
+	fs->readahead_buffer = k_malloc(MAX_READAHEAD);
 
 	fs->bgds_amount = fs->superblock->total_blocks / fs->superblock->blocks_per_group;
 	while(fs->bgds_amount * fs->superblock->blocks_per_group < fs->superblock->total_blocks) {
@@ -762,6 +767,8 @@ static fs_node_t* __ext2_mount(const char* path, const char* device) {
 	root->fs.finddir = &__ext2_finddir;
 
 	k_free(filename);
+
+	k_debug("EXT2 block size: %d", BLOCK_SIZE(fs->superblock));
 
 	return root;
 }

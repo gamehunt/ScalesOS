@@ -30,6 +30,7 @@ typedef struct {
 typedef struct {
 	size_t    w;
 	size_t    h;
+	uint8_t   bpp;
 	uint32_t* data;
 } tga_t;
 

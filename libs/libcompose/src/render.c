@@ -110,8 +110,8 @@ void compose_cl_string(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, 
 	free(d);
 }
 
-void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, const char* key) {
-	size_t sz = sizeof(compose_draw_req_t) + 4 * sizeof(uint32_t) + strlen(key) + 1;
+void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, compose_bitmap* bitmap) {
+	size_t sz = sizeof(compose_draw_req_t) + 5 * sizeof(uint32_t) + strlen(bitmap->key) + 1;
 	compose_draw_req_t* d = malloc(sz);
 	d->req.type = COMPOSE_REQ_DRAW;
 	d->req.size = sz;
@@ -119,11 +119,39 @@ void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, 
 	d->op = COMPOSE_RENDER_BITMAP;
 	d->params[0] = x0;
 	d->params[1] = y0;
-	d->params[2] = w;
-	d->params[3] = h;
-	strcpy((void*) &d->params[4], key);
+	d->params[2] = bitmap->w;
+	d->params[3] = bitmap->h;
+	d->params[4] = bitmap->bpp;
+	strcpy((void*) &d->params[5], bitmap->key);
 	compose_cl_send_request(cli, d);
 	free(d);
+}
+
+compose_bitmap* compose_create_bitmap(size_t w, size_t h, uint8_t bpp, const char* key, void* data) {
+	int fd = shm_open(key, O_RDWR | O_CREAT, 0);
+	if(fd < 0) {
+		return NULL;
+	}
+
+	size_t bytes = w * h * bpp / 8;
+	ftruncate(fd, bytes);
+
+	void* mem = mmap(NULL, bytes, PROT_WRITE, MAP_SHARED, fd, 0);
+	if(((int32_t)mem) == MAP_FAILED) {
+		close(fd);
+		return NULL;
+	}
+
+	memcpy(mem, data, bytes);
+	munmap(mem, bytes);
+
+	compose_bitmap* bmap = malloc(sizeof(compose_bitmap) + strlen(key) + 1);
+	bmap->w = w;
+	bmap->h = h;
+	bmap->bpp = bpp;
+	strcpy(bmap->key, key);
+
+	return bmap;
 }
 
 #define VERIFY_POS(ctx, x, y) \
@@ -196,7 +224,7 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 		}	
 		fb_string(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], (void*) &data[4], __font, data[2], data[3]);
 	} else if (op == COMPOSE_RENDER_BITMAP) {
-		int node = shm_open((void*) &data[4], O_RDONLY, 0);
+		int node = shm_open((void*) &data[5], O_RDONLY, 0);
 		if(node < 0) {
 			return;
 		}
@@ -208,9 +236,11 @@ void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data) {
 			return;
 		}
 
-		fb_bitmap(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], data[2], data[3], map);
+		fb_bitmap(&ctx->ctx, ctx->sizes.b + data[0], ctx->sizes.b + data[1], data[2], data[3], data[4], map);
 
 		munmap(map, sz);
 		close(node);
 	}
 }
+
+

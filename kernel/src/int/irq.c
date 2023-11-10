@@ -1,5 +1,6 @@
 #include "dev/timer.h"
 #include "proc/process.h"
+#include "util/log.h"
 #include <int/pic.h>
 #include <int/idt.h>
 #include <int/isr.h>

@@ -2,6 +2,7 @@
 #include "kernel/mem/paging.h"
 #include "mem/memory.h"
 #include "mem/pmm.h"
+#include "util/log.h"
 
 #include <string.h>
 

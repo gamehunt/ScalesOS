@@ -297,10 +297,26 @@ void fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font,
 	}
 }
 
-void fb_bitmap(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h, color_t* bitmap) {
+void fb_bitmap(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h, uint8_t bpp, void* bitmap) {
 	for(coord_t y = y0; y < y0 + h; y++) {
 		for(coord_t x = x0; x < x0 + w; x++) {
-			fb_pixel(fb, x, y, bitmap[(y - y0) * w + x - x0]);
+			color_t col;
+			uint32_t index = (y - y0) * w + x - x0;
+			switch(bpp) {
+				case 32:
+					col = ((color_t*)bitmap)[index];
+					break;
+				case 24:
+					col = 0xFF000000;
+					for(int i = 0; i < 3; i++) {
+						col |= *(uint8_t*)(bitmap + index * 3 + i) << 8 * i;
+					}
+					break;
+				default:
+					col = 0xFF000000;
+					break;
+			}
+			fb_pixel(fb, x, y, col);
 		}
 	}
 }

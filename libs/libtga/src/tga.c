@@ -38,17 +38,12 @@ tga_t* tga_decode(void* data, size_t size) {
 
 	tga_t* img = malloc(sizeof(tga_t));
 
-	img->w = hdr->image_info.w;
-	img->h = hdr->image_info.h;
+	img->w    = hdr->image_info.w;
+	img->h    = hdr->image_info.h;
+	img->bpp  = hdr->image_info.bpp;
+	img->data = image_data;
 
 	// img->data  = malloc(img->w * img->h * 4);
-
-	uint32_t bpp = hdr->image_info.bpp;
-
-	if(hdr->image_type == 2 && bpp == 32) {
-		img->data = image_data;
-	}
-
 	// for(int y = 0; y < img->h; y++) {
 	// 	for(int x = 0; x < img->w; x++) {
 	// 		uint32_t index = y * img->w + x;

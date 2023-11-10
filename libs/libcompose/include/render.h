@@ -15,6 +15,13 @@
 #define COMPOSE_RENDER_STRING   9
 #define COMPOSE_RENDER_BITMAP   10
 
+typedef struct {
+	size_t  w;
+	size_t  h;
+	uint8_t bpp;
+	char    key[];
+} compose_bitmap;
+
 void compose_cl_draw(compose_client_t* cli, id_t ctx, int op, uint32_t* data, int param_amount);
 void compose_cl_draw_pixel(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, color_t color);
 void compose_cl_line(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, coord_t x1, coord_t y1, color_t color);
@@ -27,7 +34,9 @@ void compose_cl_filled_ellipse(compose_client_t* cli, id_t ctx, coord_t x0, coor
 void compose_cl_fill(compose_client_t* cli, id_t ctx, color_t color);
 void compose_cl_flush(compose_client_t* cli, id_t ctx);
 void compose_cl_string(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, color_t bg, color_t fg, const char* string);
-void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, const char* key);
+void compose_cl_bitmap(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, compose_bitmap* bitmap);
+
+compose_bitmap* compose_create_bitmap(size_t w, size_t h, uint8_t bpp, const char* key, void* data);
 
 void compose_sv_draw(compose_window_t* ctx, int op, uint32_t* data);
 

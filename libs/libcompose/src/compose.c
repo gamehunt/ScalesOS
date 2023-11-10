@@ -553,7 +553,7 @@ static void __compose_draw_window(compose_server_t* srv, compose_window_t* win, 
 		pos.x += off->x;
 		pos.y += off->y;
 	}
-	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, win->ctx.mem);
+	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, 32, win->ctx.mem);
 	off = &pos;
 	for(size_t i = 0; i < win->children->size; i++) {
 		__compose_draw_window(srv, win->children->data[i], off);
