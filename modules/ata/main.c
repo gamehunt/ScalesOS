@@ -207,7 +207,7 @@ static uint16_t* ata_identify(uint8_t bus, uint8_t drive) {
 	static uint16_t identify[256];
 
 	for(int i = 0; i < 256; i++) {
-		identify[i] = inb(ATA_DATA(bus));
+		identify[i] = inw(ATA_DATA(bus));
 	}
 
 	return &identify[0];
