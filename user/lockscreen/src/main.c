@@ -2,7 +2,7 @@
 #include "compose/render.h"
 
 #include "kernel/dev/speaker.h"
-#include "tga.h"
+#include "jpeg.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,13 +33,13 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	tga_t* tga = tga_open("/res/test.tga");
+	jpeg_t* jpeg = jpeg_open("/res/test.jpg");
 
-	if(tga) {
-		compose_bitmap* bmap = compose_create_bitmap(tga->w, tga->h, tga->bpp, "__lockscreen_bg", tga->data);
-		compose_cl_bitmap(client, client->root, 0, 0, bmap);
-		tga_close(tga);
-	}
+	// if(jpeg) {
+	// 	compose_bitmap* bmap = compose_create_bitmap(jpeg->w, jpeg->h, jpeg->bpp, "__lockscreen_bg", jpeg->data);
+	// 	compose_cl_bitmap(client, client->root, 0, 0, bmap);
+	// 	jpeg_close(jpeg);
+	// }
 
 	widgets_init();
 

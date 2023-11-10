@@ -389,7 +389,7 @@ static uint32_t __ext2_read_inode_contents(ext2_fs_t* fs, ext2_inode_t* inode, u
 			break;
 		}
 
-		__ext2_read_block(fs, target_block, block_buffer, (inode->size_low / block_size + 1) * block_size);
+		__ext2_read_block(fs, target_block, block_buffer, (inode->size_low / block_size - block_offset + 1) * block_size);
 		
 		if(size <= block_size - part_offset) {
 			memcpy(&buffer[buffer_offset], &block_buffer[part_offset], size);
