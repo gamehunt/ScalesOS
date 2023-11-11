@@ -317,6 +317,9 @@ void k_dev_vt_tty_callback(struct tty* tty) {
 		if(a->id == tty->id && c_vt->display_mode != VT_DISP_MODE_GRAPHIC) {
 			k_dev_fb_putchar(c, 0xFFFFFFFF, 0x00000000);
 		}
+		if(tty == __tty0->device) {
+			k_dev_serial_putchar(c);
+		}
 		if(i_vt->display_mode != VT_DISP_MODE_GRAPHIC) {
 			k_fs_vfs_write(__vts[tty->id], 0, 1, &c);
 		}

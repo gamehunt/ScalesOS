@@ -22,6 +22,7 @@ static uint32_t ch = 0;
 void k_dev_fb_write(char* buff, uint32_t size) {
     for (uint32_t i = 0; i < size; i++) {
         k_dev_fb_putchar(buff[i], 0xFFFFFFFF, 0x0);
+		k_dev_serial_putchar(buff[i]);
     }
 }
 

@@ -35,11 +35,11 @@ int main(int argc, char** argv) {
 
 	jpeg_t* jpeg = jpeg_open("/res/test.jpg");
 
-	// if(jpeg) {
-	// 	compose_bitmap* bmap = compose_create_bitmap(jpeg->w, jpeg->h, jpeg->bpp, "__lockscreen_bg", jpeg->data);
-	// 	compose_cl_bitmap(client, client->root, 0, 0, bmap);
-	// 	jpeg_close(jpeg);
-	// }
+	if(jpeg) {
+		compose_bitmap* bmap = compose_create_bitmap(jpeg->w, jpeg->h, 32, "__lockscreen_bg", jpeg->data);
+		compose_cl_bitmap(client, client->root, 0, 0, bmap);
+		jpeg_close(jpeg);
+	}
 
 	widgets_init();
 

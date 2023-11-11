@@ -5,7 +5,9 @@
 #include <stdint.h>
 
 typedef struct {
-
+	size_t w;
+	size_t h;
+	uint32_t* data;
 } jpeg_t;
 
 jpeg_t* jpeg_open(const char* path);
