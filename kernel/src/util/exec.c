@@ -107,7 +107,7 @@ int k_util_exec_elf(const char* path, int argc, const char* argv[], const char* 
 			new_argv[i + 2] = argv[i];
 		}
 
-		k_debug("DYN: Executing: %s %s", interp, path);
+		// k_debug("DYN: Executing: %s %s", interp, path);
 
 		return k_util_exec(interp, new_argc, new_argv, envp);
 	}

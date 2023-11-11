@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 
-	jpeg_t* jpeg = jpeg_open("/res/test.jpg");
+	jpeg_t* jpeg = jpeg_open("/res/background.jpg");
 
 	if(jpeg) {
 		compose_bitmap* bmap = compose_create_bitmap(jpeg->w, jpeg->h, 32, "__lockscreen_bg", jpeg->data);

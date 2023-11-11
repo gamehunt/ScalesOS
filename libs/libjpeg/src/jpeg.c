@@ -20,22 +20,23 @@ typedef struct {
 typedef struct {
 	uint8_t lengths[16];
 	uint8_t elements[256];
-} huffman_table; 
+} __attribute__((packed)) huffman_table; 
 
 typedef struct {
 	float base[64];
 } idct;
 
 typedef struct {
+	huffman_table  huffman_tables[256];
+
 	uint8_t        quant[8][64];
 	quant_mapping* quant_mappings[3];
-	huffman_table  huffman_tables[256];
 
 	size_t w;
 	size_t h;
 
 	uint32_t* data;
-} __jpeg_internal;
+} __attribute__((packed)) __jpeg_internal;
 
 static void __change_endian(uint16_t* d) {
 	uint8_t* a = (uint8_t*) d;
@@ -66,7 +67,7 @@ static const float cosines[8][8] = {
 	{ 0.0975451610081,-0.27778511651,0.415734806151,-0.490392640202,0.490392640202,-0.415734806151,0.27778511651,-0.0975451610081 },
 };
 
-static float table[8][8][8][8]= {{{{0}}}};
+static float precalc_table[8][8][8][8]= {{{{0}}}};
 
 static int clamp(int col) {
 	if (col > 255) return 255;
@@ -93,7 +94,7 @@ static void parse_quant_tables(__jpeg_internal* states, void* data, size_t len) 
 		uint8_t index = *(uint8_t*)data;
 		memcpy(states->quant[index & 0xF], data + 1, 64);
 		data += 65;
-		l  -= 65;
+		l    -= 65;
 	}
 }
 
@@ -110,41 +111,44 @@ static void parse_dct(__jpeg_internal* states, void* data, size_t len) {
 	// t->width  = w;
 	// t->height = h;
 
-	printf("Size: %dx%d\n", w, h);
+	printf("Size: %dx%d, components=%d\n", w, h, t->components);
 
 	states->w = w;
 	states->h = h;
 
 	for (int i = 0; i < t->components; ++i) {
-		if(i > 2) {
-			break;	
-		}
 		quant_mapping* map = malloc(sizeof(quant_mapping));
 		memcpy(map, data + sizeof(dct) + i * sizeof(quant_mapping), sizeof(quant_mapping));
 		states->quant_mappings[i] = map;
+		printf("%d %d %d\n", map->id, map->samp, map->qtb_id);
 	}
 }
 
 static void parse_huffman(__jpeg_internal* states, void* data, size_t len) {
-	int llen = len;
+	int   llen = len;
+	off_t offset = 0;
 	while (llen > 0) {
-		uint8_t hdr = *(uint8_t*) data;
-		memcpy(states->huffman_tables[hdr].lengths, data + 1, 16);
+		uint8_t hdr = *(uint8_t*) (data + offset);
+		memcpy(states->huffman_tables[hdr].lengths, data + offset + 1, 16);
 
-		llen -= 17;
+		llen   -= 17;
+		offset += 17;
 
 		int o = 0;
 		for (int i = 0; i < 16; ++i) {
 			int l = states->huffman_tables[hdr].lengths[i];
-			memcpy(&states->huffman_tables[hdr].elements[o], data + 17 + o, l);
-			o += l;
-			llen -= l;
+			memcpy(&states->huffman_tables[hdr].elements[o], data + offset, l);
+
+			o      += l;
+			offset += l;
+			llen   -= l;
+
 		}
 	}
 }
 
 static int huffman_decode(int code, int bits) {
-	int l = 1L << (code - 1);
+	int l = (1L << (code - 1));
 	if (bits >= l) {
 		return bits;
 	} else {
@@ -157,7 +161,7 @@ static void build_table() {
 		for (int m = 0; m < 8; ++m) {
 			for (int y = 0; y < 8; ++y) {
 				for (int x = 0; x < 8; ++x) {
-					table[n][m][y][x] = cosines[n][x] * cosines[m][y];
+					precalc_table[n][m][y][x] = cosines[n][x] * cosines[m][y];
 				}
 			}
 		}
@@ -166,21 +170,34 @@ static void build_table() {
 
 typedef struct {
 	void*   data;
+	size_t  len;
 	off_t   byte;
 	uint8_t bit;
 } bit_stream;
 
 static int get_bit(bit_stream* stream) {
+	if(stream->byte >= stream->len) {
+		return 0;
+	}
+
 	uint8_t byte = *(uint8_t*)(stream->data + stream->byte);
-	int bit = byte & (1 << stream->bit);
+	int bit = (byte >> (7 - stream->bit)) & 1;
 
 	stream->bit++;
 	if(stream->bit >= 8) {
 		stream->bit = 0;
-		stream->byte++;
+		if(byte == 0xFF) {
+			if(*(uint8_t*)(stream->data + stream->byte + 1)) {
+				stream->byte = stream->len;
+			} else {
+				stream->byte += 2;
+			}
+		} else {
+			stream->byte++;
+		}
 	}
 
-	return !!bit;
+	return bit;
 }
 
 static int get_bitn(bit_stream* stream, int l) {
@@ -202,36 +219,38 @@ static int huffman_get_code(huffman_table* table, bit_stream* stream) {
 			if (val - ini < table->lengths[i]) {
 				return table->elements[off + val - ini];
 			}
-			ini = ini + table->lengths[i];
+			ini += table->lengths[i];
 			off += table->lengths[i];
 		}
 		ini *= 2;
 	}
 
-	/* Invalid */
 	return -1;
 }
 
  static void add_idc(idct * self, int n, int m, int coeff) {
 	for (int y = 0; y < 8; ++y) {
 		for (int x = 0; x < 8; ++x) {
-			self->base[x + 8 * y] += table[n][m][y][x] * coeff;
+			self->base[x + 8 * y] += precalc_table[n][m][y][x] * coeff;
 		}
 	}
  }
 
 static void add_zigzag(idct* self, int zi, int coeff) {
+	if(zi >= 64) {
+		return;
+	}
 	int i = zigzag[zi];
 	int n = i & 0x7;
 	int m = i >> 3;
 	add_idc(self, n, m, coeff);
 }
 
-static idct* build_matrix(__jpeg_internal* jpeg, idct* i, bit_stream* bs, int idx, uint8_t* quant, int oldcoeff, int * outcoeff) {
+static idct* build_matrix(__jpeg_internal* jpeg, idct* i, bit_stream* bs, int idx, uint8_t* quant, int oldcoeff, int* outcoeff) {
 	memset(i, 0, sizeof(idct));
 
-	int code = huffman_get_code(&jpeg->huffman_tables[idx], bs);
-	int bits = get_bitn(bs, code);
+	int code    = huffman_get_code(&jpeg->huffman_tables[idx], bs);
+	int bits    = get_bitn(bs, code);
 	int dccoeff = huffman_decode(code, bits) + oldcoeff;
 
 	add_zigzag(i, 0, dccoeff * quant[0]);
@@ -239,19 +258,17 @@ static idct* build_matrix(__jpeg_internal* jpeg, idct* i, bit_stream* bs, int id
 
 	while (l < 64) {
 		code = huffman_get_code(&jpeg->huffman_tables[16 + idx], bs);
-		if (code == 0) break;
-		if (code < 0) {
-			printf("Found invalid huffman code.\n");
-			break;
-		}
+		if (code <= 0) break;
 		if (code > 15) {
 			l += (code >> 4);
 			code = code & 0xF;
 		}
 		bits = get_bitn(bs, code);
-		int coeff = huffman_decode(code, bits);
-		add_zigzag(i, l, coeff * quant[l]);
-		l += 1;
+		if(l < 64) {
+			int coeff = huffman_decode(code, bits);
+			add_zigzag(i, l, coeff * quant[l]);
+			l += 1;
+		}
 	}
 
 	*outcoeff = dccoeff;
@@ -272,12 +289,12 @@ static void draw_matrix(__jpeg_internal* jpeg, int x, int y, idct* L, idct* cb, 
 	}
 }
 
-static void parse_data(__jpeg_internal* jpeg, void* data, size_t len) {
-	if(table[0][0][0][0] == 0.0) {
+static void parse_data(__jpeg_internal* jpeg, void* data, size_t len, size_t end) {
+	if(precalc_table[0][0][0][0] == 0.0) {
 		build_table();
 	}
 
-	jpeg->data = malloc(jpeg->w * jpeg->h * 4);
+	jpeg->data = calloc(1, jpeg->w * jpeg->h * 4);
 
  	int old_lum = 0;
 	int old_crd = 0;
@@ -285,13 +302,14 @@ static void parse_data(__jpeg_internal* jpeg, void* data, size_t len) {
 
 	bit_stream bs;
 	bs.data = data;
-	bs.byte = 0;
+	bs.len  = end;
+	bs.byte = len;
 	bs.bit  = 0;
 
 	for (int y = 0; y < jpeg->h / 8 + !!(jpeg->h & 0x7); ++y) {
 		for (int x = 0; x < jpeg->w / 8 + !!(jpeg->w & 0x7); ++x) {
 			idct matL, matCr, matCb;
-			
+
 			build_matrix(jpeg, &matL,  &bs, 0, jpeg->quant[jpeg->quant_mappings[0]->qtb_id], old_lum, &old_lum);
 			build_matrix(jpeg, &matCb, &bs, 1, jpeg->quant[jpeg->quant_mappings[1]->qtb_id], old_cbd, &old_cbd);
 			build_matrix(jpeg, &matCr, &bs, 1, jpeg->quant[jpeg->quant_mappings[2]->qtb_id], old_crd, &old_crd);
@@ -330,7 +348,7 @@ jpeg_t* jpeg_decode(void* data, size_t size) {
 	off_t offset = 0;
 	jpeg_t* jpeg            = malloc(sizeof(jpeg_t));
 	__jpeg_internal* __jpeg = calloc(1, sizeof(__jpeg_internal));
-	while(1) {
+	while(offset < size) {
 		uint16_t header = *(uint16_t*)(data + offset);
 
 		__change_endian(&header);
@@ -353,6 +371,8 @@ jpeg_t* jpeg_decode(void* data, size_t size) {
 			length -= 2;
 			offset += 2;
 
+			printf(" +%d ", length);
+
  			if (header == 0xffdb) { //quant table
 				printf(" -- QUANT TABLE\n");
 				parse_quant_tables(__jpeg, data + offset, length);
@@ -364,7 +384,7 @@ jpeg_t* jpeg_decode(void* data, size_t size) {
 				parse_huffman(__jpeg, data + offset, length);
 			} else if (header == 0xffda) { // data
 				printf(" -- DATA\n");
-				parse_data(__jpeg, data + offset, length);
+				parse_data(__jpeg, data + offset, length, size - offset);
 				break;
 			} else {
 				printf(" -- UNKNOWN\n");

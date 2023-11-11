@@ -63,8 +63,9 @@ add_custom_target(
 )
 
 add_custom_target(
-	configs
+	resources
 	COMMAND cp -r configs/. ${SYSROOT_FOLDER}/etc/
+	COMMAND cp -r resources/. ${SYSROOT_FOLDER}/res/
 	WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
 	VERBATIM
 )
