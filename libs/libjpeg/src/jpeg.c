@@ -120,7 +120,7 @@ static void parse_dct(__jpeg_internal* states, void* data, size_t len) {
 			break;	
 		}
 		quant_mapping* map = malloc(sizeof(quant_mapping));
-		memcpy(map, data + i * sizeof(dct), sizeof(quant_mapping));
+		memcpy(map, data + sizeof(dct) + i * sizeof(quant_mapping), sizeof(quant_mapping));
 		states->quant_mappings[i] = map;
 	}
 }
