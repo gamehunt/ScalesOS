@@ -4,7 +4,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/syscall.h>
-#include <scales/env.h>
 
 extern void __mem_init_heap();
 extern void __init_stdio();
@@ -13,56 +12,31 @@ extern void _init();
 extern void _fini();
 
 char** environ;
-int    __envc = 0;
+int    _envc = 0;
 
 char** __argv;
 int    __argc = 0;
-
-struct env_var** __env;
-
-static void __parse_env() {
-	if(!__envc){
-		return;
-	}
-	__env = malloc(__envc * sizeof(struct env_var*));
-	int i = 0;
-	while(i < __envc) {
-		struct env_var* var = malloc(sizeof(struct env_var));
-
-		char* name = strtok(environ[i], "=");
-		if(!name) {
-			var->name  = environ[i];
-			var->value = "\0";
-		} else {
-			var->name  = name;
-			var->value = strtok(NULL, "=");
-		}
-		
-		__env[i] = var;
-		i++;
-	}
-}
 
 void __init_arguments(int argc, char** argv, int envc, char** envp) {
 	__argc = argc;
 	__argv = malloc((__argc + 1) * sizeof(char*));
 
-	__envc = envc;
-	environ = malloc((__envc + 1) * sizeof(char*));
+	_envc = envc + 1;
+	environ = malloc(_envc * sizeof(char*));
 
 	if(__argc) {
 		for(int i = 0; i < __argc; i++) {
 			__argv[i] = strdup(argv[i]);
 		}
 	}
-	__argv[__argc] = "\0";
+	__argv[__argc] = 0;
 
-	if(__envc) {
-		for(int i = 0; i < __envc; i++) {
+	if(envc) {
+		for(int i = 0; i < envc; i++) {
 			environ[i] = strdup(envp[i]);
 		}
 	}
-	environ[__envc] = "\0";
+	environ[envc] = 0;
 }
 
 void __flush_streams() {
@@ -83,7 +57,6 @@ void libc_init(int argc, char** argv, int envc, char** envp) {
 	__init_tls();
 	__init_stdio();
 	__init_arguments(argc, argv, envc, envp);
-	__parse_env();
 	_init();
 	prctl(PRCTL_SETNAME, argv[0]);
 	libc_exit(main(__argc, __argv));

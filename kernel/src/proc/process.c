@@ -514,7 +514,7 @@ void k_proc_process_close_fd(process_t* process, uint32_t fd){
 	
 	k_fs_vfs_close(process->fds.nodes[fd]->node);
 	process->fds.nodes[fd]->links--;
-	if(!process->fds.nodes[fd]->links) {
+	if(process->fds.nodes[fd]->links <= 0) {
 		k_free(process->fds.nodes[fd]);
 	}
 

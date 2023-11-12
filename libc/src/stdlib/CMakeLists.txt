@@ -6,7 +6,7 @@ set(SHARED_SOURCES
 )
 
 set(C_SOURCES
-    getenv.c
+    env.c
     atexit.c
     exit.c
 	system.c

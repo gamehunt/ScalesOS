@@ -27,7 +27,7 @@ static int __k_mem_shm_remove(fs_node_t* node) {
 	for(size_t i = 0; i < sh->frames->size; i++) {
 		k_mem_pmm_free((pmm_frame_t) sh->frames->data[i], 1);
 	}
-	list_delete_element(sh->root->device, sh);
+	list_delete_element(sh->root, sh);
 	list_delete_element(__shm_mappings, sh);
 	free(sh);
 	return 0;
@@ -87,7 +87,7 @@ static fs_node_t* __k_mem_shm_create_node(shm_node_t* shm) {
 
 static fs_node_t* __k_mem_shm_create(fs_node_t* root, const char* path, uint16_t flags UNUSED) {
 	shm_node_t* shm = __k_mem_shm_create_shm_node(path);
-	shm->root = root;
+	shm->root = root->device;
 	list_t* par = root->device;
 	list_push_back(par, shm);
 	return __k_mem_shm_create_node(shm);

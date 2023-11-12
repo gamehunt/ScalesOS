@@ -12,19 +12,21 @@
 
 #include <stdint.h>
 
-#define COMPOSE_EVENT_KEY    (1 << 0)
-#define COMPOSE_EVENT_MOUSE  (1 << 1)
-#define COMPOSE_EVENT_BUTTON (1 << 2)
-#define COMPOSE_EVENT_RESIZE (1 << 3)
-#define COMPOSE_EVENT_MOVE   (1 << 4)
-#define COMPOSE_EVENT_WIN    (1 << 5)
-#define COMPOSE_EVENT_CNN    (1 << 6)
+#define COMPOSE_EVENT_KEY        (1 << 0)
+#define COMPOSE_EVENT_MOUSE      (1 << 1)
+#define COMPOSE_EVENT_BUTTON     (1 << 2)
+#define COMPOSE_EVENT_RESIZE     (1 << 3)
+#define COMPOSE_EVENT_MOVE       (1 << 4)
+#define COMPOSE_EVENT_WIN        (1 << 5)
+#define COMPOSE_EVENT_CNN        (1 << 6)
+#define COMPOSE_EVENT_FOCUS      (1 << 7)
+#define COMPOSE_EVENT_UNFOCUS    (1 << 8)
 
 #define COMPOSE_KBD_MOD_ALT    (1 << 0)
 #define COMPOSE_KBD_MOD_SHIFT  (1 << 1)
 #define COMPOSE_KBD_MOD_CTRL   (1 << 2)
 
-typedef uint16_t event_type;
+typedef uint64_t event_type;
 
 typedef struct {
 	event_type type;
@@ -63,6 +65,14 @@ typedef struct {
 typedef struct {
 	compose_event_t event;
 } compose_win_event_t;
+
+typedef struct {
+	compose_event_t event;
+} compose_focus_event_t;
+
+typedef struct {
+	compose_event_t event;
+} compose_unfocus_event_t;
 
 void             compose_cl_event_send(compose_client_t* client, id_t id, compose_event_t* event);
 void             compose_cl_event_send_to_all(compose_client_t* client, compose_event_t* event);

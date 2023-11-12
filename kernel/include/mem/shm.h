@@ -12,8 +12,8 @@
 typedef struct {
 	char        name[256];
 	list_t* 	frames;
+	list_t*     root;
 	int     	links;
-	fs_node_t*  root;
 } shm_node_t;
 
 void    k_mem_shm_init();

@@ -1,3 +1,4 @@
+#include "errno.h"
 #include "sys/syscall.h"
 #include <unistd.h>
 
@@ -18,5 +19,5 @@ int execvp(const char *file, char *const argv[]){
 }  
 
 int execve(const char *filename, char *const argv [], char *const envp[]) {
-	return __sys_exec((uint32_t) filename, (uint32_t) argv, (uint32_t) envp);
+	__return_errno(__sys_exec((uint32_t) filename, (uint32_t) argv, (uint32_t) envp));
 }

@@ -31,9 +31,6 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			}
 			compose_sv_resize(win, ((compose_resize_req_t*)req)->w, ((compose_resize_req_t*)req)->h);
 			break;
-		case COMPOSE_REQ_CLOSE:
-			compose_sv_close(srv, cli);
-			break;
 		case COMPOSE_REQ_DRAW:
 			win = compose_sv_get_window(srv, ((compose_draw_req_t*)req)->win);
 			if(!win) {
@@ -71,6 +68,9 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 		case COMPOSE_REQ_FOCUS:
 			win  = compose_sv_get_window(srv, ((compose_focus_req_t*)req)->win);
 			compose_sv_focus(win);
+			break;
+		case COMPOSE_REQ_DISCONNECT:
+			list_push_back(srv->remove_queue, cli);	
 			break;
 	}
 }

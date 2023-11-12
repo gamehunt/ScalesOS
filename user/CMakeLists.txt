@@ -52,6 +52,13 @@ ExternalProject_Add(
     CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
 )
 
+ExternalProject_Add(
+    scwm
+    SOURCE_DIR  ${PROJECT_SOURCE_DIR}/scwm/
+    BINARY_DIR  ${CMAKE_CURRENT_BINARY_DIR}/scwm/
+    CMAKE_ARGS  -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX} -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+)
+
 add_executable(getty    getty.c)
 add_executable(stty     stty.c)
 add_executable(insmod   insmod.c)
@@ -72,6 +79,7 @@ add_executable(mkdir    mkdir.c)
 add_executable(rm       rm.c)
 add_executable(threads  threads.c)
 
+target_link_libraries(login PRIVATE auth)
 target_link_libraries(threads PRIVATE pthread)
 
 install(TARGETS 

@@ -21,5 +21,6 @@ char*  strchrnul(const char *str, int ch);
 size_t strcspn(const char * string1, const char * string2);
 int    strncmp(const char * string1, const char * string2, size_t num);
 long   strtol(const char *start, char **end, int radix);
-
+char*  strstr(const char *strB, const char *strA);
+char*  strnstr(const char* big, const char* little, size_t len);
 #endif

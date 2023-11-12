@@ -1,9 +1,9 @@
 #include "compose/compose.h"
 #include "compose/render.h"
 
-#include "kernel/dev/speaker.h"
 #include "jpeg.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,18 +15,72 @@
 #include <widgets/button.h>
 #include <widgets/input.h>
 
+#include <auth.h>
+#include <cfg.h>
+
 static compose_client_t* client = NULL;
-int beeper = 0;
+static widget* window    = NULL;
+static widget* login     = NULL;
+static widget* password  = NULL;
+
+extern char** environ;
+
+void do_login() {
+	char* login_text = ((input*) login->data)->buffer;
+	char* passw_text = ((input*) password->data)->buffer;
+
+	int r = auth_check_credentials(login_text, passw_text);
+
+	if(r >= 0) {
+		compose_cl_disconnect(client);
+		
+		cfg_data* data = cfg_open("/etc/lockscreen.cfg");
+		char* startup  = cfg_get_value(data, "startup");
+		char* exec = strdup(strtok(startup, " "));
+		char** argv = NULL;
+		int argc = 0;
+
+		char* arg;
+		while((arg = strtok(NULL, " "))) {
+			if(!argv) {
+				argv = malloc(sizeof(char*));
+			} else {
+				argv = realloc(argv, (argc + 1) * sizeof(char*));
+			}
+			argv[argc] = strdup(arg);
+			argc++;
+		}
+
+		if(argv) {
+			argv = realloc(argv, (argc + 1) * sizeof(char*));
+			argv[argc] = 0;
+		}
+
+		auth_setenv(r);
+
+		printf("Executing: %s\n", exec);
+
+		execve(exec, argv, environ);
+		perror("Exec failed");
+		exit(1);
+	} else {
+		// TODO
+	}
+}
 
 void click(widget* w) {
-	if(beeper >= 0) {
-		ioctl(beeper, KDMKTONE, (void*) 100000);
+	do_login();
+}
+
+void confirm(widget* w) {
+	if(w == login) {
+		compose_cl_focus(client, password->win);
+	} else {
+		do_login();	
 	}
 }
 
 int main(int argc, char** argv) {
-	beeper = open("/dev/pcspkr", O_RDONLY);
-
 	client = compose_cl_connect("/tmp/.compose.sock");
 	if(!client) {
 		perror("Failed to connect to compose server.");
@@ -48,25 +102,26 @@ int main(int argc, char** argv) {
 	props.pos.y = 300;
 	props.size.w = 200;
 	props.size.h = 125;
-	widget* login = widget_create(client, WIDGET_TYPE_WINDOW, NULL, props, NULL);
+	window = widget_create(client, WIDGET_TYPE_WINDOW, NULL, props, NULL);
 
 	input* inp = calloc(1, sizeof(input));
-	inp->confirm = click;
+	inp->confirm = confirm;
 	inp->placeholder = "Login";
 	props.pos.x = 25;
 	props.pos.y = 25;
 	props.size.w = 150;
 	props.size.h = 25;
-	widget_create(client, WIDGET_TYPE_INPUT, login, props, inp);
+	login = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp);
 
 	input* inp1 = calloc(1, sizeof(input));
-	inp1->confirm = click;
+	inp1->confirm = confirm;
 	inp1->placeholder = "Password";
+	inp1->type = INPUT_TYPE_PASSWORD;
 	props.pos.x = 25;
 	props.pos.y = 55;
 	props.size.w = 150;
 	props.size.h = 25;
-	widget_create(client, WIDGET_TYPE_INPUT, login, props, inp1);
+	password = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp1);
 
 	button* butt = malloc(sizeof(button));
 	butt->flags = 0;
@@ -76,12 +131,12 @@ int main(int argc, char** argv) {
 	props.pos.y = 85;
 	props.size.w = 150;
 	props.size.h = 25;
-	widget_create(client, WIDGET_TYPE_BUTTON, login, props, butt);
+	widget_create(client, WIDGET_TYPE_BUTTON, window, props, butt);
 
-	widget_draw(login);
+	widget_draw(window);
 
 	while(1) {
-		widgets_tick(login);
+		widgets_tick(window);
 	}
 
 	return 0;

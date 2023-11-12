@@ -65,7 +65,7 @@ int fb_open(const char* path, fb_t* buf, int flag) {
 		return -1;
 	}
 
-	(*buf).file = file;
+	buf->file = file;
 	
 	fb_info_t info;	
 	int r = ioctl(fileno(file), FB_IOCTL_STAT, &info);
@@ -87,21 +87,20 @@ int fb_open(const char* path, fb_t* buf, int flag) {
 	fb_info_t* dst = &buf->info;
 	memcpy(dst, &info, sizeof(fb_info_t));
 
-	(*buf).mem = (void*) r;
+	buf->mem = (void*) r;
+	buf->flags = FB_IFLAG_MMAPED;
 
 	fb_init_colors();
-
-	buf->flags |= FB_IFLAG_MMAPED;
 
 	return 0;
 }
 
 int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag) {
-	(*buf).file = NULL;
-	(*buf).info.w   = w;
-	(*buf).info.h   = h;
-	(*buf).info.bpp = size / w / h;
-	(*buf).info.memsz = size;
+	buf->file = NULL;
+	buf->info.w   = w;
+	buf->info.h   = h;
+	buf->info.bpp = size / w / h;
+	buf->info.memsz = size;
 
 	if(flag & FB_FLAG_DOUBLEBUFFER) {
 		buf->backbuffer = malloc(buf->info.memsz);
@@ -115,7 +114,8 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag)
 		}
 	}
 
-	(*buf).mem  = (void*) mem;
+	buf->mem   = (void*) mem;
+	buf->flags = 0;
 
 	fb_init_colors();
 
@@ -155,10 +155,10 @@ int fb_open_font(const char* path, fb_font_t** font) {
 void fb_close(fb_t* buffer) {
 	if(buffer->flags & FB_IFLAG_MMAPED) {
 		munmap(buffer->mem, buffer->info.memsz);
+		fclose(buffer->file);
 	} else {
 		free(buffer->mem);
 	}
-	fclose(buffer->file);
 }
 
 void fb_close_font(fb_font_t* font) {

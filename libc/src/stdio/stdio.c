@@ -295,6 +295,7 @@ void rewind(FILE* stream) {
 }
 
 static const char* const __errno_values[] = {
+	[0]       = "No error",
 	[EPERM]   = "Not super-user",
 	[ENOENT]  = "No such file or directory",
 	[ESRCH ]  = "No such process",
@@ -422,8 +423,8 @@ static const char* const __errno_values[] = {
 
 void perror(const char *str) {
 	if(str) {
-		fprintf(stderr, "%s: %s", str, __errno_values[errno]);
+		fprintf(stderr, "%s: %s\n", str, __errno_values[errno]);
 	} else {
-		fprintf(stderr, "%s", __errno_values[errno]);
+		fprintf(stderr, "%s\n", __errno_values[errno]);
 	}
 }

@@ -1,6 +1,7 @@
 #include "fs/socket.h"
 #include "errno.h"
 #include "fs/vfs.h"
+#include "kernel/fs/vfs.h"
 #include "mem/heap.h"
 #include "proc/mutex.h"
 #include "proc/process.h"
@@ -160,6 +161,33 @@ static uint32_t __k_fs_socket_write(fs_node_t* node, uint32_t offset UNUSED, uin
 	return size;
 }
 
+int32_t __k_fs_socket_remove(fs_node_t* sock) {
+	socket_t* s = sock->device;
+	list_free(s->backlog);
+	list_free(s->blocked_processes);
+	list_free(s->cnn_blocked_processes);
+	for(int i = 0; i < 3; i++) {
+		k_proc_process_wakeup_queue_select(s->sel_queues[i], sock, VFS_EVENT_EXCEPT);
+		list_free(s->sel_queues[i]);
+	}
+	k_free(s->buffer);
+	s->connect = NULL;
+	s->bind    = NULL;
+	k_free(s);
+	sock->device = NULL;
+	return 0;
+}
+
+void __k_fs_socket_close(fs_node_t* sock) {
+	socket_t* s = sock->device;
+
+	if(s->connect) {
+		socket_t* other = s->connect;
+		s->connect = NULL;
+		other->connect = NULL;
+	}
+}
+
 fs_node_t* k_fs_socket_create(int domain, int type, int protocol UNUSED) {
 	if(domain != AF_LOCAL) {
 		return NULL;
@@ -188,6 +216,8 @@ fs_node_t* k_fs_socket_create(int domain, int type, int protocol UNUSED) {
 	node->fs.read  = &__k_fs_socket_read;
 	node->fs.check = &__k_fs_socket_check;
 	node->fs.wait  = &__k_fs_socket_wait;
+	node->fs.close = &__k_fs_socket_close;
+	node->fs.rm    = &__k_fs_socket_remove;
 	node->mode     = O_RDWR;
 	if(type & SOCK_NONBLOCK) {
 		node->mode |= O_NOBLOCK;

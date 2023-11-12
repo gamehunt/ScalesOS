@@ -41,7 +41,7 @@ void compose_cl_line(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, co
 	data[3] = y1;
 	data[4] = color;
 
-	compose_cl_draw(cli, ctx, COMPOSE_RENDER_PIXEL, data, 5);
+	compose_cl_draw(cli, ctx, COMPOSE_RENDER_LINE, data, 5);
 }
 
 void compose_cl_rect(compose_client_t* cli, id_t ctx, coord_t x0, coord_t y0, size_t w, size_t h, color_t border){

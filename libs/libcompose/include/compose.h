@@ -77,6 +77,7 @@ typedef struct {
 	int  	   		  devices[COMPOSE_DEVICE_AMOUNT];
 	compose_window_t* root;
 	list_t*    		  clients;
+	list_t*           remove_queue;
 	list_t*           windows;
 	list_t*           grabs;
 } compose_server_t;
@@ -93,9 +94,9 @@ compose_client_t* compose_create_client(int sock);
 
 compose_server_t* compose_sv_create(const char* sock);
 compose_client_t* compose_sv_accept(compose_server_t* srv);
-void              compose_sv_close(compose_server_t* srv, compose_client_t* cli);
 void              compose_sv_tick(compose_server_t* srv);
 compose_client_t* compose_sv_get_client(compose_server_t* srv, id_t id);
+void              compose_sv_disconnect(compose_server_t* srv, compose_client_t* cli);
 
 compose_client_t* compose_cl_connect(const char* sock);
 void              compose_cl_disconnect(compose_client_t* client);
@@ -122,5 +123,6 @@ void              compose_sv_focus(compose_window_t* win);
 void              compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y);
 void              compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, int y);
 uint8_t           compose_sv_is_child(compose_window_t* win, compose_window_t* par);
+void 			  compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int notify_parent);
 
 #endif

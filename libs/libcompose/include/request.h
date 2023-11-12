@@ -1,22 +1,24 @@
 #ifndef __LIB_COMPOSE_REQUEST_H
 #define __LIB_COMPOSE_REQUEST_H
 
-#include "events.h"
 #ifdef __COMPOSE
 #include "compose.h"
+#include "events.h"
 #else
 #include "compose/compose.h"
+#include "compose/events.h"
 #endif
 
-#define COMPOSE_REQ_MOVE    1
-#define COMPOSE_REQ_CLOSE   2
-#define COMPOSE_REQ_RESIZE  3
-#define COMPOSE_REQ_EVENT   4
-#define COMPOSE_REQ_NEWWIN  5 
-#define COMPOSE_REQ_DRAW    6
-#define COMPOSE_REQ_EVMASK  7
-#define COMPOSE_REQ_GRAB    8
-#define COMPOSE_REQ_FOCUS   9
+#define COMPOSE_REQ_MOVE       1
+#define COMPOSE_REQ_CLOSE_WIN  2
+#define COMPOSE_REQ_RESIZE     3
+#define COMPOSE_REQ_EVENT      4
+#define COMPOSE_REQ_NEWWIN     5 
+#define COMPOSE_REQ_DRAW       6
+#define COMPOSE_REQ_EVMASK     7
+#define COMPOSE_REQ_GRAB       8
+#define COMPOSE_REQ_FOCUS      9
+#define COMPOSE_REQ_DISCONNECT 10
 
 typedef struct {
 	int    type;
@@ -73,6 +75,10 @@ typedef struct {
 	compose_request_t req;
 	id_t       		  win;
 } compose_focus_req_t;
+
+typedef struct {
+	compose_request_t req;
+} compose_disconnect_req_t;
 
 int                compose_cl_send_request(compose_client_t* client, compose_request_t* req);
 

@@ -94,6 +94,7 @@ compose_server_t* compose_sv_create(const char* sock) {
 	srv->clients          = list_create();
 	srv->windows          = list_create();
 	srv->grabs            = list_create();
+	srv->remove_queue     = list_create();
 	
 	int r =	fb_open("/dev/fb", &srv->framebuffer, FB_FLAG_DOUBLEBUFFER);
 	if(r < 0) {
@@ -146,12 +147,6 @@ static compose_client_t* __compose_add_client(compose_server_t* srv, int clifd) 
 
 static void __compose_remove_client(compose_server_t* srv, compose_client_t* cli) {
 	list_delete_element(srv->clients, cli);
-}
-
-void compose_sv_close(compose_server_t* srv, compose_client_t* cli) {
-	__compose_remove_client(srv, cli);
-	close(cli->socket);
-	free(cli);
 }
 
 static void __compose_handle_key(compose_server_t* srv, keyboard_packet_t* packet) {
@@ -233,7 +228,35 @@ static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet
 }
 
 void compose_sv_focus(compose_window_t* win) {
+	if(input_focus) {
+		compose_unfocus_event_t* ev = malloc(sizeof(compose_unfocus_event_t));
+		ev->event.type = COMPOSE_EVENT_UNFOCUS;
+		ev->event.size = sizeof(compose_unfocus_event_t);
+		if(input_focus->root) {
+			ev->event.root = input_focus->root->id;
+		} else {
+			ev->event.root = 1;
+		}
+		ev->event.win = input_focus->id;
+		compose_sv_event_propagate(input_focus, ev);
+		free(ev);
+	}
+
 	input_focus = win;
+
+	if(win) {
+		compose_focus_event_t* ev = malloc(sizeof(compose_focus_event_t));
+		ev->event.type = COMPOSE_EVENT_FOCUS;
+		ev->event.size = sizeof(compose_focus_event_t);
+		if(input_focus->root) {
+			ev->event.root = input_focus->root->id;
+		} else {
+			ev->event.root = 1;
+		}
+		ev->event.win = input_focus->id;
+		compose_sv_event_propagate(win, ev);
+		free(ev);
+	}
 }
 
 void compose_sv_tick(compose_server_t* srv) {
@@ -244,7 +267,7 @@ void compose_sv_tick(compose_server_t* srv) {
 	FD_SET(srv->socket, &rset);
 
 	for(int i = 0; i < COMPOSE_DEVICE_AMOUNT; i++) {
-		if(n > srv->devices[i]) {
+		if(n < srv->devices[i]) {
 			n = srv->devices[i];
 		}
 		FD_SET(srv->devices[i], &rset);
@@ -287,6 +310,11 @@ void compose_sv_tick(compose_server_t* srv) {
 				free(req);
 			}
 		}
+	}
+
+	while(srv->remove_queue->size > 0) {
+		compose_client_t* to_remove = list_pop_back(srv->remove_queue);
+		compose_sv_disconnect(srv, to_remove);
 	}
 
 	for(int i = 0; i < COMPOSE_DEVICE_AMOUNT; i++) {
@@ -729,4 +757,84 @@ uint8_t compose_sv_is_child(compose_window_t* win, compose_window_t* par) {
 	}
 
 	return 0;
+}
+
+void compose_cl_disconnect(compose_client_t* client) {
+	compose_disconnect_req_t* payload = malloc(sizeof(compose_disconnect_req_t));
+	payload->req.type = COMPOSE_REQ_DISCONNECT;
+	payload->req.size = sizeof(compose_disconnect_req_t);
+	int r = compose_cl_send_request(client, payload);
+	free(payload);
+	close(client->socket);
+}
+
+void compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int notify_parent) {
+	if(win == input_focus) {
+		input_focus = NULL;
+	}
+
+	for(size_t i = 0; i < win->children->size; i++) {
+		compose_sv_remove_window(srv, win->children->data[i], 0);
+	}
+	list_free(win->children);
+
+	if(notify_parent && win->parent) {
+		list_delete_element(win->parent->children, win);
+	}
+
+	list_delete_element(srv->windows, win);
+
+	list_t* active_grabs = list_create();
+	for(size_t i = 0; i < srv->grabs->size; i++) {
+		grab_t* grab = srv->grabs->data[i];
+		if(grab->window == win) {
+			list_push_back(active_grabs, grab);
+		}
+	}
+
+	for(size_t i = 0; i < active_grabs->size; i++) {
+		grab_t* grab = active_grabs->data[i];
+		list_delete_element(srv->grabs, grab);
+		free(grab);
+	}
+	list_free(active_grabs);
+
+	fb_close(&win->ctx);
+	free(win);
+}
+
+void compose_sv_disconnect(compose_server_t* srv, compose_client_t* client) {	
+	__compose_remove_client(srv, client);
+
+	list_t* child_windows = list_create();
+	for(size_t i = 0; i < srv->windows->size; i++) {
+		compose_window_t* win = srv->windows->data[i];
+		if(win->client == client && (!win->parent || win->parent == srv->root)) {
+			list_push_back(child_windows, win);
+		}
+	}
+
+	for(size_t i = 0; i < child_windows->size; i++) {
+		compose_window_t* win = child_windows->data[i];
+		compose_sv_remove_window(srv, win, 1);
+	}
+	list_free(child_windows);
+
+	list_t* active_grabs = list_create();
+	for(size_t i = 0; i < srv->grabs->size; i++) {
+		grab_t* grab = srv->grabs->data[i];
+		if(grab->client == client) {
+			list_push_back(active_grabs, grab);
+		}
+	}
+
+	for(size_t i = 0; i < active_grabs->size; i++) {
+		grab_t* grab = active_grabs->data[i];
+		list_delete_element(srv->grabs, grab);
+		free(grab);
+	}
+	list_free(active_grabs);
+
+	close(client->socket);
+	free(client);
 }

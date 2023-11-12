@@ -4,11 +4,18 @@
 #include "compose/events.h"
 #include "widget.h"
 
+#define INPUT_TYPE_DEFAULT  0
+#define INPUT_TYPE_PASSWORD 1
+
+#define INPUT_FLAG_FOCUSED (1 << 0)
+
 typedef struct {
 	char   buffer[128];
 	size_t buffer_offset;
 
 	const char* placeholder;
+	int type;
+	int flags;
 
 	void (*confirm)(widget* w);
 } input;

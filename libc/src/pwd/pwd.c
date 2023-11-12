@@ -44,9 +44,10 @@ struct passwd* getpwent(void) {
 
 void setpwent(void) {
 	if(!accounts) {
-		return;
+		accounts = fopen("/etc/accounts", "r");
+	} else {
+		fseek(accounts, 0, SEEK_SET);
 	}
-	fseek(accounts, 0, SEEK_SET);
 }
 
 void endpwent(void) {
