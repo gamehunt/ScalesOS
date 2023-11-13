@@ -6,6 +6,7 @@
 void window_init(widget* window);
 void window_release(widget* window);
 void window_draw(widget* window);
+void window_process_events(widget* win, compose_event_t* ev);
 
 #endif
 

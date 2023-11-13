@@ -1,5 +1,6 @@
 #include "win.h"
 #include "compose/compose.h"
+#include "compose/events.h"
 #include "compose/render.h"
 #include <stdlib.h>
 
@@ -15,10 +16,11 @@ void window_init(widget* window) {
 	props.h = window->props.size.h;
 	props.border_width = 0;
 	props.flags = COMPOSE_WIN_FLAGS_MOVABLE | COMPOSE_WIN_FLAGS_RESIZABLE;
-	props.event_mask = 0;
+	props.event_mask = COMPOSE_EVENT_RESIZE;
 	window->win = compose_cl_create_window(window->client, par, props);
 	window->ops.release = window_release;
 	window->ops.draw    = window_draw;
+	window->ops.process_event = window_process_events;
 
 	compose_cl_focus(window->client, window->win);
 }
@@ -30,4 +32,13 @@ void window_release(widget* window) {
 void window_draw(widget* window) {
 	compose_cl_rect(window->client, window->win, 0, 0, window->props.size.w - 1, window->props.size.h - 1, 0xFFFF0000);
 	compose_cl_flush(window->client, window->win);
+}
+
+void window_process_events(widget* win, compose_event_t* ev) {
+	if(ev->type == COMPOSE_EVENT_RESIZE) {
+		compose_resize_event_t* rev = (compose_resize_event_t*) ev;
+		win->props.size.w = rev->new_size.w;
+		win->props.size.h = rev->new_size.h;
+		window_draw(win);
+	}
 }

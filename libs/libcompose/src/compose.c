@@ -477,11 +477,11 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 
 	fb_close(&win->ctx);
 
-	uint32_t wb = w + win->sizes.b;
-	uint32_t hb = h + win->sizes.b;
+	uint32_t wb = w + 2 * win->sizes.b;
+	uint32_t hb = h + 2 * win->sizes.b;
 
 	size_t bufsz = wb * hb * 4;
-	void* buf = malloc(bufsz);
+	void* buf = calloc(1, bufsz);
 	fb_open_mem(buf, bufsz, w, h, &win->ctx, 0);
 
 	if(win->client) {
@@ -659,37 +659,6 @@ void compose_sv_sunk(compose_window_t* win) {
 	}
 
 	compose_sv_move(win, -1, -1, lowest - 1);
-}
-
-uint8_t compose_sv_is_at_border(compose_window_t* win, int x, int y) {
-	if(!win->sizes.b) {
-		return COMPOSE_BORDER_NONE;
-	}
-	if(x <= win->sizes.b) {
-		if(y <= win->sizes.b) {
-			return COMPOSE_BORDER_CORNER_LU;
-		} if(y >= win->sizes.h + win->sizes.b) {
-			return COMPOSE_BORDER_CORNER_LB;
-		} else {
-			return COMPOSE_BORDER_LEFT;
-		}
-	} else if (x >= win->sizes.w + win->sizes.b) {
-		if(y <= win->sizes.b) {
-			return COMPOSE_BORDER_CORNER_RU;
-		} if(y >= win->sizes.h + win->sizes.b) {
-			return COMPOSE_BORDER_CORNER_RB;
-		} else {
-			return COMPOSE_BORDER_RIGHT;
-		}
-	} else {
-		if(y <= win->sizes.b) {
-			return COMPOSE_BORDER_UP;
-		} if(y >= win->sizes.h + win->sizes.b) {
-			return COMPOSE_BORDER_DOWN;
-		} else {
-			return COMPOSE_BORDER_NONE;
-		}
-	}
 }
 
 void compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y) {

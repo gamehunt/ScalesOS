@@ -25,7 +25,8 @@ int main(int argc, char** argv) {
 
 	int mod = 0;
 
-	int mov          = 0;
+	int mov = 0;
+	int res = 0;
 
 	window_properties_t root_props = compose_cl_get_properties(client, client->root);
 	window_properties_t win_props  = {0};
@@ -37,16 +38,26 @@ int main(int argc, char** argv) {
 				case COMPOSE_EVENT_KEY:
 					if(((compose_key_event_t*) ev)->packet.scancode == KEY_LEFTMETA) {
 						mod = !(((compose_key_event_t*) ev)->packet.flags & KBD_EVENT_FLAG_UP);
+						if(!mod) {
+							mov = 0;
+							res = 0;
+						}
 						compose_cl_focus(client, client->root);
 					}
 					break;
 				case COMPOSE_EVENT_BUTTON:
-					if(mod) {
+					if(mod && ev->child) {
+						win_props = compose_cl_get_properties(client, ev->child);
 						if(((compose_mouse_event_t*) ev)->packet.buttons & MOUSE_BUTTON_LEFT) {
-							mov     = ev->child;
-							win_props = compose_cl_get_properties(client, ev->child);
+							mov = ev->child;
+							res = 0;
 						} else {
 							mov = 0;
+							if(((compose_mouse_event_t*) ev)->packet.buttons & MOUSE_BUTTON_RIGHT) {
+								res = ev->child;
+							} else {
+								res = 0;
+							}
 						}
 					}
 					break;
@@ -65,7 +76,21 @@ int main(int argc, char** argv) {
 							win_props.y = 0;
 						}
 						compose_cl_move(client, mov, win_props.x, win_props.y);
-					}	
+					} else if(res) {
+						win_props.w += ((compose_mouse_event_t*) ev)->packet.dx;
+						win_props.h -= ((compose_mouse_event_t*) ev)->packet.dy;
+						if(win_props.w >= root_props.w) {
+							win_props.w = root_props.w;
+						} else if(win_props.w < 10) {
+							win_props.w = 10;
+						}
+						if(win_props.h >= root_props.h) {
+							win_props.h = root_props.h;
+						} else if(win_props.h < 10) {
+							win_props.h = 10;
+						}
+						compose_cl_resize(client, res, win_props.w, win_props.h);
+					}
 					break;
 			}
 			free(ev);

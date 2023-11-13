@@ -20,16 +20,6 @@ typedef event_mask_t grab_type;
 #define COMPOSE_WIN_FLAGS_MOVABLE   (1 << 0)
 #define COMPOSE_WIN_FLAGS_RESIZABLE (1 << 1)
 
-#define COMPOSE_BORDER_NONE      0
-#define COMPOSE_BORDER_UP        1
-#define COMPOSE_BORDER_DOWN      2
-#define COMPOSE_BORDER_LEFT      3
-#define COMPOSE_BORDER_RIGHT     4
-#define COMPOSE_BORDER_CORNER_LU 5
-#define COMPOSE_BORDER_CORNER_LB 6
-#define COMPOSE_BORDER_CORNER_RU 7
-#define COMPOSE_BORDER_CORNER_RB 8
-
 typedef struct {
 	int x;
 	int y;
@@ -116,7 +106,6 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 compose_window_t* compose_sv_get_window(compose_server_t* srv, id_t win);
 void              compose_sv_redraw(compose_server_t* srv);
 compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y);
-uint8_t           compose_sv_is_at_border(compose_window_t* win, int x, int y);
 void              compose_sv_restack(list_t* windows);
 void              compose_sv_raise(compose_window_t* win);
 void              compose_sv_sunk(compose_window_t* win);
