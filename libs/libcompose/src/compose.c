@@ -192,10 +192,11 @@ static void __compose_handle_key(compose_server_t* srv, keyboard_packet_t* packe
 			}
 		}
 
-		event->translated = input_kbd_translate(event->packet.scancode, kbd_mods);
+		if(!(event->packet.flags & KBD_EVENT_FLAG_EXT)) {
+			event->translated = input_kbd_translate(event->packet.scancode, kbd_mods);
+		}
 		event->modifiers  = kbd_mods;
-		compose_sv_event_propagate(input_focus, event);
-		compose_sv_event_propagate_to_grabs(srv->grabs, event);
+		compose_sv_event_propagate(srv, input_focus, event);
 		free(event);
 	}
 }
@@ -214,20 +215,18 @@ static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet
 	compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, 
 			&((compose_mouse_event_t*)event)->x,
 			&((compose_mouse_event_t*)event)->y);
-	compose_sv_event_propagate(win, event);
-	compose_sv_event_propagate_to_grabs(srv->grabs, event);
+	compose_sv_event_propagate(srv, win, event);
 
 	if(((mouse_packet_t*)packet)->buttons != last_buttons) {
 		event->event.type = COMPOSE_EVENT_BUTTON;
-		compose_sv_event_propagate(win, event);
-		compose_sv_event_propagate_to_grabs(srv->grabs, event);
+		compose_sv_event_propagate(srv, win, event);
 	}
 
 	last_buttons = ((mouse_packet_t*)packet)->buttons;
 	free(event);
 }
 
-void compose_sv_focus(compose_window_t* win) {
+void compose_sv_focus(compose_server_t* srv, compose_window_t* win) {
 	if(input_focus) {
 		compose_unfocus_event_t* ev = malloc(sizeof(compose_unfocus_event_t));
 		ev->event.type = COMPOSE_EVENT_UNFOCUS;
@@ -238,8 +237,12 @@ void compose_sv_focus(compose_window_t* win) {
 			ev->event.root = 1;
 		}
 		ev->event.win = input_focus->id;
-		compose_sv_event_propagate(input_focus, ev);
+		compose_sv_event_propagate(srv, input_focus, ev);
 		free(ev);
+	}
+
+	if(!win) {
+		win = srv->root;
 	}
 
 	input_focus = win;
@@ -254,7 +257,7 @@ void compose_sv_focus(compose_window_t* win) {
 			ev->event.root = 1;
 		}
 		ev->event.win = input_focus->id;
-		compose_sv_event_propagate(win, ev);
+		compose_sv_event_propagate(srv, win, ev);
 		free(ev);
 	}
 }
@@ -326,7 +329,7 @@ void compose_sv_tick(compose_server_t* srv) {
 				int   e = 0;
 				switch(i) {
 					case COMPOSE_DEVICE_KBD:
-						e = read(srv->devices[i], &raw_data, 1);
+						e = read(srv->devices[i], &raw_data, 2);
 						if(e <= 0) {
 							break;
 						}
@@ -424,7 +427,7 @@ id_t compose_cl_create_window(compose_client_t* client, id_t par, window_propert
 
 int compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask) {
 	compose_evmask_req_t* payload = malloc(sizeof(compose_evmask_req_t));
-	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.type = COMPOSE_REQ_EVMASK;
 	payload->req.size = sizeof(compose_evmask_req_t);
 	payload->win = win;
 	payload->mask = mask;
@@ -560,7 +563,7 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 		free(ev);
 	}
 
-	compose_sv_focus(win);
+	compose_sv_focus(srv, win);
 
 	return win;
 }
@@ -837,4 +840,51 @@ void compose_sv_disconnect(compose_server_t* srv, compose_client_t* client) {
 
 	close(client->socket);
 	free(client);
+}
+
+
+void compose_sv_send_props(compose_client_t* cli, compose_window_t* win) {
+	compose_props_event_t* ev = malloc(sizeof(compose_props_event_t));
+	ev->event.type = COMPOSE_EVENT_PROPS;
+	ev->event.size = sizeof(compose_props_event_t);
+	ev->event.win  = win->id;
+	if(win->root) {
+		ev->event.root = win->root->id;
+	} else {
+		ev->event.root = win->id;
+	}
+	ev->props.x = win->pos.x;
+	ev->props.y = win->pos.y;
+	ev->props.w = win->sizes.w;
+	ev->props.h = win->sizes.h;
+	ev->props.flags = win->flags;
+	ev->props.border_width = win->sizes.b;
+	ev->props.event_mask   = win->event_mask;
+	compose_sv_event_send(cli, ev);
+	free(ev);
+}
+
+window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win) {
+	compose_props_req_t* payload = malloc(sizeof(compose_props_req_t));
+	payload->req.type = COMPOSE_REQ_PROPS;
+	payload->req.size = sizeof(compose_props_req_t);
+	payload->win      = win;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+
+	while(1) {
+		compose_event_t* ev = compose_cl_event_poll(cli);
+		if(ev) { 
+			window_properties_t props = {0};
+			int f = 0;
+			if(ev->type == COMPOSE_EVENT_PROPS) {
+				props = ((compose_props_event_t*) ev)->props;
+				f = 1;
+			}
+			free(ev);
+			if(f) {
+				return props;
+			}
+		}
+	}
 }

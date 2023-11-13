@@ -19,6 +19,7 @@
 #define COMPOSE_REQ_GRAB       8
 #define COMPOSE_REQ_FOCUS      9
 #define COMPOSE_REQ_DISCONNECT 10
+#define COMPOSE_REQ_PROPS      11
 
 typedef struct {
 	int    type;
@@ -79,6 +80,11 @@ typedef struct {
 typedef struct {
 	compose_request_t req;
 } compose_disconnect_req_t;
+
+typedef struct {
+	compose_request_t req;
+	id_t              win;
+} compose_props_req_t;
 
 int                compose_cl_send_request(compose_client_t* client, compose_request_t* req);
 

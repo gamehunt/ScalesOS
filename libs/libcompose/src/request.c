@@ -67,10 +67,14 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			break;
 		case COMPOSE_REQ_FOCUS:
 			win  = compose_sv_get_window(srv, ((compose_focus_req_t*)req)->win);
-			compose_sv_focus(win);
+			compose_sv_focus(srv, win);
 			break;
 		case COMPOSE_REQ_DISCONNECT:
 			list_push_back(srv->remove_queue, cli);	
+			break;
+		case COMPOSE_REQ_PROPS:
+			win  = compose_sv_get_window(srv, ((compose_props_req_t*)req)->win);
+			compose_sv_send_props(cli, win);
 			break;
 	}
 }

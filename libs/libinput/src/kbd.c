@@ -1,4 +1,5 @@
 #include "kbd.h"
+#include "input/keys.h"
 #include <ctype.h>
 #include <stdlib.h>
 
@@ -80,15 +81,26 @@ static const char __scancodes_shifted[128] = {
 	0, /* everything else */
 };
 
+static const char __scancodes_ext[128] = {
+	[0x47] = KEY_HOME,
+	[0x1C] = KEY_KPENTER,
+	[0x35] = KEY_KPSLASH,
+	[0x5B] = KEY_LEFTMETA
+};
+
 keyboard_packet_t* input_kbd_create_packet(int scancode) {
 	int flags = 0;
 	if(scancode & 0x80) {
 		flags |= KBD_EVENT_FLAG_UP;
 	}
+	if(scancode & 0x100) {
+		flags |= KBD_EVENT_FLAG_EXT;
+	}
 	scancode &= 0x7F;
 
+
 	keyboard_packet_t* packet = calloc(1, sizeof(keyboard_packet_t));
-	packet->scancode = scancode; 
+	packet->scancode = (flags & KBD_EVENT_FLAG_EXT) ? __scancodes_ext[scancode] : scancode; 
 	packet->flags    = flags;
 
 	return packet;

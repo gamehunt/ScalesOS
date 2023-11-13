@@ -86,6 +86,11 @@
 #define KEY_KP0			82
 #define KEY_KPDOT		83
 #define KEY_F11			87
+#define KEY_F12			88
+// Extended keys
+#define KEY_KPENTER		96
+#define KEY_RIGHTCTRL	97
+#define KEY_KPSLASH		98
 #define KEY_HOME		102
 #define KEY_UP			103
 #define KEY_PAGEUP		104
@@ -96,12 +101,8 @@
 #define KEY_PAGEDOWN	109
 #define KEY_INSERT		110
 #define KEY_DELETE		111
-#define KEY_F12			88
-#define KEY_KPENTER		96
-#define KEY_RIGHTCTRL	97
-#define KEY_KPSLASH		98
 #define KEY_RIGHTALT	100
 #define KEY_PAUSE		119
 #define KEY_KPCOMMA		121
-
+#define KEY_LEFTMETA	125
 #endif

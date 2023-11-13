@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #define KBD_EVENT_FLAG_UP     (1 << 0)
+#define KBD_EVENT_FLAG_EXT    (1 << 1)
 
 #define KBD_MOD_ALT   (1 << 0)
 #define KBD_MOD_SHIFT (1 << 1)

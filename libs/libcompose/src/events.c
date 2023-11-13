@@ -49,23 +49,28 @@ compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
 	return NULL;
 }
 
-void compose_sv_event_propagate(compose_window_t* root, compose_event_t* event) {
-	if(root->event_mask & event->type) {
+static grab_t* __get_grab(compose_server_t* srv, compose_window_t* root, compose_event_t* event) {
+	for(size_t i = 0; i < srv->grabs->size; i++) {
+		grab_t* gr = srv->grabs->data[i];
+		if(gr->type & event->type && gr->window->id == root->id) {
+			return gr;
+		}
+	}
+	return NULL;
+}
+
+void compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, compose_event_t* event) {
+	grab_t* gr = __get_grab(srv, root, event);
+	if((root->event_mask & event->type) || gr) {
 		event->win = root->id;
-		if(root->client) {
+		if((root->event_mask & event->type) && root->client) {
 			compose_sv_event_send(root->client, event);
+		}
+		if(gr) {
+			compose_sv_event_send(gr->client, event);
 		}
 	} else if(root->parent) {
 		event->child = root->id;
-		compose_sv_event_propagate(root->parent, event);
-	}
-}
-
-void compose_sv_event_propagate_to_grabs(list_t* grabs, compose_event_t* event) {
-	for(size_t i = 0; i < grabs->size; i++) {
-		grab_t* gr = grabs->data[i];
-		if(gr->type == event->type && gr->window->id == event->win) {
-			compose_sv_event_send(gr->client, event);
-		}
+		compose_sv_event_propagate(srv, root->parent, event);
 	}
 }

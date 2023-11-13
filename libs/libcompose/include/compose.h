@@ -10,7 +10,7 @@
 typedef uint32_t id_t;
 typedef uint32_t flags_t;
 typedef uint64_t event_mask_t;
-typedef uint32_t grab_type;
+typedef event_mask_t grab_type;
 
 #define COMPOSE_DEVICE_KBD    0
 #define COMPOSE_DEVICE_MOUSE  1
@@ -108,6 +108,7 @@ int               compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_
 int               compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
 int               compose_cl_focus(compose_client_t* cli, id_t win);
 int               compose_cl_unfocus(compose_client_t* cli, id_t win);
+window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
 void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);
@@ -119,10 +120,11 @@ uint8_t           compose_sv_is_at_border(compose_window_t* win, int x, int y);
 void              compose_sv_restack(list_t* windows);
 void              compose_sv_raise(compose_window_t* win);
 void              compose_sv_sunk(compose_window_t* win);
-void              compose_sv_focus(compose_window_t* win);
+void              compose_sv_focus(compose_server_t* srv, compose_window_t* win);
 void              compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y);
 void              compose_sv_translate_abs(compose_window_t* win, int* sx, int* sy, int x, int y);
 uint8_t           compose_sv_is_child(compose_window_t* win, compose_window_t* par);
 void 			  compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int notify_parent);
+void              compose_sv_send_props(compose_client_t* cli, compose_window_t* win);
 
 #endif

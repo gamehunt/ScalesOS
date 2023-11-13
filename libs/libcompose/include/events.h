@@ -21,6 +21,7 @@
 #define COMPOSE_EVENT_CNN        (1 << 6)
 #define COMPOSE_EVENT_FOCUS      (1 << 7)
 #define COMPOSE_EVENT_UNFOCUS    (1 << 8)
+#define COMPOSE_EVENT_PROPS      (1 << 9)
 
 #define COMPOSE_KBD_MOD_ALT    (1 << 0)
 #define COMPOSE_KBD_MOD_SHIFT  (1 << 1)
@@ -74,13 +75,17 @@ typedef struct {
 	compose_event_t event;
 } compose_unfocus_event_t;
 
+typedef struct {
+	compose_event_t     event;
+	window_properties_t props;
+} compose_props_event_t;
+
 void             compose_cl_event_send(compose_client_t* client, id_t id, compose_event_t* event);
 void             compose_cl_event_send_to_all(compose_client_t* client, compose_event_t* event);
 compose_event_t* compose_cl_event_poll(compose_client_t* client);
 void             compose_cl_event_mask(event_mask_t mask);
 
-void             compose_sv_event_propagate(compose_window_t* root, compose_event_t* event);
-void             compose_sv_event_propagate_to_grabs(list_t* grabs, compose_event_t* event);
+void             compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, compose_event_t* event);
 void             compose_sv_event_send(compose_client_t* cli, compose_event_t* event);
 void             compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event);
 

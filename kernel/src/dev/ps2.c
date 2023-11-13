@@ -78,9 +78,16 @@ static uint8_t __k_dev_ps2_read_byte(void) {
     return inb(PS2_DATA);
 }
 
+static uint8_t ext = 0;
+
 static void __k_dev_ps2_handle_keyboard(uint8_t byte) {
 	k_dev_vt_handle_scancode(byte);
-    k_fs_vfs_write(kbd_pipe, 0, 1, &byte);
+	uint16_t data = byte;
+	if(ext) {
+		data |= (1 << 8);
+		ext = 0;
+	}
+    k_fs_vfs_write(kbd_pipe, 0, 2, &data);
 }
 
 static uint8_t           mouse_packet_counter = 0;
@@ -108,7 +115,11 @@ static void __k_dev_ps2_handle_mouse(uint8_t byte) {
 static interrupt_context_t* __irq1_handler(interrupt_context_t* ctx) {
     uint8_t data_byte = inb(PS2_DATA);
     k_int_pic_eoi(1);
-    __k_dev_ps2_handle_keyboard(data_byte);
+	if(data_byte == 0xE0) {
+		ext = 1;
+	} else {
+    	__k_dev_ps2_handle_keyboard(data_byte);
+	}
     return ctx;
 }
 
