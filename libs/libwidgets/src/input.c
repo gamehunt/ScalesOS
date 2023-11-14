@@ -71,6 +71,8 @@ void input_process_events(widget* inp, compose_event_t* ev) {
 				b->buffer[b->buffer_offset] = '\0';
 				widget_draw(inp);
 			}
+		} else if(mev->packet.scancode == KEY_ESC) {
+			compose_cl_unfocus(inp->client, inp->win);
 		} else {
 			char t = mev->translated;
 			if(t) {

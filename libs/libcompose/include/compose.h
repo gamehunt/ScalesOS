@@ -88,16 +88,16 @@ void              compose_sv_tick(compose_server_t* srv);
 compose_client_t* compose_sv_get_client(compose_server_t* srv, id_t id);
 void              compose_sv_disconnect(compose_server_t* srv, compose_client_t* cli);
 
-compose_client_t* compose_cl_connect(const char* sock);
-void              compose_cl_disconnect(compose_client_t* client);
-id_t              compose_cl_create_window(compose_client_t* client, id_t par, window_properties_t props);
-int               compose_cl_move(compose_client_t* cli, id_t win, int x, int y);
-int               compose_cl_layer(compose_client_t* cli, id_t win, int z);
-int               compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
-int               compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);
-int               compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
-int               compose_cl_focus(compose_client_t* cli, id_t win);
-int               compose_cl_unfocus(compose_client_t* cli, id_t win);
+compose_client_t*   compose_cl_connect(const char* sock);
+void                compose_cl_disconnect(compose_client_t* client);
+id_t                compose_cl_create_window(compose_client_t* client, id_t par, window_properties_t props);
+int                 compose_cl_move(compose_client_t* cli, id_t win, int x, int y);
+int                 compose_cl_layer(compose_client_t* cli, id_t win, int z);
+int                 compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
+int                 compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);
+int                 compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
+int                 compose_cl_focus(compose_client_t* cli, id_t win);
+int                 compose_cl_unfocus(compose_client_t* cli, id_t win);
 window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
