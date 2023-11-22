@@ -20,19 +20,20 @@ int main(int argc, char** argv) {
 
 	widgets_init();
 
-	widget_properties props;
+	widget_properties props = {0};
 	props.pos.x = 500;
 	props.pos.y = 300;
 	props.size.w = 400;
 	props.size.h = 200;
+	props.padding.left  = 5;
+	props.padding.right = 5;
 	window = widget_create(client, WIDGET_TYPE_WINDOW, NULL, props, NULL);
 
 	input* inp = calloc(1, sizeof(input));
 	inp->placeholder = "Test";
-	props.pos.x = 25;
-	props.pos.y = 25;
-	props.size.w = 150;
-	props.size.h = 25;
+	props.size.h      = 25;
+	props.alignment   = WIDGET_ALIGN_VCENTER;
+	props.size_policy = WIDGET_SIZE_POLICY(WIDGET_SIZE_POLICY_EXPAND, WIDGET_SIZE_POLICY_FIXED);
 	widget* login = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp);
 
 

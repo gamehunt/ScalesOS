@@ -52,6 +52,7 @@ void input_draw(widget* inp) {
 }
 
 void input_process_events(widget* inp, compose_event_t* ev) {
+	widget_process_event(inp, ev);
 	input* b = inp->data;
 	if(ev->type == COMPOSE_EVENT_KEY) {
 		compose_key_event_t* mev = (compose_key_event_t*) ev;

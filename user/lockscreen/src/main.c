@@ -97,40 +97,34 @@ int main(int argc, char** argv) {
 
 	widgets_init();
 
-	widget_properties props;
+	widget_properties props = {0};
 	props.pos.x = 500;
 	props.pos.y = 300;
 	props.size.w = 200;
 	props.size.h = 125;
+	props.padding.top   = 25;
+	props.padding.left  = 5;
+	props.padding.right = 5;
+	props.layout_direction = WIDGET_LAYOUT_DIR_V;
 	window = widget_create(client, WIDGET_TYPE_WINDOW, NULL, props, NULL);
 
 	input* inp = calloc(1, sizeof(input));
 	inp->confirm = confirm;
 	inp->placeholder = "Login";
-	props.pos.x = 25;
-	props.pos.y = 25;
-	props.size.w = 150;
 	props.size.h = 25;
+	props.size_policy = WIDGET_SIZE_POLICY(WIDGET_SIZE_POLICY_EXPAND, WIDGET_SIZE_POLICY_FIXED);
 	login = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp);
 
 	input* inp1 = calloc(1, sizeof(input));
 	inp1->confirm = confirm;
 	inp1->placeholder = "Password";
 	inp1->type = INPUT_TYPE_PASSWORD;
-	props.pos.x = 25;
-	props.pos.y = 55;
-	props.size.w = 150;
-	props.size.h = 25;
 	password = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp1);
 
 	button* butt = malloc(sizeof(button));
 	butt->flags = 0;
 	butt->label = "Login";
 	butt->click = click;
-	props.pos.x = 25;
-	props.pos.y = 85;
-	props.size.w = 150;
-	props.size.h = 25;
 	widget_create(client, WIDGET_TYPE_BUTTON, window, props, butt);
 
 	widget_draw(window);

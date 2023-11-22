@@ -42,6 +42,7 @@ void button_draw(widget* buttn) {
 }
 
 void button_process_events(widget* buttn, compose_event_t* ev) {
+	widget_process_event(buttn, ev);
 	button* b = buttn->data;
 	if(ev->type == COMPOSE_EVENT_BUTTON) {
 		compose_mouse_event_t* mev = (compose_mouse_event_t*) ev;

@@ -30,5 +30,5 @@ void label_draw(widget* l) {
 }
 
 void label_process_events(widget* label, compose_event_t* ev) {
-
+	widget_process_event(label, ev);
 }

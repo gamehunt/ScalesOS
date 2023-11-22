@@ -35,10 +35,5 @@ void window_draw(widget* window) {
 }
 
 void window_process_events(widget* win, compose_event_t* ev) {
-	if(ev->type == COMPOSE_EVENT_RESIZE) {
-		compose_resize_event_t* rev = (compose_resize_event_t*) ev;
-		win->props.size.w = rev->new_size.w;
-		win->props.size.h = rev->new_size.h;
-		window_draw(win);
-	}
+	widget_process_event(win, ev);
 }
