@@ -5,6 +5,7 @@
 #include "widget.h"
 
 #include <input/keys.h>
+#include <string.h>
 
 void input_init(widget* input_w) {
 	id_t par = input_w->client->root;
@@ -17,13 +18,12 @@ void input_init(widget* input_w) {
 	props.w = input_w->props.size.w;
 	props.h = input_w->props.size.h;
 	props.border_width = 0;
-	props.flags = 0;
-	props.event_mask = COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_FOCUS | COMPOSE_EVENT_UNFOCUS;
-	input_w->win = compose_cl_create_window(input_w->client, par, props);
+	props.flags        = 0;
+	props.event_mask   = COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_FOCUS | COMPOSE_EVENT_UNFOCUS;
+	input_w->win       = compose_cl_create_window(input_w->client, par, props);
 	input_w->ops.release 	   = input_release;
 	input_w->ops.draw    	   = input_draw;
 	input_w->ops.process_event = input_process_events;
-
 }
 
 void input_release(widget* input) {
@@ -33,17 +33,17 @@ void input_draw(widget* inp) {
 	input* b = inp->data;
 	compose_cl_fill(inp->client, inp->win, 0xFFFFFFFF);
 	if(b->flags & INPUT_FLAG_FOCUSED) {
-		compose_cl_line(inp->client, inp->win, 5 + 8 * b->buffer_offset, 5, 5 + 8 * b->buffer_offset, inp->props.size.h - 5, 0xFF000000);
+		compose_cl_line(inp->client, inp->win, 5 + 8 * b->cursor_pos, 5, 5 + 8 * b->cursor_pos, inp->props.size.h - 5, 0xFF000000);
 	}
-	if(b->buffer_offset) {
+	if(b->buffer_size) {
 		if(b->type == INPUT_TYPE_DEFAULT) {
 			compose_cl_string(inp->client, inp->win, 5, 5, 0x00, 0xFF000000, b->buffer);
 		} else {
-			char buff[128];
-			for(int i = 0 ; i < b->buffer_offset; i++) {
+			char buff[MAX_INPUT_SIZE + 1];
+			for(int i = 0 ; i < b->buffer_size; i++) {
 				buff[i] = '*';
 			}
-			buff[b->buffer_offset] = '\0';
+			buff[b->buffer_size] = '\0';
 			compose_cl_string(inp->client, inp->win, 5, 5, 0x00, 0xFF000000, buff);
 		}
 	} else if(!(b->flags & INPUT_FLAG_FOCUSED)){
@@ -58,7 +58,7 @@ void input_process_events(widget* inp, compose_event_t* ev) {
 		if(mev->packet.flags & KBD_EVENT_FLAG_UP) {
 			return;
 		}
-		if(b->buffer_offset >= 128) {
+		if(b->buffer_size >= MAX_INPUT_SIZE) {
 			return;
 		}
 		if(mev->packet.scancode == KEY_ENTER) {
@@ -66,18 +66,38 @@ void input_process_events(widget* inp, compose_event_t* ev) {
 				b->confirm(inp);
 			}
 		} else if(mev->packet.scancode == KEY_BACKSPACE) {
-			if(b->buffer_offset) {
-				b->buffer_offset--;
-				b->buffer[b->buffer_offset] = '\0';
+			if(b->cursor_pos) {
+				b->cursor_pos--;
+				b->buffer[b->cursor_pos] = '\0';
+				if(b->buffer_size != 1 && b->cursor_pos != b->buffer_size - 1) {
+					memmove(&b->buffer[b->cursor_pos], &b->buffer[b->cursor_pos + 1], b->buffer_size - b->cursor_pos);
+				}
+				b->buffer_size--;
 				widget_draw(inp);
 			}
+		} else if(mev->packet.scancode == KEY_RIGHT) {
+			b->cursor_pos++;
+			if(b->cursor_pos > b->buffer_size) {
+				b->cursor_pos = b->buffer_size;
+			} 
+			widget_draw(inp);
+		} else if(mev->packet.scancode == KEY_LEFT) {
+			b->cursor_pos--;
+			if(b->cursor_pos < 0) {
+				b->cursor_pos = 0;
+			} 
+			widget_draw(inp);
 		} else if(mev->packet.scancode == KEY_ESC) {
 			compose_cl_unfocus(inp->client, inp->win);
 		} else {
 			char t = mev->translated;
 			if(t) {
-				b->buffer[b->buffer_offset] = t;
-				b->buffer_offset++;
+				if(b->cursor_pos < b->buffer_size) {
+					memmove(&b->buffer[b->cursor_pos + 1], &b->buffer[b->cursor_pos], b->buffer_size - b->cursor_pos);
+				}
+				b->buffer[b->cursor_pos] = t;
+				b->buffer_size++;
+				b->cursor_pos++;
 				widget_draw(inp);
 			}
 		}

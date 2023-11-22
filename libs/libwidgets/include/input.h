@@ -9,13 +9,16 @@
 
 #define INPUT_FLAG_FOCUSED (1 << 0)
 
+#define MAX_INPUT_SIZE 256
+
 typedef struct {
-	char   buffer[128];
-	size_t buffer_offset;
+	char   buffer[MAX_INPUT_SIZE];
+	size_t buffer_size;
 
 	const char* placeholder;
 	int type;
 	int flags;
+	int cursor_pos;
 
 	void (*confirm)(widget* w);
 } input;

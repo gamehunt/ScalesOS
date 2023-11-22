@@ -1,8 +1,10 @@
 #include "compose/compose.h"
 
+#include "widgets/input.h"
 #include "widgets/widget.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -24,6 +26,15 @@ int main(int argc, char** argv) {
 	props.size.w = 400;
 	props.size.h = 200;
 	window = widget_create(client, WIDGET_TYPE_WINDOW, NULL, props, NULL);
+
+	input* inp = calloc(1, sizeof(input));
+	inp->placeholder = "Test";
+	props.pos.x = 25;
+	props.pos.y = 25;
+	props.size.w = 150;
+	props.size.h = 25;
+	widget* login = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp);
+
 
 	widget_draw(window);
 

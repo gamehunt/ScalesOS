@@ -69,7 +69,8 @@ void compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, c
 		if(gr) {
 			compose_sv_event_send(gr->client, event);
 		}
-	} else if(root->parent) {
+	} 
+	if(root->parent) {
 		event->child = root->id;
 		compose_sv_event_propagate(srv, root->parent, event);
 	}

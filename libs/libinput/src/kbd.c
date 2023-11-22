@@ -85,7 +85,9 @@ static const char __scancodes_ext[128] = {
 	[0x47] = KEY_HOME,
 	[0x1C] = KEY_KPENTER,
 	[0x35] = KEY_KPSLASH,
-	[0x5B] = KEY_LEFTMETA
+	[0x4B] = KEY_LEFT,
+	[0x5B] = KEY_LEFTMETA,
+	[0x4D] = KEY_RIGHT
 };
 
 keyboard_packet_t* input_kbd_create_packet(int scancode) {
