@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
 	}
 
 	compose_cl_fill(client, client->root, 0xFF000000);
-	compose_cl_grab(client, client->root, COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_MOUSE);
+	compose_cl_grab(client, client->root, COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_MOUSE | COMPOSE_EVENT_WIN);
 
 	int mod = 0;
 
@@ -35,6 +35,10 @@ int main(int argc, char** argv) {
 		compose_event_t* ev = compose_cl_event_poll(client);
 		if(ev) {
 			switch(ev->type) {
+				case COMPOSE_EVENT_WIN:
+					compose_cl_move(client, ev->child, 0, 0);
+					compose_cl_resize(client, ev->child, 1270, 790);
+					break;
 				case COMPOSE_EVENT_KEY:
 					if(((compose_key_event_t*) ev)->packet.scancode == KEY_LEFTMETA) {
 						mod = !(((compose_key_event_t*) ev)->packet.flags & KBD_EVENT_FLAG_UP);

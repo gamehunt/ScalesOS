@@ -2,6 +2,8 @@
 #include "button.h"
 #include "compose/compose.h"
 #include "compose/events.h"
+#include "compose/render.h"
+#include "label.h"
 #include "win.h"
 #include "input.h"
 #include <stdlib.h>
@@ -14,8 +16,7 @@ void widget_register(uint16_t type, widget_init init) {
 	}
 
 	__initializers[type] = init;
-
-	printf("Set 0x%.8x initializer for type %d\n", init, type);
+	// printf("Set 0x%.8x initializer for type %d\n", init, type);
 }
 
 
@@ -43,6 +44,7 @@ void widgets_init() {
 	widget_register(WIDGET_TYPE_BUTTON, button_init);
 	widget_register(WIDGET_TYPE_WINDOW, window_init);
 	widget_register(WIDGET_TYPE_INPUT,  input_init);
+	widget_register(WIDGET_TYPE_LABEL, label_init);
 }
 
 int __widget_try_event(widget* w, compose_event_t* ev) {

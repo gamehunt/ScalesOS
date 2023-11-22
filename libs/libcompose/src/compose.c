@@ -557,12 +557,13 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	list_sort(srv->windows, __compose_sort_windows_list);
 
 	if(client) {
-		compose_win_event_t* ev = malloc(sizeof(compose_win_event_t));
+		compose_win_event_t* ev = calloc(1, sizeof(compose_win_event_t));
 		ev->event.type = COMPOSE_EVENT_WIN;
 		ev->event.size = sizeof(compose_win_event_t);
 		ev->event.win  = win->id;
 		ev->event.root = win->root->id;
 		compose_sv_event_send(client, ev);
+		compose_sv_event_propagate(srv, win, ev);
 		free(ev);
 	}
 
