@@ -475,14 +475,17 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 	win->sizes.w = w;
 	win->sizes.h = h;
 
-	fb_close(&win->ctx);
-
 	uint32_t wb = w + 2 * win->sizes.b;
 	uint32_t hb = h + 2 * win->sizes.b;
-
-	size_t bufsz = wb * hb * 4;
-	void* buf = calloc(1, bufsz);
-	fb_open_mem(buf, bufsz, w, h, &win->ctx, 0);
+	size_t   bufsz = wb * hb * 4;
+	if(win->ctx.info.memsz < bufsz) {
+		free(win->ctx.mem);
+		win->ctx.mem = malloc(bufsz);
+		win->ctx.info.memsz = bufsz;
+	}
+	memset(win->ctx.mem, 0, bufsz);
+	win->ctx.info.w = wb;
+	win->ctx.info.h = hb;
 
 	if(win->client) {
 		sizes_t new_size = win->sizes;
