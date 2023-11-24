@@ -3,8 +3,10 @@
 #include "input/keys.h"
 #include "request.h"
 #include "fb.h"
+#include "stdio.h"
 #include "sys/select.h"
 #include "sys/un.h"
+#include "sys/mman.h"
 #include "input/kbd.h"
 #include "input/mouse.h"
 
@@ -478,14 +480,12 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 	uint32_t wb = w + 2 * win->sizes.b;
 	uint32_t hb = h + 2 * win->sizes.b;
 	size_t   bufsz = wb * hb * 4;
-	if(win->ctx.info.memsz < bufsz) {
-		free(win->ctx.mem);
-		win->ctx.mem = malloc(bufsz);
-		win->ctx.info.memsz = bufsz;
-	}
-	memset(win->ctx.mem, 0, bufsz);
+	
+	win->ctx.info.memsz = bufsz;
 	win->ctx.info.w = wb;
 	win->ctx.info.h = hb;
+
+	ftruncate(win->ctx_buff_map, bufsz);
 
 	if(win->client) {
 		sizes_t new_size = win->sizes;
@@ -542,9 +542,29 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	uint32_t wh = props.h + 2 * props.border_width;
 
 	size_t buffer_size = wb * wh * 4;
-	void*  buffer = calloc(1, buffer_size);
 
-	fb_open_mem(buffer, buffer_size, wb, wh, &win->ctx, 0);
+	char key[64];
+	itoa(win->id, key, 10);
+
+	win->ctx_map = shm_open(key, O_WRONLY | O_CREAT, 0);
+	if(win->ctx_map > 0) {
+		ftruncate(win->ctx_map , sizeof(fb_t));
+		void* mem = mmap(NULL, sizeof(fb_t), PROT_WRITE, MAP_PRIVATE, win->ctx_map, 0);
+		if((int32_t) mem != MAP_FAILED) {
+			memcpy(mem, &win->ctx, sizeof(fb_t));
+		}
+	}
+
+	strcpy(key, "b");
+
+	win->ctx_buff_map = shm_open(key, O_RDWR | O_CREAT, 0);
+	if(win->ctx_buff_map > 0) {
+		ftruncate(win->ctx_buff_map , buffer_size);
+		void* buffer = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->ctx_buff_map, 0);
+		if((int32_t) buffer != MAP_FAILED) {
+			fb_open_mem(buffer, buffer_size, wb, wh, &win->ctx, 0);
+		}
+	}
 
 	list_push_back(srv->windows, win);
 	if(par) {
@@ -775,7 +795,10 @@ void compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int 
 	}
 	list_free(active_grabs);
 
-	fb_close(&win->ctx);
+	close(win->ctx_map);
+	close(win->ctx_buff_map);
+	munmap(win->ctx.mem, win->ctx.info.memsz);
+
 	free(win);
 }
 
@@ -860,4 +883,29 @@ window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win) {
 			}
 		}
 	}
+}
+
+fb_t* compose_cl_draw_ctx(id_t win) {
+	char key[64];
+	itoa(win, key, 10);
+
+	int ctx = shm_open(key, O_RDONLY, 0);
+	if(ctx < 0) {
+		return NULL;
+	}
+
+	fb_t* buff = mmap(NULL, sizeof(fb_t), PROT_READ, MAP_PRIVATE, ctx, 0);
+	if((int32_t) buff == MAP_FAILED) {
+		return NULL;
+	}
+
+	strcat(key, "b");
+
+	ctx = shm_open(key, O_RDWR, 0);
+	if(ctx < 0) {
+		return NULL;
+	}
+	buff->mem = mmap(NULL, buff->info.memsz, PROT_READ | PROT_WRITE, MAP_SHARED, ctx, 0);
+
+	return buff;
 }

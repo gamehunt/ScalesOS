@@ -45,6 +45,8 @@ typedef struct window {
 	struct window*    parent;
 	struct window*    root;
 	fb_t       		  ctx;
+	int               ctx_map;
+	int               ctx_buff_map;
 	flags_t    		  flags;
 	position_t 		  pos;
 	int               layer;
@@ -99,6 +101,7 @@ int                 compose_cl_grab(compose_client_t* cli, id_t win, grab_type t
 int                 compose_cl_focus(compose_client_t* cli, id_t win);
 int                 compose_cl_unfocus(compose_client_t* cli, id_t win);
 window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win);
+fb_t*               compose_cl_draw_ctx(id_t win);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
 void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);
@@ -115,5 +118,6 @@ void              compose_sv_translate_abs(compose_window_t* win, int* sx, int* 
 uint8_t           compose_sv_is_child(compose_window_t* win, compose_window_t* par);
 void 			  compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int notify_parent);
 void              compose_sv_send_props(compose_client_t* cli, compose_window_t* win);
+
 
 #endif

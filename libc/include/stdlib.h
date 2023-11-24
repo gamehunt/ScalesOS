@@ -15,6 +15,7 @@ void* realloc(void* old, size_t size);
 void  abort();
 int   abs(int num);
 int   atoi(const char* str);
+void* itoa(int input, char* buffer, int radix);
 
 #if !defined(__LIBK) && !defined(__KERNEL)
 	int   system(const char *str);
