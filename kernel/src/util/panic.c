@@ -21,7 +21,7 @@ static void __k_panic_stacktrace(uint32_t stack){
         uint32_t eip = frame->eip;
         sym_t* sym = k_mod_symtable_get_nearest_symbol(eip);
         if(sym){
-            printf("%d: <%s + 0x%x> \r\n", depth, sym->name, eip - sym->addr);
+            printf("%d: <%s + 0x%x> (in %s) \r\n", depth, sym->name, eip - sym->addr, sym->module);
         }
         frame = frame->ebp;
         depth++;
@@ -54,7 +54,7 @@ void k_panic(const char* reason, interrupt_context_t* ctx){
                ctx->edi, ctx->esi, ctx->ebp, ctx->esp);
         sym_t* nearest = k_mod_symtable_get_nearest_symbol(ctx->eip);
         if(nearest){
-            printf("EIP: 0x%.8x (<%s + 0x%x>) ", ctx->eip, nearest->name, ctx->eip - nearest->addr);
+            printf("EIP: 0x%.8x (<%s + 0x%x> in %s) ", ctx->eip, nearest->name, ctx->eip - nearest->addr, nearest->module);
         }else{
             printf("EIP: 0x%.8x (Unknown) ", ctx->eip);
         }

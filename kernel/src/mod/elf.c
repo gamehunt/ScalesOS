@@ -43,8 +43,8 @@ uint32_t k_mod_elf_get_symval(Elf32_Ehdr *hdr, int table, uint32_t idx) {
 		Elf32_Shdr* strtab = k_mod_elf_section(hdr, symtab->sh_link);
 		const char* name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
  
-		void *target = k_mod_symtable_get_symbol(name);
- 
+		void* target = k_mod_symtable_get_symbol(name, "kernel");
+
 		if(target == NULL) {
 			// Extern symbol not found
 			if(ELF32_ST_BIND(symbol->st_info) & STB_WEAK) {
@@ -150,7 +150,7 @@ module_info_t* k_mod_elf_load_module(void* file) {
 				// k_debug("Allocated memory for a section (%ld).", shdr->sh_size);
 			}
 		}
-		if(shdr->sh_type == SHT_REL) {
+		else if(shdr->sh_type == SHT_REL) {
 			for(uint32_t idx = 0; idx < shdr->sh_size / shdr->sh_entsize; idx++) {
 				Elf32_Rel *reltab = &((Elf32_Rel *)((int)hdr + shdr->sh_offset))[idx];
 				int result = k_mod_elf_relocate(hdr, reltab, shdr);
@@ -160,25 +160,47 @@ module_info_t* k_mod_elf_load_module(void* file) {
 				} 
 			}
 		}
-		if(shdr->sh_type == SHT_SYMTAB && !mod){
-			Elf32_Sym* symbol = (Elf32_Sym*) ((uint32_t)hdr + shdr->sh_offset);
-			Elf32_Shdr *strtab = k_mod_elf_section(hdr, shdr->sh_link);
-			uint32_t offset = 0;
-			while(offset < shdr->sh_size) {
-				if(symbol->st_name) {
-					const char *name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
-					if(!strcmp(name, "__k_module_info")) {
-						mod = (module_info_t*) k_mod_elf_get_address(hdr, symbol);
-						break;
+		else if(shdr->sh_type == SHT_SYMTAB){
+			Elf32_Sym*  symbol = (Elf32_Sym*) ((uint32_t)hdr + shdr->sh_offset);
+			Elf32_Shdr* strtab = k_mod_elf_section(hdr, shdr->sh_link);
+			uint32_t    offset = 0;
+			if(!mod) {
+				k_debug("Searching header...");
+				while(offset < shdr->sh_size) {
+					if(symbol->st_name) {
+						const char* name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
+						if(!strcmp(name, "__k_module_info")) {
+							mod = (module_info_t*) k_mod_elf_get_address(hdr, symbol); 
+							break;
+						}
 					}
+					symbol++;
+					offset += sizeof(Elf32_Sym);
 				}
-				symbol++;
-				offset += sizeof(Elf32_Sym);
 			}
-
+			if(mod) {
+				k_debug("Filling symtable...");
+				symbol = (Elf32_Sym*) ((uint32_t)hdr + shdr->sh_offset);
+				offset = 0;
+				while(offset < shdr->sh_size) {
+					if(ELF32_ST_TYPE(symbol->st_info) == STT_FUNC && symbol->st_name) {
+						const char* name = (const char *)hdr + strtab->sh_offset + symbol->st_name;
+						uint32_t addr = (uint32_t) k_mod_elf_get_address(hdr, symbol);
+						if(addr) {
+							k_mod_symtable_define_symbol(name, mod->name, addr);
+						}
+					}
+					symbol++;
+					offset += sizeof(Elf32_Sym);
+				}
+			}
 		}
     	shdr = (Elf32_Shdr*)((uint32_t)shdr + hdr->e_shentsize);
     }
+
+	if(mod) {
+		k_mod_symtable_define_symbol(mod->name, mod->name, (uint32_t) mod);
+	}
 
     return mod;
 }

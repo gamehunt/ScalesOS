@@ -20,6 +20,8 @@ print('global symbols_start')
 print('symbols_start:')
 for sym in exported_symbols:
     print(f'dd 0x{sym[0]}')
+    print(f'db \"kernel\"')
+    print(f'times 26 db 0')
     print(f'db \"{sym[1]}\", 0')
     print('; ---------------------')
 print('global symbols_end')

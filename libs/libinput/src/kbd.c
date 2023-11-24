@@ -1,5 +1,6 @@
 #include "kbd.h"
-#include "input/keys.h"
+#include "keys.h"
+
 #include <ctype.h>
 #include <stdlib.h>
 

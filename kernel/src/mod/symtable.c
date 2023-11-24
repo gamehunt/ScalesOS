@@ -1,52 +1,62 @@
 #include <mod/symtable.h>
 #include <string.h>
-#include "mem/heap.h"
 #include "kernel.h"
+#include "mem/heap.h"
+#include "types/list.h"
 #include "util/log.h"
 
-static sym_t** symbols;
-static uint32_t sym_count;
+static list_t* symbols;
 
 extern void* symbols_start;
 extern void* symbols_end;
 
 K_STATUS k_mod_symtable_init(){
-    sym_count = 0;
+	symbols = list_create();
     
     sym_t* addr = (sym_t*) &symbols_start;
     while((uint32_t) addr < (uint32_t) &symbols_end){
-        EXTEND(symbols, sym_count, sizeof(sym_t*));
-        symbols[sym_count - 1] = addr;
+        list_push_back(symbols, (void*) addr);
         addr = (sym_t*) (((uint32_t)addr) + sizeof(sym_t) + strlen(addr->name) + 1);
     }
 
-    k_info("Exported %d symbols.", sym_count);
+    k_info("Exported %d symbols.", symbols->size);
 
     return K_STATUS_OK;
 }
 
-void* k_mod_symtable_get_symbol(const char* name){
-    for(uint32_t i = 0; i < sym_count; i++){
-        if(!strcmp(name, symbols[i]->name)){
-            return (void*) symbols[i]->addr;
+void* k_mod_symtable_get_symbol(const char* name, const char* module){
+    for(uint32_t i = 0; i < symbols->size; i++){
+		sym_t* s = symbols->data[i];
+        if(!strcmp(name, s->name) && !strcmp(module, s->module)){
+            return (void*) s->addr;
         }
     }
     return 0;
 }
 
-sym_t*   k_mod_symtable_get_nearest_symbol(uint32_t addr){
+sym_t* k_mod_symtable_get_nearest_symbol(uint32_t addr){
     uint32_t difference = 0xFFFFFFFF;
     sym_t* result = 0;
 
-    for(uint32_t i = 0; i < sym_count; i++){
-        if(symbols[i]->addr > addr){
+    for(uint32_t i = 0; i < symbols->size; i++){
+		sym_t* s = symbols->data[i];
+        if(s->addr > addr){
             continue;
         }
-        if(addr - symbols[i]->addr < difference){
-            difference = addr - symbols[i]->addr;
-            result = symbols[i];
+        if(addr - s->addr < difference){
+            difference = addr - s->addr;
+            result = s;
         }
     }
 
     return result;
+}
+
+sym_t* k_mod_symtable_define_symbol(const char* name, const char* module, uint32_t addr) {
+	sym_t* sym = k_malloc(sizeof(sym_t) + strlen(name) + 1);
+	sym->addr = addr;
+	strcpy(sym->module, module);
+	strcpy(sym->name, name);
+	list_push_back(symbols, sym);
+	return sym;
 }
