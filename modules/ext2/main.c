@@ -208,6 +208,7 @@ typedef struct {
 } ext2_fs_t;
 
 ext2_inode_t* __ext2_try_get_cached_inode(ext2_fs_t* fs, uint32_t inode) {
+	LOCK(fs->inode_cache->lock)
 	for(size_t i = 0; i < fs->inode_cache->size; i++) {
 		cached_inode_t* c_ino = fs->inode_cache->data[i];
 		if(c_ino->inode_number == inode) {
@@ -216,26 +217,32 @@ ext2_inode_t* __ext2_try_get_cached_inode(ext2_fs_t* fs, uint32_t inode) {
 			memcpy(ino, c_ino->inode, fs->superblock->inode_size);
 			list_delete_element(fs->inode_cache, c_ino);
 			list_push_front(fs->inode_cache, c_ino);
+			UNLOCK(fs->inode_cache->lock)
 			return ino;
 		}
 	}
+	UNLOCK(fs->inode_cache->lock)
 	return NULL;
 }
 
 void* __ext2_try_get_cached_block(ext2_fs_t* fs, uint32_t block) {
+	LOCK(fs->block_cache->lock)
 	for(size_t i = 0; i < fs->block_cache->size; i++) {
 		cached_block_t* c_bl = fs->block_cache->data[i];
 		if(c_bl->block_number == block) {
 			c_bl->last_access = now();
 			list_delete_element(fs->block_cache, c_bl);
 			list_push_front(fs->block_cache, c_bl);
+			UNLOCK(fs->block_cache->lock)
 			return c_bl->block;
 		}
 	}
+	UNLOCK(fs->block_cache->lock)
 	return NULL;
 }
 
 void __ext2_invalidate_block(ext2_fs_t* fs, uint32_t block) {
+	LOCK(fs->block_cache->lock)
 	for(size_t i = 0; i < fs->block_cache->size; i++) {
 		cached_block_t* c_bl = fs->block_cache->data[i];
 		if(c_bl->block_number == block) {
@@ -243,9 +250,11 @@ void __ext2_invalidate_block(ext2_fs_t* fs, uint32_t block) {
 			break;
 		}
 	}
+	UNLOCK(fs->block_cache->lock)
 }
 
 void __ext2_cache_inode(ext2_fs_t* fs, uint32_t num, ext2_inode_t* inode) {
+	LOCK(fs->inode_cache->lock)
 	cached_inode_t* copy = k_malloc(sizeof(cached_inode_t));
 	copy->inode_number = num; 
 	copy->inode = k_malloc(fs->superblock->inode_size);
@@ -257,9 +266,11 @@ void __ext2_cache_inode(ext2_fs_t* fs, uint32_t num, ext2_inode_t* inode) {
 		k_free(last->inode);
 		k_free(last);
 	} 
+	UNLOCK(fs->inode_cache->lock)
 }
 
 void __ext2_invalidate_inode(ext2_fs_t* fs, uint32_t inode) {
+	LOCK(fs->inode_cache->lock)
 	for(size_t i = 0; i < fs->inode_cache->size; i++) {
 		cached_inode_t* c_ino = fs->inode_cache->data[i];
 		if(c_ino->inode_number == inode) {
@@ -267,9 +278,11 @@ void __ext2_invalidate_inode(ext2_fs_t* fs, uint32_t inode) {
 			break;
 		}
 	}
+	UNLOCK(fs->inode_cache->lock)
 }
 
 void __ext2_cache_block(ext2_fs_t* fs, uint32_t block, void* data) {
+	LOCK(fs->block_cache->lock)
 	cached_block_t* copy = k_malloc(sizeof(cached_block_t));
 	copy->block_number = block; 
 	copy->block = k_malloc(BLOCK_SIZE(fs->superblock));
@@ -281,6 +294,7 @@ void __ext2_cache_block(ext2_fs_t* fs, uint32_t block, void* data) {
 		k_free(last->block);
 		k_free(last);
 	} 
+	UNLOCK(fs->block_cache->lock)
 }
 
 static uint32_t __ext2_read_block(ext2_fs_t* fs, uint32_t start_block, uint8_t* buffer, uint32_t readahead) {
