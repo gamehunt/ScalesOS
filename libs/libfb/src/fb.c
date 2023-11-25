@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <stdio.h>
 
+static fb_font_t* __system_font = NULL;
+
 #define VERIFY_POINT(fb, x, y) \
 	if(x < 0 || x >= fb->info.w || y < 0 || y >= fb->info.h) { \
 		return; \
@@ -92,6 +94,10 @@ int fb_open(const char* path, fb_t* buf, int flag) {
 
 	fb_init_colors();
 
+	if(!__system_font) {
+		fb_open_font("/res/fonts/system.psf", &__system_font);
+	}
+
 	return 0;
 }
 
@@ -122,6 +128,10 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag)
 
 	fb_init_colors();
 
+	if(!__system_font) {
+		fb_open_font("/res/fonts/system.psf", &__system_font);
+	}
+
 	return 0;
 }
 
@@ -137,7 +147,7 @@ int fb_open_font(const char* path, fb_font_t** font) {
 		return -2;
 	}
 
-	int r = (int) mmap(NULL, st.st_size, MAP_SHARED, PROT_READ, fileno(f), 0);
+	int r = (int) mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fileno(f), 0);
 	if(r == MAP_FAILED) {
 		fclose(f);
 		return -3;
@@ -291,16 +301,9 @@ void fb_char(fb_t* fb, coord_t x0, coord_t y0, char c, fb_font_t* font, color_t 
     }
 }
 
-static fb_font_t* __system_font = NULL;
 
 void fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font, color_t b, color_t f) {
 	if(!font) {
-		if(!__system_font) {
-			int r = fb_open_font("/res/fonts/system.pcf", &__system_font);
-			if(r < 0) {
-				return;
-			}
-		}
 		font = __system_font;
 	}
 	size_t l = strlen(str);

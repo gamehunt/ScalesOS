@@ -17,7 +17,6 @@ void button_init(widget* button_w) {
 	props.y = button_w->props.pos.y;
 	props.w = button_w->props.size.w;
 	props.h = button_w->props.size.h;
-	props.border_width = 0;
 	props.flags = 0;
 	props.event_mask = COMPOSE_EVENT_BUTTON;
 	button_w->win = compose_cl_create_window(button_w->client, par, props);

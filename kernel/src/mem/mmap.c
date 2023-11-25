@@ -166,7 +166,7 @@ void k_mem_mmap_mark_dirty(mmap_block_t* block) {
 }
 
 void k_mem_mmap_sync_block(mmap_block_t* block, int flags UNUSED) {
-	if(!(block->type & MAP_SHARED)) {
+	if(!(block->type & MAP_SHARED) || (block->flags & MMAP_FLAG_SHM)) {
 		return;
 	}
 

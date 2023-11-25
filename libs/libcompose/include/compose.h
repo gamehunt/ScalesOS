@@ -17,8 +17,10 @@ typedef event_mask_t grab_type;
 
 #define COMPOSE_DEVICE_AMOUNT 2
 
-#define COMPOSE_WIN_FLAGS_MOVABLE   (1 << 0)
-#define COMPOSE_WIN_FLAGS_RESIZABLE (1 << 1)
+#define COMPOSE_WIN_FLAGS_MOVABLE            (1 << 0)
+#define COMPOSE_WIN_FLAGS_RESIZABLE          (1 << 1)
+#define COMPOSE_WIN_FLAGS_IN_RESIZE          (1 << 2)
+#define COMPOSE_WIN_FLAGS_HAS_DELAYED_RESIZE (1 << 3)
 
 typedef struct {
 	int x;
@@ -29,7 +31,6 @@ typedef struct {
 typedef struct {
 	size_t w;
 	size_t h;
-	size_t b;
 } sizes_t;
 
 typedef struct {
@@ -61,6 +62,7 @@ typedef struct {
 	compose_gc_t* gc;
 	fb_t fb;
 	id_t win;
+	int  prev_fd;
 } compose_cl_gc_t;
 
 typedef struct window {
@@ -73,6 +75,7 @@ typedef struct window {
 	position_t 		  pos;
 	int               layer;
 	sizes_t    		  sizes;
+	sizes_t           delayed_resize_size;
 	list_t*    		  children;
 	event_mask_t      event_mask;
 } compose_window_t;
@@ -97,10 +100,9 @@ typedef struct {
 } compose_server_t;
 
 typedef struct {
-	int     	 x, y;
-	size_t  	 w, h;
-	int     	 flags;
-	size_t  	 border_width;
+	int x, y;
+	int w, h;
+	int flags;
 	event_mask_t event_mask;
 } window_properties_t;
 

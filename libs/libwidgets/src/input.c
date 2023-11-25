@@ -16,9 +16,10 @@ void input_init(widget* input_w) {
 	props.y = input_w->props.pos.y;
 	props.w = input_w->props.size.w;
 	props.h = input_w->props.size.h;
-	props.border_width = 0;
 	props.flags        = 0;
-	props.event_mask   = COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_FOCUS | COMPOSE_EVENT_UNFOCUS;
+	props.event_mask   = COMPOSE_EVENT_KEY | 
+		                 COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_FOCUS | 
+						 COMPOSE_EVENT_UNFOCUS;
 	input_w->win       = compose_cl_create_window(input_w->client, par, props);
 	input_w->ops.release 	   = input_release;
 	input_w->ops.draw    	   = input_draw;

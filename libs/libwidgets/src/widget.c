@@ -36,6 +36,7 @@ void widget_draw(widget* w) {
 			widget* wd = w->children->data[i];
 			widget_draw(wd);
 		}
+		compose_cl_flush(w->client, w->win);
 	}
 }
 
@@ -43,7 +44,7 @@ void widgets_init() {
 	widget_register(WIDGET_TYPE_BUTTON, button_init);
 	widget_register(WIDGET_TYPE_WINDOW, window_init);
 	widget_register(WIDGET_TYPE_INPUT,  input_init);
-	widget_register(WIDGET_TYPE_LABEL, label_init);
+	widget_register(WIDGET_TYPE_LABEL,  label_init);
 }
 
 int __widget_try_event(widget* w, compose_event_t* ev) {
@@ -63,14 +64,19 @@ int __widget_try_event(widget* w, compose_event_t* ev) {
 }
 
 void widgets_tick(widget* root) {
-	compose_event_t* ev = compose_cl_event_poll(root->client);
+	compose_event_t* ev = compose_cl_event_poll(root->client, 1);
 	if(ev) {
-		__widget_try_event(root, ev);
+		if(!__widget_try_event(root, ev)) {
+			printf("%lld event for unknown widget: %d\n", ev->type, ev->win);
+		}
 		free(ev);
 	}
 }
 
 void widget_handle_parent_resize(widget* parent, widget* child, int x, int y) {
+	position_t old_pos = child->props.pos;
+	sizes_t    old_sz  = child->props.size;
+
 	int vsp = WIDGET_SIZE_POLICY_V(child->props.size_policy);
 	int hsp = WIDGET_SIZE_POLICY_H(child->props.size_policy);
 	switch(vsp) {
@@ -121,8 +127,8 @@ void widget_handle_parent_resize(widget* parent, widget* child, int x, int y) {
 	compose_cl_resize(child->client, child->win, child->props.size.w, child->props.size.h);
 } 
 
-void widget_handle_resize(widget* w, sizes_t new_sizes) {
-	if(w->ctx) {
+void widget_handle_resize(widget* w, sizes_t new_sizes, int event) {
+	if(event && w->ctx) {
 		compose_cl_resize_gc(w->ctx, new_sizes);
 	}
 	w->props.size.w = new_sizes.w;
@@ -138,13 +144,15 @@ void widget_handle_resize(widget* w, sizes_t new_sizes) {
 	if(w->ops.draw) {
 		w->ops.draw(w);
 	}
-	compose_cl_confirm_resize(w->client, w->win);
+	if(event) {
+		compose_cl_confirm_resize(w->client, w->win);
+	}
 }
 
 void widget_process_event(widget* w, compose_event_t* ev) {
 	if(ev->type == COMPOSE_EVENT_RESIZE) {
 		compose_resize_event_t* e = (compose_event_t*) ev;
-		widget_handle_resize(w, e->new_size);
+		widget_handle_resize(w, e->new_size, 1);
 	}	
 }
 
@@ -156,10 +164,6 @@ widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, widg
 	w->props  = prop;
 	w->client = cli;
 	w->children = list_create();
-	if(parent) {
-		list_push_back(w->parent->children, w);
-		widget_handle_resize(parent, parent->props.size);
-	}
 	w->ops.process_event = widget_process_event;
 
 	if(__initializers && __initializers[type]) {
@@ -168,6 +172,11 @@ widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, widg
 
 	if(w->win && !w->ctx) {
 		w->ctx = compose_cl_get_gc(w->win);
+	}
+
+	if(parent) {
+		list_push_back(w->parent->children, w);
+		widget_handle_resize(parent, parent->props.size, 0);
 	}
 
 	return w;

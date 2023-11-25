@@ -10,7 +10,6 @@ void label_init(widget* label_w) {
 	props.y = label_w->props.pos.y;
 	props.w = label_w->props.size.w;
 	props.h = label_w->props.size.h;
-	props.border_width = 0;
 	props.flags        = 0;
 	label_w->win       = compose_cl_create_window(label_w->client, par, props);
 	label_w->ops.release 	   = label_release;

@@ -24,6 +24,37 @@ void compose_cl_event_send(compose_client_t* client, id_t id, compose_event_t* e
 	free(ereq);
 }
 
+typedef struct {
+	id_t client;
+	list_t* queue;
+} raised_event_queue;
+
+static list_t* __raised_events = NULL;
+
+void compose_cl_event_raise(compose_client_t* client, compose_event_t* ev) {
+	if(!__raised_events) {
+		__raised_events = list_create();
+	}
+
+	raised_event_queue* queue = NULL;
+	for(size_t i = 0; i < __raised_events->size; i++) {
+		raised_event_queue* q = __raised_events->data[i];
+		if(q->client == client->id) {
+			queue = q;
+			break;
+		}
+	}
+
+	if(!queue) {
+		queue = malloc(sizeof(raised_event_queue));
+		queue->client = client->id;
+		queue->queue  = list_create();
+		list_push_back(__raised_events, queue);
+	}
+
+	list_push_back(queue->queue, ev);
+}
+
 void compose_sv_event_send(compose_client_t* cli, compose_event_t* event) {
 	write(cli->socket, event, event->size);
 }
@@ -34,7 +65,24 @@ void compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event)
 	}
 }
 
-compose_event_t* compose_cl_event_poll(compose_client_t* cli) {
+compose_event_t* compose_cl_event_poll(compose_client_t* cli, int raised) {
+	if(raised && __raised_events) {
+		raised_event_queue* queue = NULL;
+
+		for(size_t i = 0; i < __raised_events->size; i++) {
+			raised_event_queue* q = __raised_events->data[i];
+			if(q->client == cli->id) {
+				queue = q;
+				break;
+			}
+		}
+
+		if(queue && queue->queue->size > 0) {
+			compose_event_t* ev = list_pop_front(queue->queue);
+			return ev;
+		}
+	}
+
 	compose_event_t tmpev;
 
 	if(read(cli->socket, &tmpev, sizeof(compose_event_t)) > 0) {

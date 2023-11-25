@@ -13,9 +13,8 @@ void window_init(widget* window) {
 	props.y = window->props.pos.y;
 	props.w = window->props.size.w;
 	props.h = window->props.size.h;
-	props.border_width = 0;
 	props.flags = COMPOSE_WIN_FLAGS_MOVABLE | COMPOSE_WIN_FLAGS_RESIZABLE;
-	props.event_mask = COMPOSE_EVENT_RESIZE;
+	props.event_mask = 0;
 	window->win = compose_cl_create_window(window->client, par, props);
 	window->ops.release = window_release;
 	window->ops.draw    = window_draw;

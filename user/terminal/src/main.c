@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
 	props.size_policy = WIDGET_SIZE_POLICY(WIDGET_SIZE_POLICY_EXPAND, WIDGET_SIZE_POLICY_FIXED);
 	widget* login = widget_create(client, WIDGET_TYPE_INPUT, window, props, inp);
 
-
 	widget_draw(window);
 
 	while(1) {

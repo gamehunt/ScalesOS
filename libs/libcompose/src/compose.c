@@ -67,7 +67,7 @@ compose_client_t* compose_cl_connect(const char* sock) {
 	compose_client_t* cli = compose_create_client(sockfd);
 
 	while(1) {
-		compose_event_t* ev = compose_cl_event_poll(cli);
+		compose_event_t* ev = compose_cl_event_poll(cli, 0);
 		event_type type = ev->type;
 		id_t win = ev->win;
 		free(ev);
@@ -430,12 +430,14 @@ id_t compose_cl_create_window(compose_client_t* client, id_t par, window_propert
 	free(req);
 
 	while(1) {
-		compose_event_t* ev = compose_cl_event_poll(client);
+		compose_event_t* ev = compose_cl_event_poll(client, 0);
 		event_type type = ev->type;
 		id_t win = ev->win;
-		free(ev);
 		if(type == COMPOSE_EVENT_WIN) {
+			free(ev);
 			return win;
+		} else {
+			compose_cl_event_raise(client, ev);
 		}
 	}
 }
@@ -453,6 +455,14 @@ int compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask) {
 
 void compose_sv_move(compose_window_t* win, int x, int y, int z) {
 	position_t old_pos = win->pos;
+
+	if(old_pos.x == x && old_pos.y == y && old_pos.z == z) {
+		return;
+	} 
+
+	if(old_pos.x < 0 && old_pos.y < 0 && old_pos.z < 0) {
+		return;
+	}
 
 	if(x >= 0) {
 		win->pos.x = x;
@@ -485,27 +495,39 @@ void compose_sv_move(compose_window_t* win, int x, int y, int z) {
 }
 
 void compose_sv_start_resize(compose_window_t* win, size_t w, size_t h) {
-	sizes_t old_size = win->sizes;
+	if(win->flags & COMPOSE_WIN_FLAGS_IN_RESIZE) {
+		win->delayed_resize_size.w = w;
+		win->delayed_resize_size.h = h;
+		win->flags |= COMPOSE_WIN_FLAGS_HAS_DELAYED_RESIZE;
+		return;
+	}
+	
+	if(win->sizes.w == w && win->sizes.h == h) {
+		return;
+	}
 
-	win->sizes.w = w;
-	win->sizes.h = h;
+	win->flags |= COMPOSE_WIN_FLAGS_IN_RESIZE;
+
+	sizes_t old_size = win->sizes;
+	sizes_t new_size = {.w = w, .h = h};
 
 	if(win->client) {
-		sizes_t new_size = win->sizes;
-
 		compose_resize_event_t* ev = malloc(sizeof(compose_resize_event_t));
 		ev->event.type = COMPOSE_EVENT_RESIZE;
 		ev->event.size = sizeof(compose_resize_event_t);
 		ev->event.win = win->id;
 		ev->old_size = old_size;
 		ev->new_size = new_size;
-
 		compose_sv_event_send(win->client, ev);
 		free(ev);
 	}
 }
 
 void compose_sv_apply_size(compose_window_t* win) {
+	if(!(win->flags & COMPOSE_WIN_FLAGS_IN_RESIZE)) {
+		return;
+	}
+
 	munmap(win->gc.data, win->gc.old_data_size);
 	close(win->gc.buff_fd);
 
@@ -513,6 +535,16 @@ void compose_sv_apply_size(compose_window_t* win) {
 
 	win->gc.buff_fd = shm_open(win->gc.gc->buff_id.bytes, O_RDWR, 0);
 	win->gc.data = mmap(NULL, win->gc.gc->data_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.buff_fd, 0);
+
+	win->sizes.w = win->gc.gc->w;
+	win->sizes.h = win->gc.gc->h;
+
+	win->flags &= ~COMPOSE_WIN_FLAGS_IN_RESIZE;
+
+	if(win->flags & COMPOSE_WIN_FLAGS_HAS_DELAYED_RESIZE) {
+		win->flags &= ~COMPOSE_WIN_FLAGS_HAS_DELAYED_RESIZE;
+		compose_sv_start_resize(win, win->delayed_resize_size.w, win->delayed_resize_size.h);
+	}
 }
 
 compose_window_t* compose_sv_get_window(compose_server_t* srv, id_t win) {
@@ -546,15 +578,11 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	win->pos.z    	= 0;
 	win->sizes.w  	= props.w;
 	win->sizes.h  	= props.h;
-	win->sizes.b  	= props.border_width;
 	win->children 	= list_create();
 	win->flags    	= props.flags;
 	win->event_mask = props.event_mask;
 
-	uint32_t wb = props.w + 2 * props.border_width;
-	uint32_t wh = props.h + 2 * props.border_width;
-
-	size_t buffer_size = wb * wh * 4;
+	size_t buffer_size = props.w * props.h * 4;
 
 	char key[64];
 	itoa(win->id, key, 10);
@@ -563,6 +591,8 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	if(win->gc.fd >= 0) {
 		ftruncate(win->gc.fd, sizeof(compose_gc_t));
 		win->gc.gc = mmap(NULL, sizeof(compose_gc_t), PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.fd, 0);
+		win->gc.gc->w = props.w;
+		win->gc.gc->h = props.h;
 		win->gc.gc->data_size = buffer_size;
 		win->gc.old_data_size = buffer_size;
 	}
@@ -574,6 +604,7 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	if(win->gc.buff_fd >= 0) {
 		ftruncate(win->gc.buff_fd, buffer_size);
 		win->gc.data = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.buff_fd, 0);
+		memset(win->gc.data, 0, buffer_size);
 	}
 
 	list_push_back(srv->windows, win);
@@ -618,7 +649,7 @@ static void __compose_draw_window(compose_server_t* srv, compose_window_t* win, 
 		pos.x += off->x;
 		pos.y += off->y;
 	}
-	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, 32, win->gc.data);
+	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w, win->sizes.h, 32, win->gc.data);
 	off = &pos;
 	for(size_t i = 0; i < win->children->size; i++) {
 		__compose_draw_window(srv, win->children->data[i], off);
@@ -643,8 +674,8 @@ compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y) 
 		compose_sv_translate_abs(win, &sx, &sy, 0, 0);
 		if(x >= sx && 
 		   y >= sy && 
-		   x <= sx + win->sizes.w + win->sizes.b && 
-		   y <= sy + win->sizes.h + win->sizes.b) {
+		   x <= sx + win->sizes.w && 
+		   y <= sy + win->sizes.h) {
 			return win;
 		}
 	}
@@ -866,7 +897,6 @@ void compose_sv_send_props(compose_client_t* cli, compose_window_t* win) {
 	ev->props.w = win->sizes.w;
 	ev->props.h = win->sizes.h;
 	ev->props.flags = win->flags;
-	ev->props.border_width = win->sizes.b;
 	ev->props.event_mask   = win->event_mask;
 	compose_sv_event_send(cli, ev);
 	free(ev);
@@ -881,15 +911,17 @@ window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win) {
 	free(payload);
 
 	while(1) {
-		compose_event_t* ev = compose_cl_event_poll(cli);
+		compose_event_t* ev = compose_cl_event_poll(cli, 0);
 		if(ev) { 
 			window_properties_t props = {0};
 			int f = 0;
 			if(ev->type == COMPOSE_EVENT_PROPS) {
 				props = ((compose_props_event_t*) ev)->props;
 				f = 1;
+				free(ev);
+			} else {
+				compose_cl_event_raise(cli, ev);
 			}
-			free(ev);
 			if(f) {
 				return props;
 			}
@@ -899,7 +931,8 @@ window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win) {
 
 compose_cl_gc_t* compose_cl_get_gc(id_t win) {
 	compose_cl_gc_t* gc = malloc(sizeof(compose_cl_gc_t));
-	gc->win = win;
+	gc->win     = win;
+	gc->prev_fd = -1;
 
 	char key[64];
 	itoa(win, key, 10);
@@ -933,12 +966,19 @@ compose_cl_gc_t* compose_cl_get_gc(id_t win) {
 
 
 void compose_cl_release_gc(compose_cl_gc_t* ctx) {
+	if(ctx->prev_fd >= 0) {
+		close(ctx->prev_fd);
+	}
 	munmap(ctx->fb.mem, ctx->fb.info.memsz);
 	munmap(ctx, sizeof(compose_gc_t));
 	free(ctx);
 }
 
 void compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size) {
+	if(ctx->prev_fd >= 0) {
+		close(ctx->prev_fd);
+	}
+
 	ctx->gc->w = new_size.w;
 	ctx->gc->h = new_size.h;
 	ctx->gc->data_size = new_size.w * new_size.h * 4;
@@ -948,6 +988,7 @@ void compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size) {
 	if(fd < 0) {
 		return;
 	}
+	ctx->prev_fd = fd;
 	ftruncate(fd, ctx->gc->data_size);
 
 	munmap(ctx->fb.mem, ctx->fb.info.memsz);
@@ -957,6 +998,7 @@ void compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size) {
 	ctx->fb.info.memsz = ctx->gc->data_size;
 
 	ctx->fb.mem = mmap(NULL, ctx->gc->data_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	memset(ctx->fb.mem, 0, ctx->gc->data_size);
 }
 
 static FILE* rand = NULL;
@@ -973,8 +1015,6 @@ compose_uuid compose_generate_uuid(int discriminator) {
 	uint32_t     rnd[2];
 	fread(rnd, 1, 8, rand);
 	snprintf(result.bytes, 35, "%.8lx-%.8x-%.8x%.8x", t, discriminator, rnd[0], rnd[1]);
-
-	printf("%s\n", result.bytes);
 
 	return result;
 }

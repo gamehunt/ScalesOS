@@ -13,12 +13,19 @@ uint32_t __k_dev_random_get_value_fallback() {
 
 extern uint32_t __k_dev_random_get_value();
 
+static uint32_t __k_dev_random_32bit() {
+	uint32_t a = __k_dev_random_get_value();
+	uint32_t b = __k_dev_random_get_value();
+
+	return (a << 16) | (b & 0xFFFF);
+}
+
 static uint32_t __k_dev_random_read(fs_node_t* node UNUSED, uint32_t offset UNUSED, uint32_t size, uint8_t* buffer) {
 	uint32_t full_bytes = size / 4;
 	uint8_t  part_bytes = size % 4;
 
 	for(uint32_t i = 0; i < full_bytes; i++) {
-		*((uint32_t*) buffer) = (__k_dev_random_get_value() << 16) | __k_dev_random_get_value();
+		*((uint32_t*) buffer) = __k_dev_random_32bit();
 		buffer += 4;
 	}
 

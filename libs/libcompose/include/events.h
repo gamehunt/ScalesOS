@@ -82,8 +82,9 @@ typedef struct {
 } compose_props_event_t;
 
 void             compose_cl_event_send(compose_client_t* client, id_t id, compose_event_t* event);
+void             compose_cl_event_raise(compose_client_t* client, compose_event_t* ev);
 void             compose_cl_event_send_to_all(compose_client_t* client, compose_event_t* event);
-compose_event_t* compose_cl_event_poll(compose_client_t* client);
+compose_event_t* compose_cl_event_poll(compose_client_t* client, int raised);
 void             compose_cl_event_mask(event_mask_t mask);
 
 void             compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, compose_event_t* event);

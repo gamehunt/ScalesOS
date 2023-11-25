@@ -34,12 +34,12 @@ int main(int argc, char** argv) {
 	window_properties_t win_props  = {0};
 
 	while(1) {
-		compose_event_t* ev = compose_cl_event_poll(client);
+		compose_event_t* ev = compose_cl_event_poll(client, 1);
 		if(ev) {
 			switch(ev->type) {
 				case COMPOSE_EVENT_WIN:
 					compose_cl_move(client, ev->child, 0, 0);
-					compose_cl_resize(client, ev->child, 1270, 790);
+					compose_cl_resize(client, ev->child, root_props.w, root_props.h);
 					break;
 				case COMPOSE_EVENT_KEY:
 					if(((compose_key_event_t*) ev)->packet.scancode == KEY_LEFTMETA) {
@@ -69,8 +69,10 @@ int main(int argc, char** argv) {
 					break;
 				case COMPOSE_EVENT_MOUSE:
 					if(mov) {
-						win_props.x += ((compose_mouse_event_t*) ev)->packet.dx;
-						win_props.y -= ((compose_mouse_event_t*) ev)->packet.dy;
+						int dx = ((compose_mouse_event_t*) ev)->packet.dx;
+						int dy = ((compose_mouse_event_t*) ev)->packet.dy;
+						win_props.x += dx;
+						win_props.y -= dy;
 						if(win_props.x >= root_props.w) {
 							win_props.x = root_props.w;
 						} else if(win_props.x < 0) {
@@ -85,12 +87,12 @@ int main(int argc, char** argv) {
 					} else if(res) {
 						win_props.w += ((compose_mouse_event_t*) ev)->packet.dx;
 						win_props.h -= ((compose_mouse_event_t*) ev)->packet.dy;
-						if(win_props.w >= root_props.w) {
+						if(win_props.w >= root_props.w - win_props.x) {
 							win_props.w = root_props.w;
 						} else if(win_props.w < 10) {
 							win_props.w = 10;
 						}
-						if(win_props.h >= root_props.h) {
+						if(win_props.h >= root_props.h - win_props.y) {
 							win_props.h = root_props.h;
 						} else if(win_props.h < 10) {
 							win_props.h = 10;
