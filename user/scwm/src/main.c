@@ -46,8 +46,16 @@ int main(int argc, char** argv) {
 					if(((compose_key_event_t*) ev)->packet.scancode == KEY_LEFTMETA) {
 						mod = !(((compose_key_event_t*) ev)->packet.flags & KBD_EVENT_FLAG_UP);
 						if(!mod) {
-							mov = 0;
+							window_properties_t old_props = win_props;
+							int wr = res;
 							res = 0;
+							mov = 0;
+							if(wr) {
+								fb_blend_mode(&overlay_gc->fb, FB_NO_BLEND);
+								fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
+								fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
+								compose_cl_resize(client, wr, old_props.w, old_props.h);
+							}
 						}
 						compose_cl_focus(client, client->root);
 					}
