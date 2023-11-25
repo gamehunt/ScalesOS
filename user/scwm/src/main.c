@@ -20,7 +20,8 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	compose_cl_gc_t* root_gc = compose_cl_get_gc(client->root);
+	compose_cl_gc_t* root_gc    = compose_cl_get_gc(client->root);
+	compose_cl_gc_t* overlay_gc = compose_cl_get_gc(client->overlay);
 
 	fb_fill(&root_gc->fb, 0xFF000000);
 	compose_cl_grab(client, client->root, COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_MOUSE | COMPOSE_EVENT_WIN);
@@ -31,7 +32,7 @@ int main(int argc, char** argv) {
 	int res = 0;
 
 	window_properties_t root_props = compose_cl_get_properties(client, client->root);
-	window_properties_t win_props  = {0};
+	window_properties_t win_props       = {0};
 
 	while(1) {
 		compose_event_t* ev = compose_cl_event_poll(client, 1);
@@ -53,16 +54,30 @@ int main(int argc, char** argv) {
 					break;
 				case COMPOSE_EVENT_BUTTON:
 					if(mod && ev->child) {
+						window_properties_t old_props = win_props;
 						win_props = compose_cl_get_properties(client, ev->child);
+						int wr = res;
 						if(((compose_mouse_event_t*) ev)->packet.buttons & MOUSE_BUTTON_LEFT) {
 							mov = ev->child;
 							res = 0;
+							if(wr) {
+								fb_blend_mode(&overlay_gc->fb, FB_NO_BLEND);
+								fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
+								fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
+						 		compose_cl_resize(client, wr, old_props.w, old_props.h);
+							}
 						} else {
 							mov = 0;
 							if(((compose_mouse_event_t*) ev)->packet.buttons & MOUSE_BUTTON_RIGHT) {
 								res = ev->child;
 							} else {
 								res = 0;
+								if(wr) {
+									fb_blend_mode(&overlay_gc->fb, FB_NO_BLEND);
+									fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
+									fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
+						 			compose_cl_resize(client, wr, old_props.w, old_props.h);
+								}
 							}
 						}
 					}
@@ -85,19 +100,26 @@ int main(int argc, char** argv) {
 						}
 						compose_cl_move(client, mov, win_props.x, win_props.y);
 					} else if(res) {
+						window_properties_t prev = win_props;
+
 						win_props.w += ((compose_mouse_event_t*) ev)->packet.dx;
 						win_props.h -= ((compose_mouse_event_t*) ev)->packet.dy;
-						if(win_props.w >= root_props.w - win_props.x) {
+						if(win_props.w >= root_props.w) {
 							win_props.w = root_props.w;
 						} else if(win_props.w < 10) {
 							win_props.w = 10;
 						}
-						if(win_props.h >= root_props.h - win_props.y) {
+						if(win_props.h >= root_props.h) {
 							win_props.h = root_props.h;
 						} else if(win_props.h < 10) {
 							win_props.h = 10;
 						}
-						compose_cl_resize(client, res, win_props.w, win_props.h);
+						// compose_cl_resize(client, res, win_props.w, win_props.h);
+						fb_blend_mode(&overlay_gc->fb, FB_NO_BLEND);
+						fb_rect(&overlay_gc->fb, prev.x, prev.y, prev.w, prev.h, 0x00000000);
+						fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
+						fb_rect(&overlay_gc->fb, win_props.x, win_props.y, win_props.w, win_props.h, 0xFF0000FF);
+						compose_cl_flush(client, client->overlay);
 					}
 					break;
 			}

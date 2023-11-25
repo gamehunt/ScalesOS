@@ -72,7 +72,9 @@ compose_client_t* compose_cl_connect(const char* sock) {
 		id_t win = ev->win;
 		free(ev);
 		if(type == COMPOSE_EVENT_CNN) {
-			cli->root = ev->root;
+			compose_connect_event_t* cnn = (compose_connect_event_t*) ev;
+			cli->root    = ev->root;
+			cli->overlay = cnn->overlay;
 			return cli;
 		}
 	}
@@ -112,7 +114,8 @@ compose_server_t* compose_sv_create(const char* sock) {
 	props.w = srv->framebuffer.info.w;
 	props.h = srv->framebuffer.info.h;
 
-	srv->root = compose_sv_create_window(srv, NULL, NULL, props);
+	srv->root    = compose_sv_create_window(srv, NULL, NULL, props);
+	srv->overlay = compose_sv_create_window(srv, NULL, NULL, props);
 
 	srv->devices[0] = open("/dev/kbd", O_RDONLY | O_NOBLOCK);
 	srv->devices[1] = open("/dev/mouse", O_RDONLY | O_NOBLOCK);
@@ -299,10 +302,11 @@ void compose_sv_tick(compose_server_t* srv) {
 			if(!cli) {
 				continue;
 			}
-			compose_event_t event;
-			event.type = COMPOSE_EVENT_CNN;
-			event.size = sizeof(compose_event_t);
-			event.root = srv->root->id;
+			compose_connect_event_t event;
+			event.event.type = COMPOSE_EVENT_CNN;
+			event.event.size = sizeof(compose_connect_event_t);
+			event.event.root = srv->root->id;
+			event.overlay = srv->overlay->id;
 			compose_sv_event_send(cli, &event);
 		}
 	}
@@ -660,6 +664,7 @@ void compose_sv_redraw(compose_server_t* srv) {
 	compose_sv_restack(srv->root->children);
 	fb_fill(&srv->framebuffer, 0xFF000000);	
 	__compose_draw_window(srv, srv->root, NULL);
+	__compose_draw_window(srv, srv->overlay, NULL);
 	__compose_draw_mouse(srv);
 	fb_flush(&srv->framebuffer);
 }
@@ -670,6 +675,9 @@ compose_window_t* compose_sv_get_window_at(compose_server_t* srv, int x, int y) 
 	}
 	for(int32_t i = srv->windows->size - 1; i >= 0; i--) {
 		compose_window_t* win = srv->windows->data[i];
+		if(win == srv->overlay) {
+			continue;
+		}
 		int sx, sy;
 		compose_sv_translate_abs(win, &sx, &sy, 0, 0);
 		if(x >= sx && 

@@ -91,6 +91,7 @@ int fb_open(const char* path, fb_t* buf, int flag) {
 
 	buf->mem = (void*) r;
 	buf->flags = FB_IFLAG_MMAPED;
+	buf->blend = FB_BLEND_DEFAULT;
 
 	fb_init_colors();
 
@@ -107,6 +108,7 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag)
 	buf->info.h   = h;
 	buf->info.bpp = size / w / h;
 	buf->info.memsz = size;
+	buf->blend = FB_BLEND_DEFAULT;
 
 	if(flag & FB_FLAG_DOUBLEBUFFER) {
 		buf->backbuffer = malloc(buf->info.memsz);
@@ -193,19 +195,23 @@ void fb_pixel(fb_t* fb, coord_t x0, coord_t y0, color_t color) {
 		return;
 	}
 
-	uint32_t alpha = ALPHA(color);
-
-	if(!alpha) {
-		return;
-	}
-
 	uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
 
-	if(alpha == 0xFF) {
+	if(fb->blend == FB_BLEND_DEFAULT) {
+		uint32_t alpha = ALPHA(color);
+
+		if(!alpha) {
+			return;
+		}
+
+		if(alpha == 0xFF) {
+			buf[y0 * fb->info.w + x0] = color;
+		} else {
+			color_t old_color = buf[y0 * fb->info.w + x0];
+			buf[y0 * fb->info.w + x0] = fb_blend(color, old_color);
+		}
+	} else if (fb->blend == FB_NO_BLEND) {
 		buf[y0 * fb->info.w + x0] = color;
-	} else {
-		color_t old_color = buf[y0 * fb->info.w + x0];
-		buf[y0 * fb->info.w + x0] = fb_blend(color, old_color);
 	}
 }
 
@@ -273,14 +279,18 @@ void fb_filled_ellipse(fb_t* fb, coord_t x0, coord_t y0, size_t a, size_t b, col
 }
 
 void fb_fill(fb_t* fb, color_t color) {
-	color_t alpha = ALPHA(color);
-	if(!alpha) {
-		return;
-	}
-	if(alpha != 0xFF) {
-		fb_filled_rect(fb, 0, 0, fb->info.w, fb->info.h, color, color);
-	} else {
-		uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
+	uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
+	if(fb->blend == FB_BLEND_DEFAULT) {
+		color_t alpha = ALPHA(color);
+		if(!alpha) {
+			return;
+		}
+		if(alpha != 0xFF) {
+			fb_filled_rect(fb, 0, 0, fb->info.w, fb->info.h, color, color);
+		} else {
+			memset32(buf, color, fb->info.memsz / 4);
+		}
+	} else if(fb->blend == FB_NO_BLEND) {
 		memset32(buf, color, fb->info.memsz / 4);
 	}
 }
@@ -384,3 +394,6 @@ short fb_is_clipped(fb_t* fb, coord_t x0, coord_t y0) {
 	return 0;
 }
 
+void fb_blend_mode(fb_t* fb, int mode) {
+	fb->blend = mode;
+}

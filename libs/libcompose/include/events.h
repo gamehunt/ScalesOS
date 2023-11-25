@@ -38,6 +38,11 @@ typedef struct {
 } compose_event_t;
 
 typedef struct {
+	compose_event_t event;
+	id_t overlay;
+} compose_connect_event_t;
+
+typedef struct {
 	compose_event_t   event;
 	keyboard_packet_t packet;
 	char              translated;

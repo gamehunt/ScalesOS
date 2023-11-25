@@ -36,6 +36,7 @@ typedef struct {
 typedef struct {
 	id_t       id;
 	id_t       root;
+	id_t       overlay;
 	pid_t      pid;
 	int        socket;
 } compose_client_t;
@@ -93,6 +94,7 @@ typedef struct {
 	fb_t 	   		  framebuffer;
 	int  	   		  devices[COMPOSE_DEVICE_AMOUNT];
 	compose_window_t* root;
+	compose_window_t* overlay;
 	list_t*    		  clients;
 	list_t*           remove_queue;
 	list_t*           windows;

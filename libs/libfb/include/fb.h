@@ -37,6 +37,7 @@ typedef struct {
 	fb_info_t info;
 	clip_t*   clips;
 	int       flags;
+	int       blend;
 } fb_t;
 
 #define ALPHA(color) (color >> 24)
@@ -47,6 +48,9 @@ typedef struct {
 #define FB_FLAG_DOUBLEBUFFER (1 << 0)
 
 #define FB_IFLAG_MMAPED      (1 << 0)
+
+#define FB_BLEND_DEFAULT 0
+#define FB_NO_BLEND      1
 
 color_t fb_color(char r, char g, char b, char a);
 double  fb_brightness(color_t);
@@ -72,5 +76,6 @@ void    fb_bitmap(fb_t* fb, coord_t x, coord_t y, size_t w, size_t h, uint8_t bp
 void    fb_clip(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h);
 void    fb_unclip(fb_t* fb);
 short   fb_is_clipped(fb_t* fb, coord_t x0, coord_t y0);
+void    fb_blend_mode(fb_t* fb, int mode);
 
 #endif
