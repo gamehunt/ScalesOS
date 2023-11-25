@@ -1,5 +1,3 @@
-#define __MODULE
-
 #include <kernel/fs/vfs.h>
 #include <kernel/mod/modules.h>
 #include <kernel/kernel.h>

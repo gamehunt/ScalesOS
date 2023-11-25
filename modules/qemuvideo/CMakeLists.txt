@@ -4,6 +4,10 @@ project(Scales-QEMU-Video-Module VERSION 1.0.0)
 
 enable_language(C ASM_NASM)
 
+add_definitions(
+	-D__MODULE
+)
+
 set(CMAKE_C_FLAGS "-ffreestanding -O0 -Wall -Wextra")
 set(CMAKE_C_STANDARD 11)
 
