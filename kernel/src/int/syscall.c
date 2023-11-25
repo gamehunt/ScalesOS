@@ -324,6 +324,10 @@ static uint32_t sys_yield() {
 }
 
 static uint32_t sys_insmod(void* buffer, uint32_t size) {
+	if(!IS_VALID_PTR((vaddr_t) buffer)) {
+		return -EINVAL;
+	}
+
 	k_info("Loading module from 0x%x...", buffer);
 
 	void* kernel_buffer = (void*) k_malloc(size);

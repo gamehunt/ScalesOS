@@ -1,3 +1,5 @@
+#define __MODULE
+
 #include "dirent.h"
 #include <kernel/fs/vfs.h>
 #include <kernel/mod/modules.h>

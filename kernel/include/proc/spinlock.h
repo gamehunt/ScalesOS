@@ -3,7 +3,7 @@
 
 typedef volatile int spinlock_t;
 
-#if defined(__KERNEL) || defined(__LIBK)
+#if defined(__KERNEL) || defined(__LIBK) || defined(__MODULE)
 
 #define YIELD()
 

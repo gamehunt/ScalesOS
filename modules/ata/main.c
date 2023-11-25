@@ -1,3 +1,5 @@
+#define __MODULE
+
 #include <kernel/proc/mutex.h>
 #include <kernel/mod/modules.h>
 #include <kernel/proc/process.h>

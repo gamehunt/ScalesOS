@@ -1,3 +1,5 @@
+#define __MODULE
+
 #include "dev/pci.h"
 #include "mem/memory.h"
 #include "proc/spinlock.h"
