@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
 							window_properties_t old_props = win_props;
 							int wr = res;
 							res = 0;
-							mov = 0;
+							mov = 0; 
 							if(wr) {
 								fb_blend_mode(&overlay_gc->fb, FB_NO_BLEND);
 								fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
