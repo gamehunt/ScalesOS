@@ -135,7 +135,7 @@ void                compose_cl_release_gc(compose_cl_gc_t* ctx);
 void                compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size);
 void                compose_cl_flush(compose_client_t* cli, id_t win);
 
-void              compose_sv_move(compose_window_t* win, int x, int y, int z);
+void              compose_sv_move(compose_window_t* win, int x, int y, int z, uint8_t mask);
 void              compose_sv_start_resize(compose_window_t* win, size_t w, size_t h);
 void              compose_sv_apply_size(compose_window_t* win);
 compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client_t* client, compose_window_t* par, window_properties_t props);

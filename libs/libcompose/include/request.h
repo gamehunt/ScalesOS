@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
 	compose_request_t req;
 	id_t win;
+	uint8_t flags;
 	int x;
 	int y;
 	int z;

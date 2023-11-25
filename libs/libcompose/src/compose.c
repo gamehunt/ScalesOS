@@ -24,8 +24,6 @@ static compose_window_t* input_focus  = NULL;
 static uint8_t           kbd_mods     = 0;
 
 static void __compose_update_mouse(compose_server_t* srv, int dx, int dy) {
-	position_t old = mouse_pos;
-
 	mouse_pos.x += dx;
 	mouse_pos.y -= dy;
 
@@ -208,20 +206,28 @@ static void __compose_handle_key(compose_server_t* srv, keyboard_packet_t* packe
 }
 
 static void __compose_handle_mouse(compose_server_t* srv, mouse_packet_t* packet) {
+	position_t old = mouse_pos;
 	__compose_update_mouse(srv, packet->dx, packet->dy);
+	int real_dx = mouse_pos.x - old.x;
+	int real_dy = old.y - mouse_pos.y;
 	compose_mouse_event_t* event = malloc(sizeof(compose_mouse_event_t));
-	event->event.type = COMPOSE_EVENT_MOUSE;
 	event->event.size = sizeof(compose_mouse_event_t);
 	compose_window_t* win = compose_sv_get_window_at(srv, mouse_pos.x, mouse_pos.y);
 	event->event.win  = win->id;
 	event->event.root = srv->root->id;
+	packet->dx = real_dx;
+	packet->dy = real_dy;
 	memcpy(&((compose_mouse_event_t*)event)->packet, packet, sizeof(mouse_packet_t));	
 	((compose_mouse_event_t*)event)->abs_x = mouse_pos.x;
 	((compose_mouse_event_t*)event)->abs_y = mouse_pos.y;
 	compose_sv_translate_local(win, mouse_pos.x, mouse_pos.y, 
 			&((compose_mouse_event_t*)event)->x,
 			&((compose_mouse_event_t*)event)->y);
-	compose_sv_event_propagate(srv, win, event);
+	
+	if(real_dx || real_dy) {
+		event->event.type = COMPOSE_EVENT_MOUSE;
+		compose_sv_event_propagate(srv, win, event);
+	}
 
 	if(((mouse_packet_t*)packet)->buttons != last_buttons) {
 		event->event.type = COMPOSE_EVENT_BUTTON;
@@ -376,6 +382,7 @@ int compose_cl_move(compose_client_t* cli, id_t win, int x, int y) {
 	payload->req.type = COMPOSE_REQ_MOVE;
 	payload->req.size = sizeof(compose_move_req_t);
 	payload->win = win;
+	payload->flags = 0b011;
 	payload->x = x;
 	payload->y = y;
 	payload->z = -1;
@@ -389,8 +396,9 @@ int compose_cl_layer(compose_client_t* cli, id_t win, int z) {
 	payload->req.type = COMPOSE_REQ_MOVE;
 	payload->req.size = sizeof(compose_move_req_t);
 	payload->win = win;
-	payload->x = -1;
-	payload->y = -1;
+	payload->flags = 0b100;
+	payload->x = 0;
+	payload->y = 0;
 	payload->z = z;
 	int r = compose_cl_send_request(cli, payload);
 	free(payload);
@@ -457,26 +465,20 @@ int compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask) {
 	return r;
 }
 
-void compose_sv_move(compose_window_t* win, int x, int y, int z) {
+void compose_sv_move(compose_window_t* win, int x, int y, int z, uint8_t mask) {
 	position_t old_pos = win->pos;
 
 	if(old_pos.x == x && old_pos.y == y && old_pos.z == z) {
 		return;
 	} 
 
-	if(old_pos.x < 0 && old_pos.y < 0 && old_pos.z < 0) {
-		return;
-	}
-
-	if(x >= 0) {
+	if(mask & 1) {
 		win->pos.x = x;
 	}
-
-	if(y >= 0) {
+	if(mask & (1 << 1)) {
 		win->pos.y = y;
 	}
-
-	if(z >= 0) {
+	if(mask & (1 << 2)) {
 		win->pos.z = z;
 		if(win->parent) {
 			compose_sv_restack(win->parent->children);
@@ -716,7 +718,7 @@ void compose_sv_raise(compose_window_t* win) {
 
 	int highest = top->pos.z;
 
-	compose_sv_move(win, -1, -1, highest + 1);
+	compose_sv_move(win, win->pos.x, win->pos.y, highest + 1, 0b100);
 }
 
 void compose_sv_sunk(compose_window_t* win) {
@@ -727,11 +729,8 @@ void compose_sv_sunk(compose_window_t* win) {
 	list_t* siblings = win->parent->children;
 
 	int lowest = ((compose_window_t*) list_head(siblings))->pos.z;
-	if(lowest < 0) {
-		lowest = 0;
-	}
 
-	compose_sv_move(win, -1, -1, lowest - 1);
+	compose_sv_move(win, win->pos.x, win->pos.y, lowest - 1, 0b100);
 }
 
 void compose_sv_translate_local(compose_window_t* win, int sx, int sy, int* x, int* y) {

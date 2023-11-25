@@ -91,7 +91,9 @@ int main(int argc, char** argv) {
 
 	if(jpeg) {
 		compose_cl_gc_t* ctx = compose_cl_get_gc(client->root);
-		fb_bitmap(&ctx->fb, 0, 0, jpeg->w, jpeg->h, 32, jpeg->data);
+		coord_t x = 0;
+		coord_t y = 0;
+		fb_bitmap(&ctx->fb, x, y, jpeg->w, jpeg->h, 32, jpeg->data);
 		compose_cl_flush(client, client->root);
 		jpeg_close(jpeg);
 	}

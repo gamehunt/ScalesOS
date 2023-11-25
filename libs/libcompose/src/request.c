@@ -21,7 +21,10 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			if(!win) {
 				break;
 			}
-			compose_sv_move(win, ((compose_move_req_t*)req)->x, ((compose_move_req_t*)req)->y, ((compose_move_req_t*)req)->z);
+			compose_sv_move(win, ((compose_move_req_t*)req)->x, 
+					((compose_move_req_t*)req)->y, 
+					((compose_move_req_t*)req)->z,
+					((compose_move_req_t*)req)->flags);
 			break;
 		case COMPOSE_REQ_RESIZE:
 			win = compose_sv_get_window(srv, ((compose_resize_req_t*)req)->win);

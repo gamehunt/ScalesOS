@@ -325,8 +325,10 @@ void fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font,
 }
 
 void fb_bitmap(fb_t* fb, coord_t x0, coord_t y0, size_t w, size_t h, uint8_t bpp, void* bitmap) {
-	for(coord_t y = y0; y < y0 + h; y++) {
-		for(coord_t x = x0; x < x0 + w; x++) {
+	coord_t y1 = y0 + h;
+	coord_t x1 = x0 + w;
+	for(coord_t y = y0; y < y1; y++) {
+		for(coord_t x = x0; x < x1; x++) {
 			color_t col;
 			uint32_t index = (y - y0) * w + x - x0;
 			switch(bpp) {

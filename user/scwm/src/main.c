@@ -31,6 +31,9 @@ int main(int argc, char** argv) {
 	int mov = 0;
 	int res = 0;
 
+	int xres_dir = 0;
+	int yres_dir = 0;
+
 	window_properties_t root_props = compose_cl_get_properties(client, client->root);
 	window_properties_t win_props       = {0};
 
@@ -55,6 +58,7 @@ int main(int argc, char** argv) {
 								fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
 								fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
 								compose_cl_resize(client, wr, old_props.w, old_props.h);
+								compose_cl_move(client, wr, old_props.x, old_props.y);
 							}
 						}
 						compose_cl_focus(client, client->root);
@@ -73,11 +77,26 @@ int main(int argc, char** argv) {
 								fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
 								fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
 						 		compose_cl_resize(client, wr, old_props.w, old_props.h);
+								compose_cl_move(client, wr, old_props.x, old_props.y);
 							}
 						} else {
 							mov = 0;
 							if(((compose_mouse_event_t*) ev)->packet.buttons & MOUSE_BUTTON_RIGHT) {
 								res = ev->child;
+								int posx = ((compose_mouse_event_t*) ev)->x;
+								int posy = ((compose_mouse_event_t*) ev)->y;
+
+								if(posx > win_props.w / 2) {
+									xres_dir = 1;
+								} else {
+									xres_dir = 0;
+								}
+
+								if(posy > win_props.h / 2) {
+									yres_dir = 1;
+								} else {
+									yres_dir = 0;
+								}
 							} else {
 								res = 0;
 								if(wr) {
@@ -85,6 +104,7 @@ int main(int argc, char** argv) {
 									fb_rect(&overlay_gc->fb, old_props.x, old_props.y, old_props.w, old_props.h, 0x00000000);
 									fb_blend_mode(&overlay_gc->fb, FB_BLEND_DEFAULT);
 						 			compose_cl_resize(client, wr, old_props.w, old_props.h);
+									compose_cl_move(client, wr, old_props.x, old_props.y);
 								}
 							}
 						}
@@ -94,32 +114,33 @@ int main(int argc, char** argv) {
 					if(mov) {
 						int dx = ((compose_mouse_event_t*) ev)->packet.dx;
 						int dy = ((compose_mouse_event_t*) ev)->packet.dy;
+
 						win_props.x += dx;
 						win_props.y -= dy;
-						if(win_props.x >= root_props.w) {
-							win_props.x = root_props.w;
-						} else if(win_props.x < 0) {
-							win_props.x = 0;
-						}
-						if(win_props.y >= root_props.h) {
-							win_props.y = root_props.h;
-						} else if(win_props.y < 0) {
-							win_props.y = 0;
-						}
+							
 						compose_cl_move(client, mov, win_props.x, win_props.y);
 					} else if(res) {
 						window_properties_t prev = win_props;
 
-						win_props.w += ((compose_mouse_event_t*) ev)->packet.dx;
-						win_props.h -= ((compose_mouse_event_t*) ev)->packet.dy;
-						if(win_props.w >= root_props.w) {
-							win_props.w = root_props.w;
-						} else if(win_props.w < 10) {
+						if(xres_dir) {
+							win_props.w += ((compose_mouse_event_t*) ev)->packet.dx;
+						} else {
+							win_props.w -= ((compose_mouse_event_t*) ev)->packet.dx;
+							win_props.x += ((compose_mouse_event_t*) ev)->packet.dx;
+						}
+
+						if(yres_dir) {
+							win_props.h -= ((compose_mouse_event_t*) ev)->packet.dy;
+						} else {
+							win_props.h += ((compose_mouse_event_t*) ev)->packet.dy;
+							win_props.y -= ((compose_mouse_event_t*) ev)->packet.dy;
+						}
+
+						if(win_props.w < 10) {
 							win_props.w = 10;
 						}
-						if(win_props.h >= root_props.h) {
-							win_props.h = root_props.h;
-						} else if(win_props.h < 10) {
+
+						if(win_props.h < 10) {
 							win_props.h = 10;
 						}
 						// compose_cl_resize(client, res, win_props.w, win_props.h);
