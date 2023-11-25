@@ -1,6 +1,5 @@
 #include "input.h"
 #include "compose/events.h"
-#include "compose/render.h"
 #include "input/mouse.h"
 #include "widget.h"
 
@@ -31,23 +30,23 @@ void input_release(widget* input) {
 
 void input_draw(widget* inp) {
 	input* b = inp->data;
-	compose_cl_fill(inp->client, inp->win, 0xFFFFFFFF);
+	fb_fill(&inp->ctx->fb, 0xFFFFFFFF);
 	if(b->flags & INPUT_FLAG_FOCUSED) {
-		compose_cl_line(inp->client, inp->win, 5 + 8 * b->cursor_pos, 5, 5 + 8 * b->cursor_pos, inp->props.size.h - 5, 0xFF000000);
+		fb_line(&inp->ctx->fb, 5 + 8 * b->cursor_pos, 5, 5 + 8 * b->cursor_pos, inp->props.size.h - 5, 0xFF000000);
 	}
 	if(b->buffer_size) {
 		if(b->type == INPUT_TYPE_DEFAULT) {
-			compose_cl_string(inp->client, inp->win, 5, 5, 0x00, 0xFF000000, b->buffer);
+			fb_string(&inp->ctx->fb,  5, 5, b->buffer, NULL, 0x00, 0xFF000000);
 		} else {
 			char buff[MAX_INPUT_SIZE + 1];
 			for(int i = 0 ; i < b->buffer_size; i++) {
 				buff[i] = '*';
 			}
 			buff[b->buffer_size] = '\0';
-			compose_cl_string(inp->client, inp->win, 5, 5, 0x00, 0xFF000000, buff);
+			fb_string(&inp->ctx->fb, 5, 5, buff, NULL, 0x00, 0xFF000000);
 		}
 	} else if(!(b->flags & INPUT_FLAG_FOCUSED)){
-		compose_cl_string(inp->client, inp->win, 5, 5, 0x00, 0xFF999999, b->placeholder);
+		fb_string(&inp->ctx->fb, 5, 5, b->placeholder, NULL, 0x00, 0xFF999999);
 	}
 }
 

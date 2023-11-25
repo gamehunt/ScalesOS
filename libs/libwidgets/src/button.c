@@ -4,7 +4,6 @@
 
 #include "compose/compose.h"
 #include "compose/events.h"
-#include "compose/render.h"
 
 #include <stdlib.h>
 
@@ -33,12 +32,12 @@ void button_release(widget* button) {
 void button_draw(widget* buttn) {
 	button* b = buttn->data;
 	if(b->flags & BUTTON_FLAG_CLICKED) {
-		compose_cl_fill(buttn->client, buttn->win, 0xFF00FF00);
+		fb_fill(&buttn->ctx->fb, 0xFF00FF00);
 	} else {
-		compose_cl_fill(buttn->client, buttn->win, 0xFF0000FF);
+		fb_fill(&buttn->ctx->fb, 0xFF0000FF);
 	}
 
-	compose_cl_string(buttn->client, buttn->win, 5, 5, 0x00, 0xFF000000, b->label);
+	fb_string(&buttn->ctx->fb, 5, 5, b->label, NULL, 0x00, 0xFF000000);
 }
 
 void button_process_events(widget* buttn, compose_event_t* ev) {

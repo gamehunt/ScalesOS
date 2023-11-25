@@ -90,8 +90,9 @@ int main(int argc, char** argv) {
 	jpeg_t* jpeg = jpeg_open("/res/background.jpg");
 
 	if(jpeg) {
-		compose_bitmap* bmap = compose_create_bitmap(jpeg->w, jpeg->h, 32, "__lockscreen_bg", jpeg->data);
-		compose_cl_bitmap(client, client->root, 0, 0, bmap);
+		compose_cl_gc_t* ctx = compose_cl_get_gc(client->root);
+		fb_bitmap(&ctx->fb, 0, 0, jpeg->w, jpeg->h, 32, jpeg->data);
+		compose_cl_flush(client, client->root);
 		jpeg_close(jpeg);
 	}
 

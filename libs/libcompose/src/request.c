@@ -1,7 +1,6 @@
 #include "request.h"
 #include "compose.h"
 #include "events.h"
-#include "render.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -29,14 +28,11 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			if(!win) {
 				break;
 			}
-			compose_sv_resize(win, ((compose_resize_req_t*)req)->w, ((compose_resize_req_t*)req)->h);
-			break;
-		case COMPOSE_REQ_DRAW:
-			win = compose_sv_get_window(srv, ((compose_draw_req_t*)req)->win);
-			if(!win) {
-				break;
+			if(((compose_resize_req_t*) req)->stage == COMPOSE_RESIZE_STAGE_INITIAL) {
+				compose_sv_start_resize(win, ((compose_resize_req_t*)req)->w, ((compose_resize_req_t*)req)->h);
+			} else {
+				compose_sv_apply_size(win);
 			}
-			compose_sv_draw(win, ((compose_draw_req_t*)req)->op, ((compose_draw_req_t*)req)->params);
 			break;
 		case COMPOSE_REQ_EVENT:
 			if(!((compose_event_req_t*)req)->target) {

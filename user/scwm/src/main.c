@@ -20,7 +20,9 @@ int main(int argc, char** argv) {
 		return -1;
 	}
 
-	compose_cl_fill(client, client->root, 0xFF000000);
+	compose_cl_gc_t* root_gc = compose_cl_get_gc(client->root);
+
+	fb_fill(&root_gc->fb, 0xFF000000);
 	compose_cl_grab(client, client->root, COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_MOUSE | COMPOSE_EVENT_WIN);
 
 	int mod = 0;

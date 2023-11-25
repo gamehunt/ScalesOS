@@ -13,6 +13,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "kernel/dev/ps2.h"
@@ -392,10 +393,22 @@ int compose_cl_layer(compose_client_t* cli, id_t win, int z) {
 	return r;
 }
 
+int compose_cl_confirm_resize(compose_client_t* cli, id_t win) {
+	compose_resize_req_t* payload = malloc(sizeof(compose_resize_req_t));
+	payload->req.type = COMPOSE_REQ_RESIZE;
+	payload->req.size = sizeof(compose_resize_req_t);
+	payload->stage    = COMPOSE_RESIZE_STAGE_FINAL;
+	payload->win      = win;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}
+
 int compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h) {
 	compose_resize_req_t* payload = malloc(sizeof(compose_resize_req_t));
 	payload->req.type = COMPOSE_REQ_RESIZE;
 	payload->req.size = sizeof(compose_resize_req_t);
+	payload->stage = COMPOSE_RESIZE_STAGE_INITIAL;
 	payload->win = win;
 	payload->w = w;
 	payload->h = h;
@@ -471,21 +484,11 @@ void compose_sv_move(compose_window_t* win, int x, int y, int z) {
 	}
 }
 
-void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
+void compose_sv_start_resize(compose_window_t* win, size_t w, size_t h) {
 	sizes_t old_size = win->sizes;
 
 	win->sizes.w = w;
 	win->sizes.h = h;
-
-	uint32_t wb = w + 2 * win->sizes.b;
-	uint32_t hb = h + 2 * win->sizes.b;
-	size_t   bufsz = wb * hb * 4;
-	
-	win->ctx.info.memsz = bufsz;
-	win->ctx.info.w = wb;
-	win->ctx.info.h = hb;
-
-	ftruncate(win->ctx_buff_map, bufsz);
 
 	if(win->client) {
 		sizes_t new_size = win->sizes;
@@ -500,6 +503,16 @@ void compose_sv_resize(compose_window_t* win, size_t w, size_t h) {
 		compose_sv_event_send(win->client, ev);
 		free(ev);
 	}
+}
+
+void compose_sv_apply_size(compose_window_t* win) {
+	munmap(win->gc.data, win->gc.old_data_size);
+	close(win->gc.buff_fd);
+
+	win->gc.old_data_size = win->gc.gc->data_size;
+
+	win->gc.buff_fd = shm_open(win->gc.gc->buff_id.bytes, O_RDWR, 0);
+	win->gc.data = mmap(NULL, win->gc.gc->data_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.buff_fd, 0);
 }
 
 compose_window_t* compose_sv_get_window(compose_server_t* srv, id_t win) {
@@ -546,24 +559,21 @@ compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client
 	char key[64];
 	itoa(win->id, key, 10);
 
-	win->ctx_map = shm_open(key, O_WRONLY | O_CREAT, 0);
-	if(win->ctx_map > 0) {
-		ftruncate(win->ctx_map , sizeof(fb_t));
-		void* mem = mmap(NULL, sizeof(fb_t), PROT_WRITE, MAP_PRIVATE, win->ctx_map, 0);
-		if((int32_t) mem != MAP_FAILED) {
-			memcpy(mem, &win->ctx, sizeof(fb_t));
-		}
+	win->gc.fd = shm_open(key, O_RDWR | O_CREAT, 0);
+	if(win->gc.fd >= 0) {
+		ftruncate(win->gc.fd, sizeof(compose_gc_t));
+		win->gc.gc = mmap(NULL, sizeof(compose_gc_t), PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.fd, 0);
+		win->gc.gc->data_size = buffer_size;
+		win->gc.old_data_size = buffer_size;
 	}
 
-	strcpy(key, "b");
+	compose_uuid new_key = compose_generate_uuid(0);
+	win->gc.gc->buff_id  = new_key;
 
-	win->ctx_buff_map = shm_open(key, O_RDWR | O_CREAT, 0);
-	if(win->ctx_buff_map > 0) {
-		ftruncate(win->ctx_buff_map , buffer_size);
-		void* buffer = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->ctx_buff_map, 0);
-		if((int32_t) buffer != MAP_FAILED) {
-			fb_open_mem(buffer, buffer_size, wb, wh, &win->ctx, 0);
-		}
+	win->gc.buff_fd = shm_open(new_key.bytes, O_RDWR | O_CREAT, 0);
+	if(win->gc.buff_fd >= 0) {
+		ftruncate(win->gc.buff_fd, buffer_size);
+		win->gc.data = mmap(NULL, buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, win->gc.buff_fd, 0);
 	}
 
 	list_push_back(srv->windows, win);
@@ -608,7 +618,7 @@ static void __compose_draw_window(compose_server_t* srv, compose_window_t* win, 
 		pos.x += off->x;
 		pos.y += off->y;
 	}
-	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, 32, win->ctx.mem);
+	fb_bitmap(&srv->framebuffer, pos.x, pos.y, win->sizes.w + 2 * win->sizes.b, win->sizes.h + 2 * win->sizes.b, 32, win->gc.data);
 	off = &pos;
 	for(size_t i = 0; i < win->children->size; i++) {
 		__compose_draw_window(srv, win->children->data[i], off);
@@ -795,9 +805,11 @@ void compose_sv_remove_window(compose_server_t* srv, compose_window_t* win, int 
 	}
 	list_free(active_grabs);
 
-	close(win->ctx_map);
-	close(win->ctx_buff_map);
-	munmap(win->ctx.mem, win->ctx.info.memsz);
+	munmap(win->gc.data, win->gc.gc->data_size);
+	munmap(win->gc.gc, sizeof(compose_gc_t));
+
+	close(win->gc.fd);
+	close(win->gc.buff_fd);
 
 	free(win);
 }
@@ -885,27 +897,93 @@ window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win) {
 	}
 }
 
-fb_t* compose_cl_draw_ctx(id_t win) {
+compose_cl_gc_t* compose_cl_get_gc(id_t win) {
+	compose_cl_gc_t* gc = malloc(sizeof(compose_cl_gc_t));
+	gc->win = win;
+
 	char key[64];
 	itoa(win, key, 10);
 
-	int ctx = shm_open(key, O_RDONLY, 0);
-	if(ctx < 0) {
+	int fd = shm_open(key, O_RDWR, 0);
+	if(fd < 0) {
+		free(gc);
 		return NULL;
 	}
 
-	fb_t* buff = mmap(NULL, sizeof(fb_t), PROT_READ, MAP_PRIVATE, ctx, 0);
-	if((int32_t) buff == MAP_FAILED) {
+	gc->gc = mmap(NULL, sizeof(compose_gc_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
+	if((int32_t) gc->gc == MAP_FAILED) {
+		free(gc);
 		return NULL;
 	}
 
-	strcat(key, "b");
-
-	ctx = shm_open(key, O_RDWR, 0);
-	if(ctx < 0) {
+	fd = shm_open(gc->gc->buff_id.bytes, O_RDWR, 0);
+	if(fd < 0) {
+		munmap(gc->gc, sizeof(compose_gc_t));
+		free(gc);
 		return NULL;
 	}
-	buff->mem = mmap(NULL, buff->info.memsz, PROT_READ | PROT_WRITE, MAP_SHARED, ctx, 0);
+	void* mem = mmap(NULL, gc->gc->data_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	close(fd);
+	
+	fb_open_mem(mem, gc->gc->data_size, gc->gc->w, gc->gc->h, &gc->fb, 0);
 
-	return buff;
+	return gc;
+}
+
+
+void compose_cl_release_gc(compose_cl_gc_t* ctx) {
+	munmap(ctx->fb.mem, ctx->fb.info.memsz);
+	munmap(ctx, sizeof(compose_gc_t));
+	free(ctx);
+}
+
+void compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size) {
+	ctx->gc->w = new_size.w;
+	ctx->gc->h = new_size.h;
+	ctx->gc->data_size = new_size.w * new_size.h * 4;
+	ctx->gc->buff_id = compose_generate_uuid(ctx->win);
+
+	int fd = shm_open(ctx->gc->buff_id.bytes, O_RDWR | O_CREAT, 0);
+	if(fd < 0) {
+		return;
+	}
+	ftruncate(fd, ctx->gc->data_size);
+
+	munmap(ctx->fb.mem, ctx->fb.info.memsz);
+
+	ctx->fb.info.w = new_size.w;
+	ctx->fb.info.h = new_size.h;
+	ctx->fb.info.memsz = ctx->gc->data_size;
+
+	ctx->fb.mem = mmap(NULL, ctx->gc->data_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+}
+
+static FILE* rand = NULL;
+
+// Pseudo-uuid generator
+// time 8bytes - discr 8bytes - random 16bytes
+compose_uuid compose_generate_uuid(int discriminator) {
+	time_t t = time(NULL);
+	if(!rand) {
+		rand = fopen("/dev/random", "r");
+	}
+
+	compose_uuid result;
+	uint32_t     rnd[2];
+	fread(rnd, 1, 8, rand);
+	snprintf(result.bytes, 35, "%.8lx-%.8x-%.8x%.8x", t, discriminator, rnd[0], rnd[1]);
+
+	printf("%s\n", result.bytes);
+
+	return result;
+}
+
+void compose_cl_flush(compose_client_t* cli, id_t win) {
+	compose_focus_req_t* payload = malloc(sizeof(compose_flush_req_t));
+	payload->req.type = COMPOSE_REQ_FLUSH;
+	payload->req.size = sizeof(compose_flush_req_t);
+	payload->win = win;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
 }

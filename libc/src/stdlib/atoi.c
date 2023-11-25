@@ -15,12 +15,13 @@ void* itoa(int n, char* s, int radix) {
 		 n = -n;          
      i = 0;
      do {       
-		 if(radix < 11) {
-            s[i++] = n % radix + '0';   
+		 int digit = n % radix;
+		 if(digit < 10) {
+            s[i++] = digit + '0';   
 		 } else {
-            s[i++] = n % radix + 'a';   
+            s[i++] = digit + 'a';   
 		 }
-     } while ((n /= 10) > 0);     
+     } while ((n /= radix) > 0);     
      if (sign < 0)
          s[i++] = '-';
      s[i] = '\0';

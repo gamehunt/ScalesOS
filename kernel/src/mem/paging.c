@@ -197,7 +197,9 @@ void k_mem_paging_map(vaddr_t vaddr, paddr_t paddr, uint8_t flags) {
     }
 
 	if(pt[pt_index].data.present) {
-		k_warn("Remapping 0x%.8x", vaddr);
+		char msg[1024];
+		sprintf(msg, "Remapping 0x%.8x", vaddr);
+		k_panic(msg, NULL);
 	}
 
     if (!paddr) {

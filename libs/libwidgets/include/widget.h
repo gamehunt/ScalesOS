@@ -72,6 +72,7 @@ typedef struct _widget{
 	widget_properties props;
 	compose_client_t* client;
 	widget_ops ops;
+	compose_cl_gc_t*  ctx;
 	void*      data;
 	struct _widget* parent;
 	list_t*    children;

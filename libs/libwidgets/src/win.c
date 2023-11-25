@@ -1,7 +1,6 @@
 #include "win.h"
 #include "compose/compose.h"
 #include "compose/events.h"
-#include "compose/render.h"
 #include <stdlib.h>
 
 void window_init(widget* window) {
@@ -30,8 +29,7 @@ void window_release(widget* window) {
 }
 
 void window_draw(widget* window) {
-	compose_cl_filled_rect(window->client, window->win, 0, 0, window->props.size.w - 1, window->props.size.h - 1, 0xFFFF0000, 0xFF000000);
-	compose_cl_flush(window->client, window->win);
+	fb_rect(&window->ctx->fb, 0, 0, window->props.size.w - 1, window->props.size.h - 1, 0xFFFF0000);
 }
 
 void window_process_events(widget* win, compose_event_t* ev) {

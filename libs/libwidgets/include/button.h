@@ -9,7 +9,6 @@
 typedef struct {
 	int flags;
 	const char* label;
-
 	void (*click)(widget* button);
 } button;
 

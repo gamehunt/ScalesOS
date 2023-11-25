@@ -14,12 +14,15 @@
 #define COMPOSE_REQ_RESIZE     3
 #define COMPOSE_REQ_EVENT      4
 #define COMPOSE_REQ_NEWWIN     5 
-#define COMPOSE_REQ_DRAW       6
+#define COMPOSE_REQ_FLUSH      6
 #define COMPOSE_REQ_EVMASK     7
 #define COMPOSE_REQ_GRAB       8
 #define COMPOSE_REQ_FOCUS      9
 #define COMPOSE_REQ_DISCONNECT 10
 #define COMPOSE_REQ_PROPS      11
+
+#define COMPOSE_RESIZE_STAGE_INITIAL 1
+#define COMPOSE_RESIZE_STAGE_FINAL   2
 
 typedef struct {
 	int    type;
@@ -37,6 +40,7 @@ typedef struct {
 typedef struct {
 	compose_request_t req;
 	id_t win;
+	uint8_t stage;
 	int w;
 	int h;
 } compose_resize_req_t;
@@ -48,17 +52,15 @@ typedef struct {
 } compose_event_req_t;
 
 typedef struct {
+	compose_request_t req;
+	id_t win;
+} compose_flush_req_t;
+
+typedef struct {
 	compose_request_t   req;
 	id_t                parent;
 	window_properties_t props;	
 } compose_win_req_t;
-
-typedef struct {
-	compose_request_t req;
-	id_t              win;
-	uint32_t          op;
-	uint32_t          params[];
-} compose_draw_req_t;
 
 typedef struct {
 	compose_request_t req;

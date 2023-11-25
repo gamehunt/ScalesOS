@@ -1,6 +1,7 @@
 #include "dev/random.h"
 #include "fs/vfs.h"
 #include "kernel.h"
+#include "util/log.h"
 
 #define BYTE(v, n) ((v & (0xFF << (n * 8))) >> (n * 8))
 
@@ -17,7 +18,7 @@ static uint32_t __k_dev_random_read(fs_node_t* node UNUSED, uint32_t offset UNUS
 	uint8_t  part_bytes = size % 4;
 
 	for(uint32_t i = 0; i < full_bytes; i++) {
-		*((uint32_t*) buffer) = __k_dev_random_get_value();
+		*((uint32_t*) buffer) = (__k_dev_random_get_value() << 16) | __k_dev_random_get_value();
 		buffer += 4;
 	}
 

@@ -5,6 +5,6 @@ project(Scales-Scwm VERSION 1.0.0)
 add_executable(scwm
 	src/main.c
 )
-target_link_libraries(scwm PRIVATE compose)
+target_link_libraries(scwm PRIVATE compose fb)
 
 install(TARGETS scwm DESTINATION bin/)

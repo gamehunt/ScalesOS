@@ -104,6 +104,8 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag)
 
 	if(flag & FB_FLAG_DOUBLEBUFFER) {
 		buf->backbuffer = malloc(buf->info.memsz);
+	} else {
+		buf->backbuffer = NULL;
 	}
 	
 	if(!mem) {
@@ -116,6 +118,7 @@ int fb_open_mem(void* mem, size_t size, size_t w, size_t h, fb_t* buf, int flag)
 
 	buf->mem   = (void*) mem;
 	buf->flags = 0;
+	buf->clips = NULL;
 
 	fb_init_colors();
 
@@ -288,7 +291,18 @@ void fb_char(fb_t* fb, coord_t x0, coord_t y0, char c, fb_font_t* font, color_t 
     }
 }
 
+static fb_font_t* __system_font = NULL;
+
 void fb_string(fb_t* fb, coord_t x, coord_t y, const char* str, fb_font_t* font, color_t b, color_t f) {
+	if(!font) {
+		if(!__system_font) {
+			int r = fb_open_font("/res/fonts/system.pcf", &__system_font);
+			if(r < 0) {
+				return;
+			}
+		}
+		font = __system_font;
+	}
 	size_t l = strlen(str);
 	for(coord_t offs = 0; offs < l; offs++) {
 		if(isgraph(str[offs])) {

@@ -1,7 +1,5 @@
 #include "label.h"
 
-#include "compose/render.h"
-
 void label_init(widget* label_w) {
 	id_t par = label_w->client->root;
 	if(label_w->parent) {
@@ -26,7 +24,7 @@ void label_release(widget* label) {
 
 void label_draw(widget* l) {
 	label* lbl = l->data;
-	compose_cl_string(l->client, l->win, 5, 5, 0x00, 0xFF000000, lbl->text);
+	fb_string(&l->ctx->fb, 5, 5, lbl->text, NULL, 0x00, 0xFF000000);
 }
 
 void label_process_events(widget* label, compose_event_t* ev) {

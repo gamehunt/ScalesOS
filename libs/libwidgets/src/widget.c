@@ -2,7 +2,6 @@
 #include "button.h"
 #include "compose/compose.h"
 #include "compose/events.h"
-#include "compose/render.h"
 #include "label.h"
 #include "win.h"
 #include "input.h"
@@ -123,6 +122,9 @@ void widget_handle_parent_resize(widget* parent, widget* child, int x, int y) {
 } 
 
 void widget_handle_resize(widget* w, sizes_t new_sizes) {
+	if(w->ctx) {
+		compose_cl_resize_gc(w->ctx, new_sizes);
+	}
 	w->props.size.w = new_sizes.w;
 	w->props.size.h = new_sizes.h;
 	int x = w->props.padding.left;
@@ -136,6 +138,7 @@ void widget_handle_resize(widget* w, sizes_t new_sizes) {
 	if(w->ops.draw) {
 		w->ops.draw(w);
 	}
+	compose_cl_confirm_resize(w->client, w->win);
 }
 
 void widget_process_event(widget* w, compose_event_t* ev) {
@@ -161,6 +164,10 @@ widget* widget_create(compose_client_t* cli, uint16_t type, widget* parent, widg
 
 	if(__initializers && __initializers[type]) {
 		__initializers[type](w);
+	}
+
+	if(w->win && !w->ctx) {
+		w->ctx = compose_cl_get_gc(w->win);
 	}
 
 	return w;

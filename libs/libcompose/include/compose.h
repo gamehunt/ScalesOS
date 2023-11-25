@@ -39,14 +39,36 @@ typedef struct {
 	int        socket;
 } compose_client_t;
 
+typedef struct {
+	char bytes[35];
+} compose_uuid;
+
+typedef struct {
+	compose_uuid  buff_id;
+	int           w, h;
+	size_t        data_size;
+} compose_gc_t;
+
+typedef struct {
+	compose_gc_t* gc;
+	void*         data;
+	size_t        old_data_size;
+	int           fd;
+	int           buff_fd;
+} compose_srv_gc_t;
+
+typedef struct {
+	compose_gc_t* gc;
+	fb_t fb;
+	id_t win;
+} compose_cl_gc_t;
+
 typedef struct window {
 	id_t              id;
 	compose_client_t* client;
 	struct window*    parent;
 	struct window*    root;
-	fb_t       		  ctx;
-	int               ctx_map;
-	int               ctx_buff_map;
+	compose_srv_gc_t  gc;
 	flags_t    		  flags;
 	position_t 		  pos;
 	int               layer;
@@ -82,7 +104,9 @@ typedef struct {
 	event_mask_t event_mask;
 } window_properties_t;
 
+
 compose_client_t* compose_create_client(int sock);
+compose_uuid      compose_generate_uuid(int discriminator);
 
 compose_server_t* compose_sv_create(const char* sock);
 compose_client_t* compose_sv_accept(compose_server_t* srv);
@@ -96,15 +120,20 @@ id_t                compose_cl_create_window(compose_client_t* client, id_t par,
 int                 compose_cl_move(compose_client_t* cli, id_t win, int x, int y);
 int                 compose_cl_layer(compose_client_t* cli, id_t win, int z);
 int                 compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
+int                 compose_cl_confirm_resize(compose_client_t* cli, id_t win);
 int                 compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);
 int                 compose_cl_grab(compose_client_t* cli, id_t win, grab_type type);
 int                 compose_cl_focus(compose_client_t* cli, id_t win);
 int                 compose_cl_unfocus(compose_client_t* cli, id_t win);
 window_properties_t compose_cl_get_properties(compose_client_t* cli, id_t win);
-fb_t*               compose_cl_draw_ctx(id_t win);
+compose_cl_gc_t*    compose_cl_get_gc(id_t win);
+void                compose_cl_release_gc(compose_cl_gc_t* ctx);
+void                compose_cl_resize_gc(compose_cl_gc_t* ctx, sizes_t new_size);
+void                compose_cl_flush(compose_client_t* cli, id_t win);
 
 void              compose_sv_move(compose_window_t* win, int x, int y, int z);
-void              compose_sv_resize(compose_window_t* win, size_t w, size_t h);
+void              compose_sv_start_resize(compose_window_t* win, size_t w, size_t h);
+void              compose_sv_apply_size(compose_window_t* win);
 compose_window_t* compose_sv_create_window(compose_server_t* srv, compose_client_t* client, compose_window_t* par, window_properties_t props);
 compose_window_t* compose_sv_get_window(compose_server_t* srv, id_t win);
 void              compose_sv_redraw(compose_server_t* srv);

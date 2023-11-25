@@ -59,6 +59,7 @@ typedef struct {
 
 typedef struct {
 	compose_event_t event;
+	uint8_t stage;
 	sizes_t old_size;
 	sizes_t new_size;
 } compose_resize_event_t;
