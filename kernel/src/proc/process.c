@@ -1057,3 +1057,18 @@ pid_t k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* dat
 
 	return proc->pid;
 }
+
+void k_proc_process_prepare_exec() {
+	process_t* proc = k_proc_process_current();
+
+	fd_list_t* list = &proc->fds;
+	for(uint32_t i = 0; i < list->size; i++){
+		if(list->nodes[i]) {
+			fs_node_t* node = list->nodes[i]->node;
+			if(node->mode & O_CLOEXEC) {
+				k_proc_process_close_fd(proc, i);
+			}
+		}
+	}
+}
+

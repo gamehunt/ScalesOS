@@ -76,6 +76,7 @@ void   perror(const char *str);
 #define O_NOFOLLOW (1 << 5)
 #define O_NOBLOCK  (1 << 6)
 #define O_EXCL     (1 << 7)
+#define O_CLOEXEC  (1 << 8)
 
 #define SEEK_SET 0
 #define SEEK_CUR 1

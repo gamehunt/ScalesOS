@@ -6,6 +6,7 @@
 #include "kernel.h"
 #include "dev/fb.h"
 #include "fs/vfs.h"
+#include "kernel/fs/vfs.h"
 #include "mem/heap.h"
 #include "mem/paging.h"
 #include "proc/process.h"
@@ -31,6 +32,85 @@ static inline void __rb_putchar(ringbuffer_t* rb, char c) {
 #define PUTC_IN(c)  __rb_putchar(pty->in_buffer,  c);
 #define PUTC_OUT(c) __rb_putchar(pty->out_buffer, c);
 
+static uint8_t __k_dev_tty_is_pty(tty_t* pty) {
+	return list_contains(__ptys, pty);
+}
+
+#define PTY_SEL_QUEUE_R 0
+#define PTY_SEL_QUEUE_W 1
+#define PTY_SEL_QUEUE_E 2
+
+static int __k_dev_tty_event2index(uint8_t event) {
+	switch(event) {
+		case VFS_EVENT_READ:
+			return PTY_SEL_QUEUE_R;
+		case VFS_EVENT_WRITE:
+			return PTY_SEL_QUEUE_W;
+		case VFS_EVENT_EXCEPT:
+			return PTY_SEL_QUEUE_E;
+		default:
+			return -EINVAL;
+	}
+}
+
+static uint8_t __k_dev_tty_check_master(tty_t* pty, uint8_t event) {
+	switch(event) {
+		case VFS_EVENT_READ:
+			return ringbuffer_read_available(pty->out_buffer);
+		case VFS_EVENT_WRITE:
+			return ringbuffer_write_available(pty->in_buffer);
+		default:
+			return 0;
+	}
+}
+
+static uint8_t __k_dev_tty_check_slave(tty_t* pty, uint8_t event) {
+	switch(event) {
+		case VFS_EVENT_READ:
+			return ringbuffer_read_available(pty->in_buffer);
+		case VFS_EVENT_WRITE:
+			return ringbuffer_write_available(pty->out_buffer);
+		default:
+			return 0;
+	}
+}
+
+static uint8_t __k_dev_tty_check(fs_node_t* node, uint8_t event) {
+	tty_t* pty = node->device;
+
+	if(!pty) {
+		return 0;
+	}
+
+	if(node == pty->master) {
+		return __k_dev_tty_check_master(pty, event);
+	} else {
+		return __k_dev_tty_check_slave(pty, event);
+	}
+}
+
+static int __k_dev_tty_wait(fs_node_t* node, uint8_t event, process_t* prc) {
+	tty_t* pty = node->device;
+
+	if(!pty) {
+		return 0;
+	}
+
+	list_t* queue;
+	int index = __k_dev_tty_event2index(event);
+
+	if(node == pty->master) {
+		queue = pty->master_sel_queues[index];
+	} else {
+		queue = pty->slave_sel_queues[index];
+	}
+
+	if(!list_contains(queue, prc->block_node)) {
+		k_proc_process_own_block(prc, queue);
+	}
+
+	return 0;
+}
 
 static void __k_dev_tty_pty_process_output_char(tty_t* pty, char c) {
 	if (!(pty->ts.c_oflag & OPOST)) {
@@ -57,7 +137,10 @@ static void __k_dev_tty_pty_process_output_char(tty_t* pty, char c) {
 
 end:
 	PUTC_OUT(c);
-	k_dev_vt_tty_callback(pty);
+
+	if(!__k_dev_tty_is_pty(pty)) {
+		k_dev_vt_tty_callback(pty);
+	}
 }
 
 #define process_output __k_dev_tty_pty_process_output_char
@@ -347,8 +430,9 @@ static fs_node_t* __k_dev_tty_create_pty_generic(char* name, tty_t* pty) {
 	node->fs.read  = &__k_dev_tty_read;
 	node->fs.write = &__k_dev_tty_write;
 	node->fs.ioctl = &__k_dev_tty_ioctl;
+	node->fs.check = &__k_dev_tty_check;
+	node->fs.wait  = &__k_dev_tty_wait;
 	node->mode     = O_RDWR;
-
 	return node;
 }
 
@@ -395,6 +479,10 @@ static tty_t* __k_dev_tty_create_pty(uint32_t id, struct winsize* ws) {
 	pty->out_buffer = ringbuffer_create(PTY_BUFFER_SIZE);
 	pty->master = __k_dev_tty_create_pty_master(pty);
 	pty->slave  = __k_dev_tty_create_pty_slave(pty);
+	for(int i = 0; i < 3; i++) {
+		pty->master_sel_queues[i] = list_create();
+		pty->slave_sel_queues[i]  = list_create();
+	}
 
 	if(ws) {
 		memcpy(&pty->ws, ws, sizeof(struct winsize));
@@ -488,6 +576,10 @@ static fs_node_t* __k_dev_tty_create_tty(uint32_t id) {
 	pty->out_buffer = ringbuffer_create(PTY_BUFFER_SIZE);
 	pty->master     = __k_dev_tty_create_tty_master(pty);
 	pty->slave      = __k_dev_tty_create_tty_slave(pty);
+	for(int i = 0; i < 3; i++) {
+		pty->master_sel_queues[i] = list_create();
+		pty->slave_sel_queues[i]  = list_create();
+	}
 
 	fb_term_info_t fbinfo;
 	k_dev_fb_terminfo(&fbinfo);

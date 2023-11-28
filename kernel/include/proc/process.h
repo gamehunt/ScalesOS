@@ -180,5 +180,6 @@ void       k_proc_process_return_from_signal(interrupt_context_t* ctx);
 process_t* k_proc_process_find_by_pid(pid_t pid);
 
 pid_t      k_proc_process_create_tasklet(const char* name, uintptr_t entry, void* data);
+void       k_proc_process_prepare_exec();
 
 #endif

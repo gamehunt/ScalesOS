@@ -51,12 +51,12 @@ void load(int sig) {
 int main(int argc, char** argv) {	
 	parse_args(argc, argv);
 
-	vt = open("/dev/vt7", O_RDONLY);
+	vt = open("/dev/vt7", O_RDONLY | O_CLOEXEC);
 	if(vt < 0) {
 		return -1;
 	}
 
-	int tty = open("/dev/tty7", O_RDWR);
+	int tty = open("/dev/tty7", O_RDWR | O_CLOEXEC);
 	if(tty < 0) {
 		return -1;
 	}
@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
 
 	printf("Starting server...\n");
 
-	remove("/tmp/.compose.lock");
+	remove("/tmp/.compose.sock");
 	compose_server_t* srv = compose_sv_create("/tmp/.compose.sock");
 
 	if(startup_app) {

@@ -227,6 +227,7 @@ static uint32_t sys_exec(const char* path, char** argv, char** envp) {
 			_argv[i] = strdup(argv[i]);	
 		}
 	}
+	k_proc_process_prepare_exec();
 	return k_util_exec(path, argc, _argv, _envp); 
 }
 

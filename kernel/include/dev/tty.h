@@ -22,6 +22,9 @@ typedef struct tty {
 	ringbuffer_t* in_buffer;
 	ringbuffer_t* out_buffer;
 
+	list_t* master_sel_queues[3];
+	list_t* slave_sel_queues[3];
+
 	char*  line_buffer;
 	size_t line_length;
 

@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <sys/tty.h>
+#include <sys/stat.h>
 #include <dirent.h>
 #include <pwd.h>
 
@@ -172,11 +173,11 @@ int execute_line(char* line) {
 		pid_t child = fork();
 		if(!child) {
 			if(out_pipe) {
-				dup2(fileno(out_pipe), 1);
-				dup2(fileno(out_pipe), 2);
+				dup2(fileno(out_pipe), STDOUT_FILENO);
+				dup2(fileno(out_pipe), STDERR_FILENO);
 			}
 			if(in_pipe) {
-				dup2(fileno(in_pipe), 0);
+				dup2(fileno(in_pipe), STDIN_FILENO);
 			}
 			execve(path, _op_argv, 0);
 			fprintf(stderr, "Failed to execute: %s\n", path);
@@ -289,7 +290,7 @@ int interactive() {
 	while(1) {
 		printf("%s:%s > ", user, pwd);
 		fflush(stdout);
-		char line[MAX_LINE_LENGTH];
+		char line[MAX_LINE_LENGTH] = {0};
 		fgets(line, MAX_LINE_LENGTH, stdin);
 		if(interrupted) {
 			interrupted = 0;

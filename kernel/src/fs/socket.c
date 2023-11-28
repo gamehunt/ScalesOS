@@ -59,6 +59,7 @@ static int __k_fs_socket_wait(fs_node_t* node, uint8_t event, process_t* prc) {
 
 	return 0;
 }
+
 static void __k_fs_socket_notify(fs_node_t* node, uint8_t event) {
 	socket_t* p = node->device;
 	int idx = __k_fs_socket_event2index(event);

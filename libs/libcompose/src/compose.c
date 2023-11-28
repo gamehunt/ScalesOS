@@ -115,8 +115,8 @@ compose_server_t* compose_sv_create(const char* sock) {
 	srv->root    = compose_sv_create_window(srv, NULL, NULL, props);
 	srv->overlay = compose_sv_create_window(srv, NULL, NULL, props);
 
-	srv->devices[0] = open("/dev/kbd", O_RDONLY | O_NOBLOCK);
-	srv->devices[1] = open("/dev/mouse", O_RDONLY | O_NOBLOCK);
+	srv->devices[0] = open("/dev/kbd", O_RDONLY | O_NOBLOCK | O_CLOEXEC);
+	srv->devices[1] = open("/dev/mouse", O_RDONLY | O_NOBLOCK | O_CLOEXEC);
 	
 	listen(sockfd, 10);
 
