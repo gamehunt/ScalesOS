@@ -61,10 +61,12 @@ int main(int argc, char** argv) {
 								compose_cl_move(client, wr, old_props.x, old_props.y);
 							}
 						}
-						compose_cl_focus(client, client->root);
 					}
 					break;
 				case COMPOSE_EVENT_BUTTON:
+					if(ev->child) {
+						compose_cl_focus(client, ev->child);
+					}
 					if(mod && ev->child) {
 						window_properties_t old_props = win_props;
 						win_props = compose_cl_get_properties(client, ev->child);

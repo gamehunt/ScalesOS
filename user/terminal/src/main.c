@@ -53,7 +53,7 @@ void buff_refresh() {
 	tv.tv_msec = 0;
 	tv.tv_sec  = 0;
 
-	int r = select(master + 1, &set, NULL, NULL, &tv);
+	int r  = select(master + 1, &set, NULL, NULL, &tv);
 	int wr = 0;
 
 	while (r > 0) {
@@ -137,12 +137,12 @@ void buff_draw(widget* w) {
 		lc = max_lines;
 	}
 
-	printf("Offset: %d, LC: %d\n", offs, lc);
-
-	for(int i = offs; i < lc; i++) {
-		fb_string(&w->ctx->fb, x, y, lines->data[i], NULL, 0x0, 0xFFFFFFFF);
+	for(int i = 0; i < lines->size; i++) {
+		if(i >= offs && i < offs + lc) {
+			fb_string(&w->ctx->fb, x, y, lines->data[i], NULL, 0x0, 0xFFFFFFFF);
+			y += ch;
+		}
 		free(lines->data[i]);
-		y += ch;
 	}
 
 	list_free(lines);
@@ -166,7 +166,6 @@ void terminal_handle_event(widget* w, compose_event_t* ev) {
 
 		if(mev->packet.scancode == KEY_ENTER) {
 			buff_putchar('\n', &input, &input_offs, &input_size);
-			// buff_putchar('\0', &input, &input_offs, &input_size);
 			write(master, input, input_offs);
 			input_offs = 0;
 			input[0] = '\0';
