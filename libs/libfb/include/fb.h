@@ -40,9 +40,9 @@ typedef struct {
 	int       blend;
 } fb_t;
 
-#define ALPHA(color) (color >> 24)
-#define RED(color)   (color >> 16 & 0xFF)
-#define BLUE(color)  (color >> 8  & 0xFF)
+#define ALPHA(color) ((color >> 24) & 0xFF)
+#define RED(color)   ((color >> 16) & 0xFF)
+#define BLUE(color)  ((color >> 8)  & 0xFF)
 #define GREEN(color) (color & 0xFF)
 
 #define FB_FLAG_DOUBLEBUFFER (1 << 0)

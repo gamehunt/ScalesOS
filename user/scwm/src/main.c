@@ -1,19 +1,41 @@
+#include "cfg.h"
 #include "compose/compose.h"
 #include "compose/events.h"
 #include "compose/render.h"
 
 #include "input/keys.h"
+#include "jpeg.h"
 
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
+jpeg_t* wallpaper_data = NULL;
+
 int main(int argc, char** argv) {	
-	if(!fork()) {
-		execve("/bin/terminal", NULL, NULL);
-		exit(1);
+	cfg_data* cfg = cfg_open("/etc/scwm.cfg");
+	if(cfg) {
+		const char* autostart = cfg_get_value(cfg, "autostart");
+
+		if(autostart) {
+			if(!fork()) {
+				execve(autostart, NULL, NULL);
+				exit(1);
+			}
+		}
+
+		const char* wallpaper = cfg_get_value(cfg, "wallpaper");
+		if(wallpaper) {
+			char wallpaper_path[1024];
+			snprintf(wallpaper_path, 1024, "/res/wallpapers/%s.jpeg", wallpaper);
+			printf("Loading wallpaper: %s\n", wallpaper_path);
+			wallpaper_data = jpeg_open(wallpaper_path);
+		}
+
+		cfg_free(cfg);
 	}
+	
 
 	compose_client_t* client = compose_cl_connect("/tmp/.compose.sock");
 	if(!client) {
@@ -23,7 +45,13 @@ int main(int argc, char** argv) {
 	compose_cl_gc_t* root_gc    = compose_cl_get_gc(client->root);
 	compose_cl_gc_t* overlay_gc = compose_cl_get_gc(client->overlay);
 
-	fb_fill(&root_gc->fb, 0xFF000000);
+	if(!wallpaper_data) {
+		fb_fill(&root_gc->fb, 0xFF000000);
+	} else{
+		fb_bitmap(&root_gc->fb, 0, 0, wallpaper_data->w, wallpaper_data->h, 32, wallpaper_data->data);
+		jpeg_close(wallpaper_data);
+	}
+
 	compose_cl_grab(client, client->root, COMPOSE_EVENT_KEY | COMPOSE_EVENT_BUTTON | COMPOSE_EVENT_MOUSE | COMPOSE_EVENT_WIN);
 
 	int mod = 0;

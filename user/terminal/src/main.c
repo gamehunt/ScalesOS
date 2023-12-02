@@ -153,8 +153,9 @@ void buff_draw(widget* w) {
 }
 
 void draw_terminal(widget* window) {
-	fb_fill(&window->ctx->fb, 0xFF000000);
-	window_draw(window);
+	fb_blend_mode(&window->ctx->fb, FB_NO_BLEND);
+	fb_fill(&window->ctx->fb, 0xAA000000);
+	fb_blend_mode(&window->ctx->fb, FB_BLEND_DEFAULT);
 	buff_draw(window);
 }
 
@@ -188,7 +189,7 @@ void terminal_handle_event(widget* w, compose_event_t* ev) {
 		} else {
 			char t = mev->translated;
 			if(t) {
-				if(!isspace(t) && !isalnum(t)) {
+				if(!isprint(t)) {
 					if(input) {
 						for(int i = 0; i < input_offs; i++) {
 							buff_putchar(input[i], &buff, &buff_offs, &buff_size);

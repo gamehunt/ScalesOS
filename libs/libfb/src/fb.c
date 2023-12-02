@@ -29,12 +29,34 @@ double fb_brightness(color_t color){
 }
 
 color_t fb_blend(color_t a, color_t b) {
-	double ba = fb_brightness(a);
-	double bb = fb_brightness(b);
+	// double ba = fb_brightness(a);
+	// double bb = fb_brightness(b);
+	//
+	// double a_normalized = 1.0 / 0xFF * ALPHA(a);
+	//
+	// return (color_t) (b + (ba - bb) * a_normalized);
+	
+	double aa = 1.0 / 0xFF * ALPHA(a);
+	double ab = 1.0 / 0xFF * ALPHA(b);
 
-	double a_normalized = 1.0 / 0xFF * ALPHA(a);
+	double ra = 1.0 / 0xFF * RED(a);
+	double ga = 1.0 / 0xFF * GREEN(a);
+	double ba = 1.0 / 0xFF * BLUE(a);
 
-	return (color_t) (b + (ba - bb) * a_normalized);
+	double rb = 1.0 / 0xFF * RED(b);
+	double gb = 1.0 / 0xFF * GREEN(b);
+	double bb = 1.0 / 0xFF * BLUE(b);
+
+	double a0 = aa + ab * (1 - aa);
+	
+	int _a = a0 * 0xFF;
+	int _r = (aa * ra + ab * rb * (1 - aa)) / a0 * 0xFF;
+	int _g = (aa * ga + ab * gb * (1 - aa)) / a0 * 0xFF;
+	int _b = (aa * ba + ab * bb * (1 - aa)) / a0 * 0xFF;
+
+	color_t r = fb_color(_r, _g, _b, _a);
+
+	return r;
 }
 
 static void __fb_swap(coord_t* a, coord_t* b) {
@@ -281,7 +303,7 @@ void fb_filled_ellipse(fb_t* fb, coord_t x0, coord_t y0, size_t a, size_t b, col
 void fb_fill(fb_t* fb, color_t color) {
 	uint32_t* buf = fb->backbuffer ? fb->backbuffer : fb->mem;
 	if(fb->blend == FB_BLEND_DEFAULT) {
-		color_t alpha = ALPHA(color);
+		int alpha = ALPHA(color);
 		if(!alpha) {
 			return;
 		}
