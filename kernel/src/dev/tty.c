@@ -56,9 +56,9 @@ static int __k_dev_tty_event2index(uint8_t event) {
 static uint8_t __k_dev_tty_check_master(tty_t* pty, uint8_t event) {
 	switch(event) {
 		case VFS_EVENT_READ:
-			return ringbuffer_read_available(pty->out_buffer);
+			return ringbuffer_read_available(pty->out_buffer) > 0;
 		case VFS_EVENT_WRITE:
-			return ringbuffer_write_available(pty->in_buffer);
+			return ringbuffer_write_available(pty->in_buffer) > 0;
 		default:
 			return 0;
 	}
@@ -67,9 +67,9 @@ static uint8_t __k_dev_tty_check_master(tty_t* pty, uint8_t event) {
 static uint8_t __k_dev_tty_check_slave(tty_t* pty, uint8_t event) {
 	switch(event) {
 		case VFS_EVENT_READ:
-			return ringbuffer_read_available(pty->in_buffer);
+			return ringbuffer_read_available(pty->in_buffer) > 0;
 		case VFS_EVENT_WRITE:
-			return ringbuffer_write_available(pty->out_buffer);
+			return ringbuffer_write_available(pty->out_buffer) > 0;
 		default:
 			return 0;
 	}

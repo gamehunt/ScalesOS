@@ -56,15 +56,19 @@ void buff_refresh() {
 	int r  = select(master + 1, &set, NULL, NULL, &tv);
 	int wr = 0;
 
+	// printf("Select returned: %d\n", r);
+
 	while (r > 0) {
 		wr = 1;
 		char c;
 		read(master, &c, 1);
+		// printf("%c", c);
 		buff_putchar(c, &buff, &buff_offs, &buff_size);
 		FD_ZERO(&set);
 		FD_SET(master, &set);
 	 	r = select(master + 1, &set, NULL, NULL, &tv);
 	}
+	// fflush(stdout);
 
 	if(wr) {
 		widget_draw(window);
