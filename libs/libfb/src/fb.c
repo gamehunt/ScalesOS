@@ -399,3 +399,7 @@ short fb_is_clipped(fb_t* fb, coord_t x0, coord_t y0) {
 void fb_blend_mode(fb_t* fb, int mode) {
 	fb->blend = mode;
 }
+
+fb_font_t* fb_system_font() {
+	return __system_font;
+}

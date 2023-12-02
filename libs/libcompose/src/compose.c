@@ -5,6 +5,7 @@
 #include "fb.h"
 #include "stdio.h"
 #include "sys/select.h"
+#include "sys/time.h"
 #include "sys/un.h"
 #include "sys/mman.h"
 #include "input/kbd.h"
@@ -126,6 +127,7 @@ compose_server_t* compose_sv_create(const char* sock) {
 compose_client_t* compose_create_client(int sock) {
 	compose_client_t* cli = calloc(1, sizeof(compose_client_t));
 	cli->socket = sock;
+	cli->ping   = time(NULL);
 	return cli;
 }
 
@@ -296,7 +298,14 @@ void compose_sv_tick(compose_server_t* srv) {
 		FD_SET(cli->socket, &rset);
 	}
 
-	int r = select(n + 1, &rset, NULL, NULL, NULL);
+	struct timeval tv;
+	tv.tv_msec = 250;
+	tv.tv_sec  = 0;
+
+	int r = select(n + 1, &rset, NULL, NULL, &tv);
+
+	compose_sv_send_keepalive(srv);
+
 	if(r <= 0) {
 		return;
 	}

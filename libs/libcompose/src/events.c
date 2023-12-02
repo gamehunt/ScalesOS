@@ -91,8 +91,15 @@ compose_event_t* compose_cl_event_poll(compose_client_t* cli, int raised) {
 		if(tmpev.size > sizeof(compose_event_t)) {
 			read(cli->socket, ev + 1, tmpev.size - sizeof(compose_event_t));
 		}
+		if(tmpev.type == COMPOSE_EVENT_KEEPALIVE) {
+			compose_request_t req;
+			req.type = COMPOSE_REQ_KEEPALIVE;
+			req.size = sizeof(req);
+			compose_cl_send_request(cli, &req);
+		}
 		return ev;
 	}
+
 
 	return NULL;
 }
@@ -122,4 +129,11 @@ void compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, c
 		event->child = root->id;
 		compose_sv_event_propagate(srv, root->parent, event);
 	}
+}
+
+void compose_sv_send_keepalive(compose_server_t* srv) {
+	compose_event_t ev = {0};
+	ev.type = COMPOSE_EVENT_KEEPALIVE;
+	ev.size = sizeof(compose_event_t);
+	compose_sv_event_send_to_all(srv, &ev);
 }

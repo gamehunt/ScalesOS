@@ -4,6 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 int compose_cl_send_request(compose_client_t* client, compose_request_t* req) {
@@ -54,8 +55,10 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 			compose_sv_create_window(srv, cli, win, wreq->props);
 			break;
 		case COMPOSE_REQ_EVMASK:
-			win  = compose_sv_get_window(srv, wreq->parent);
-			win->event_mask = ((compose_evmask_req_t*) req)->mask;
+			win  = compose_sv_get_window(srv, ((compose_evmask_req_t*) req)->win);
+			if(win) {
+				win->event_mask = ((compose_evmask_req_t*) req)->mask;
+			}
 			break;
 		case COMPOSE_REQ_GRAB:
 			grab         = malloc(sizeof(grab_t));
@@ -74,6 +77,9 @@ void compose_sv_handle_request(compose_server_t* srv, compose_client_t* cli, com
 		case COMPOSE_REQ_PROPS:
 			win  = compose_sv_get_window(srv, ((compose_props_req_t*)req)->win);
 			compose_sv_send_props(cli, win);
+			break;
+		case COMPOSE_REQ_KEEPALIVE:
+			cli->ping = time(NULL);
 			break;
 	}
 }

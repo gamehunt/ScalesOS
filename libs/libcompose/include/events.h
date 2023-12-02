@@ -22,6 +22,7 @@
 #define COMPOSE_EVENT_FOCUS      (1 << 7)
 #define COMPOSE_EVENT_UNFOCUS    (1 << 8)
 #define COMPOSE_EVENT_PROPS      (1 << 9)
+#define COMPOSE_EVENT_KEEPALIVE  (1 << 10)
 
 #define COMPOSE_KBD_MOD_ALT    (1 << 0)
 #define COMPOSE_KBD_MOD_SHIFT  (1 << 1)
@@ -95,5 +96,6 @@ void             compose_cl_event_mask(event_mask_t mask);
 void             compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, compose_event_t* event);
 void             compose_sv_event_send(compose_client_t* cli, compose_event_t* event);
 void             compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event);
+void             compose_sv_send_keepalive(compose_server_t* srv);
 
 #endif

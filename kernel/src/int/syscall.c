@@ -988,6 +988,15 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 		return has_result;
 	}
 
+
+	if(tv) {
+		if(tv->tv_msec > 0 || tv->tv_sec > 0) {
+			k_proc_process_timeout(cur, tv->tv_sec, tv->tv_msec);
+		} else {
+			return 0;
+		}
+	}
+
 	for(int i = 0; i < n; i++) {
 		fd_t* fdt = fd2fdt(fds, i);
 		if(!fdt) {
@@ -1014,10 +1023,6 @@ static uint32_t sys_select(int n, fd_set* rs, fd_set* ws, fd_set* es, struct tim
 				k_warn("wait(): failed for %s", node->name);		
 			}
 		}
-	}
-
-	if(tv) {
-		k_proc_process_timeout(cur, tv->tv_sec, tv->tv_msec);
 	}
 
 	cur->flags &= ~PROCESS_FLAG_INTERRUPTED;

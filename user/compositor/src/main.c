@@ -72,6 +72,7 @@ int main(int argc, char** argv) {
 
 	signal(SIGUSR1, save);
 	signal(SIGUSR2, load);
+	signal(SIGINT, SIG_IGN);
 
 	printf("Starting server...\n");
 

@@ -66,7 +66,7 @@ int __widget_try_event(widget* w, compose_event_t* ev) {
 void widgets_tick(widget* root) {
 	compose_event_t* ev = compose_cl_event_poll(root->client, 1);
 	if(ev) {
-		if(!__widget_try_event(root, ev)) {
+		if(ev->type != COMPOSE_EVENT_KEEPALIVE && !__widget_try_event(root, ev)) {
 			printf("%lld event for unknown widget: %d\n", ev->type, ev->win);
 		}
 		free(ev);

@@ -5,6 +5,7 @@
 #include "types/list.h"
 #include <stddef.h>
 #include <stdint.h>
+#include <sys/select.h>
 #include <sys/types.h>
 
 typedef uint32_t id_t;
@@ -39,6 +40,7 @@ typedef struct {
 	id_t       overlay;
 	pid_t      pid;
 	int        socket;
+	time_t     ping;
 } compose_client_t;
 
 typedef struct {
