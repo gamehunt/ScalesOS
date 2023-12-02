@@ -55,6 +55,7 @@
 #define SYS_TRUNCATE     49
 #define SYS_CLONE        50
 #define SYS_SETTLS       51
+#define SYS_FCNTL        52
 
 #define SYS_DEBUG        255
 
@@ -121,6 +122,7 @@ uint32_t syscall(uint32_t num, uint32_t a, uint32_t b, uint32_t c, uint32_t e, u
 #define __sys_truncate(fd, size)                      syscall(SYS_TRUNCATE, fd, size, UNUSED3)
 #define __sys_clone(args)                             syscall(SYS_CLONE, args, UNUSED4)
 #define __sys_settls(addr)                            syscall(SYS_SETTLS, addr, UNUSED4)
+#define __sys_fcntl(fd, cmd, arg)                     syscall(SYS_FCNTL, fd, cmd, arg, UNUSED2)
 
 #define __sys_debug(type, a, b, c, d)                 syscall(SYS_DEBUG, type, a, b, c, d)
 

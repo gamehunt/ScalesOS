@@ -181,7 +181,7 @@ int32_t __k_fs_socket_remove(fs_node_t* sock) {
 
 void __k_fs_socket_close(fs_node_t* sock) {
 	socket_t* s = sock->device;
-
+	
 	if(s->connect) {
 		socket_t* other = s->connect;
 		s->connect = NULL;

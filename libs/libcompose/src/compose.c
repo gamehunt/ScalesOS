@@ -16,6 +16,7 @@
 #include <sys/socket.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "kernel/dev/ps2.h"
 
@@ -54,6 +55,8 @@ compose_client_t* compose_cl_connect(const char* sock) {
 	if(sockfd < 0) {
 		return NULL;
 	}
+
+	fcntl(sockfd, F_SETFD, O_RDWR | O_CLOEXEC);
 
 	struct sockaddr_un addr;
 	addr.sun_family = AF_LOCAL;
@@ -191,10 +194,12 @@ static void __compose_handle_key(compose_server_t* srv, keyboard_packet_t* packe
 				kbd_mods |= KBD_MOD_CTRL;
 			}
 		} else if(event->packet.scancode == KEY_CAPSLOCK) {
-			if(kbd_mods & KBD_MOD_CAPS) {
-				kbd_mods &= ~KBD_MOD_CAPS;
-			} else {
-				kbd_mods |= KBD_MOD_CAPS;
+			if(!is_up) {
+				if(kbd_mods & KBD_MOD_CAPS) {
+					kbd_mods &= ~KBD_MOD_CAPS;
+				} else {
+					kbd_mods |= KBD_MOD_CAPS;
+				}
 			}
 		}
 
@@ -304,9 +309,8 @@ void compose_sv_tick(compose_server_t* srv) {
 
 	int r = select(n + 1, &rset, NULL, NULL, &tv);
 
-	compose_sv_send_keepalive(srv);
-
 	if(r <= 0) {
+		compose_sv_send_keepalive(srv);
 		return;
 	}
 
@@ -341,6 +345,8 @@ void compose_sv_tick(compose_server_t* srv) {
 		compose_client_t* to_remove = list_pop_back(srv->remove_queue);
 		compose_sv_disconnect(srv, to_remove);
 	}
+
+	compose_sv_send_keepalive(srv);
 
 	for(int i = 0; i < COMPOSE_DEVICE_AMOUNT; i++) {
 		if(FD_ISSET(srv->devices[i], &rset)) {
@@ -394,6 +400,34 @@ int compose_cl_move(compose_client_t* cli, id_t win, int x, int y) {
 	payload->flags = 0b011;
 	payload->x = x;
 	payload->y = y;
+	payload->z = -1;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}
+
+int compose_cl_raise(compose_client_t* cli, id_t win) {
+	compose_move_req_t* payload = malloc(sizeof(compose_move_req_t));
+	payload->req.type = COMPOSE_REQ_MOVE;
+	payload->req.size = sizeof(compose_move_req_t);
+	payload->win = win;
+	payload->flags = COMPOSE_MOVE_RAISE;
+	payload->x = -1;
+	payload->y = -1;
+	payload->z = -1;
+	int r = compose_cl_send_request(cli, payload);
+	free(payload);
+	return r;
+}
+
+int compose_cl_sunk(compose_client_t* cli, id_t win) {
+	compose_move_req_t* payload = malloc(sizeof(compose_move_req_t));
+	payload->req.type = COMPOSE_REQ_MOVE;
+	payload->req.size = sizeof(compose_move_req_t);
+	payload->win = win;
+	payload->flags = COMPOSE_MOVE_SUNK;
+	payload->x = -1;
+	payload->y = -1;
 	payload->z = -1;
 	int r = compose_cl_send_request(cli, payload);
 	free(payload);
@@ -481,17 +515,27 @@ void compose_sv_move(compose_window_t* win, int x, int y, int z, uint8_t mask) {
 		return;
 	} 
 
-	if(mask & 1) {
+	if(mask & COMPOSE_MOVE_X) {
 		win->pos.x = x;
 	}
-	if(mask & (1 << 1)) {
+
+	if(mask & COMPOSE_MOVE_Y) {
 		win->pos.y = y;
 	}
-	if(mask & (1 << 2)) {
+
+	if(mask & COMPOSE_MOVE_Z) {
 		win->pos.z = z;
 		if(win->parent) {
 			compose_sv_restack(win->parent->children);
 		}
+	}
+
+	if(mask & COMPOSE_MOVE_RAISE) {
+		compose_sv_raise(win);
+	}
+
+	if(mask & COMPOSE_MOVE_SUNK) {
+		compose_sv_raise(win);
 	}
 
 	if(win->client) {

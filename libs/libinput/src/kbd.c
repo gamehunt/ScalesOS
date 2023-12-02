@@ -2,6 +2,7 @@
 #include "keys.h"
 
 #include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 static const char __scancodes[128] = { 
@@ -101,7 +102,6 @@ keyboard_packet_t* input_kbd_create_packet(int scancode) {
 	}
 	scancode &= 0x7F;
 
-
 	keyboard_packet_t* packet = calloc(1, sizeof(keyboard_packet_t));
 	packet->scancode = (flags & KBD_EVENT_FLAG_EXT) ? __scancodes_ext[scancode] : scancode; 
 	packet->flags    = flags;
@@ -116,15 +116,26 @@ char input_kbd_translate(int scancode, uint8_t mods) {
 	}
 
 	char t = 0;
-
-	if(mods & KBD_MOD_SHIFT) {
+	if(mods & KBD_MOD_CTRL) {
+		t = toupper(__scancodes[scancode]);
+		if (t == '-') t = '_';
+		if (t == '`') t = '@';
+		int out = (int)(t - 0x40);
+		if (out < 0 || out > 0x1F) {
+			t = __scancodes[scancode];
+		} else {
+			t = out;
+		}
+	} else if(mods & KBD_MOD_SHIFT) {
 		t = __scancodes_shifted[scancode];	
 	} else {
 		t = __scancodes[scancode];
 	}
 
-	if(t && mods & KBD_MOD_CAPS) {
-		t = toupper(t);
+	if(isalpha(t)) {
+		if(t && (mods & KBD_MOD_CAPS)) {
+			t = isupper(t) ? tolower(t) : toupper(t);
+		}
 	}
 
 	return t;

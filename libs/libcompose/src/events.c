@@ -1,5 +1,6 @@
 #include "events.h"
 #include "compose.h"
+#include "errno.h"
 #include "request.h"
 #include <stdlib.h>
 
@@ -55,8 +56,8 @@ void compose_cl_event_raise(compose_client_t* client, compose_event_t* ev) {
 	list_push_back(queue->queue, ev);
 }
 
-void compose_sv_event_send(compose_client_t* cli, compose_event_t* event) {
-	write(cli->socket, event, event->size);
+int compose_sv_event_send(compose_client_t* cli, compose_event_t* event) {
+	return write(cli->socket, event, event->size);
 }
 
 void compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event) {
@@ -135,5 +136,20 @@ void compose_sv_send_keepalive(compose_server_t* srv) {
 	compose_event_t ev = {0};
 	ev.type = COMPOSE_EVENT_KEEPALIVE;
 	ev.size = sizeof(compose_event_t);
-	compose_sv_event_send_to_all(srv, &ev);
+
+	list_t* reap_list = list_create();
+
+	for(size_t i = 0; i < srv->clients->size; i++) {
+		compose_client_t* client = srv->clients->data[i];
+		int r = compose_sv_event_send(client, &ev);
+		if(r < 0 && errno == ENOTCONN) {
+			list_push_back(reap_list, client);
+		}
+	}
+
+	for(int i = 0; i < reap_list->size; i++) {
+		compose_sv_disconnect(srv, reap_list->data[i]);
+	}
+
+	list_free(reap_list);
 }

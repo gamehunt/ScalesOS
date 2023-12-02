@@ -25,6 +25,12 @@
 #define COMPOSE_RESIZE_STAGE_INITIAL 1
 #define COMPOSE_RESIZE_STAGE_FINAL   2
 
+#define COMPOSE_MOVE_X      (1 << 0)
+#define COMPOSE_MOVE_Y      (1 << 1)
+#define COMPOSE_MOVE_Z      (1 << 2)
+#define COMPOSE_MOVE_RAISE  (1 << 3)
+#define COMPOSE_MOVE_SUNK   (1 << 4)
+
 typedef struct {
 	int    type;
 	size_t size;

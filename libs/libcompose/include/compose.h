@@ -125,6 +125,8 @@ void                compose_cl_disconnect(compose_client_t* client);
 id_t                compose_cl_create_window(compose_client_t* client, id_t par, window_properties_t props);
 int                 compose_cl_move(compose_client_t* cli, id_t win, int x, int y);
 int                 compose_cl_layer(compose_client_t* cli, id_t win, int z);
+int                 compose_cl_raise(compose_client_t* cli, id_t win);
+int                 compose_cl_sunk(compose_client_t* cli, id_t win);
 int                 compose_cl_resize(compose_client_t* cli, id_t win, size_t w, size_t h);
 int                 compose_cl_confirm_resize(compose_client_t* cli, id_t win);
 int                 compose_cl_evmask(compose_client_t* cli, id_t win, event_mask_t mask);

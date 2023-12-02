@@ -94,7 +94,7 @@ compose_event_t* compose_cl_event_poll(compose_client_t* client, int raised);
 void             compose_cl_event_mask(event_mask_t mask);
 
 void             compose_sv_event_propagate(compose_server_t* srv, compose_window_t* root, compose_event_t* event);
-void             compose_sv_event_send(compose_client_t* cli, compose_event_t* event);
+int              compose_sv_event_send(compose_client_t* cli, compose_event_t* event);
 void             compose_sv_event_send_to_all(compose_server_t* srv, compose_event_t* event);
 void             compose_sv_send_keepalive(compose_server_t* srv);
 

@@ -21,4 +21,5 @@ add_subdirectory(ctype)
 add_subdirectory(pwd)
 add_subdirectory(math)
 add_subdirectory(scales)
+add_subdirectory(fcntl)
 

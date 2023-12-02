@@ -45,6 +45,7 @@
 #include <scales/sched.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 #define DEFN_SYSCALL0(fn) uint32_t __##fn(UNUSED uint32_t a,UNUSED uint32_t b,UNUSED uint32_t c,UNUSED uint32_t d,UNUSED uint32_t e) { return fn(); }
 #define DEFN_SYSCALL1(fn, type) uint32_t __##fn(uint32_t a, UNUSED uint32_t b, UNUSED  uint32_t c, UNUSED  uint32_t d, UNUSED  uint32_t e) { return fn((type) a); }
@@ -1096,6 +1097,27 @@ static uint32_t sys_truncate(uint32_t fd, size_t sz) {
 	return k_fs_vfs_truncate(fdt->node, sz);
 }
 
+static uint32_t sys_fcntl(int fd, int cmd, long arg) {
+	fd_list_t* fds = &k_proc_process_current()->fds;
+
+	fd_t* fdt = fd2fdt(fds, fd);
+	if(!fdt || !fdt->node) {
+		return -ENOENT;
+	}
+
+	switch(cmd) {
+		case F_DUPFD:
+			return sys_dup2(fd, -1);
+		case F_GETFD:
+			return fdt->node->flags;
+		case F_SETFD:
+			fdt->node->mode = arg;
+			return 0;
+		default:
+			return -EINVAL;
+	}
+}
+
 DEFN_SYSCALL3(sys_read, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_write, uint32_t, uint8_t*, uint32_t);
 DEFN_SYSCALL3(sys_open, const char*, uint16_t, uint8_t);
@@ -1146,6 +1168,7 @@ DEFN_SYSCALL3(sys_accept, int, struct sockaddr*, socklen_t*);
 DEFN_SYSCALL2(sys_listen, int, int);
 DEFN_SYSCALL5(sys_select, int, fd_set*, fd_set*, fd_set*, struct timeval*);
 DEFN_SYSCALL2(sys_truncate, uint32_t, size_t);
+DEFN_SYSCALL3(sys_fcntl, int, int, int);
 
 K_STATUS k_int_syscall_init(){
 	memset(syscalls, 0, sizeof(syscall_handler_t) * 256);
@@ -1201,6 +1224,7 @@ K_STATUS k_int_syscall_init(){
 	k_int_syscall_setup_handler(SYS_CONNECT, REF_SYSCALL(sys_connect));
 	k_int_syscall_setup_handler(SYS_SELECT, REF_SYSCALL(sys_select));
 	k_int_syscall_setup_handler(SYS_TRUNCATE, REF_SYSCALL(sys_truncate));
+	k_int_syscall_setup_handler(SYS_FCNTL, REF_SYSCALL(sys_fcntl));
     
 	return K_STATUS_OK;
 }

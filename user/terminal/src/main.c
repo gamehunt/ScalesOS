@@ -158,6 +158,14 @@ void draw_terminal(widget* window) {
 	buff_draw(window);
 }
 
+void terminal_send_input(widget* w) {
+	buff_putchar('\n', &input, &input_offs, &input_size);
+	write(master, input, input_offs);
+	input_offs = 0;
+	input[0] = '\0';
+	widget_draw(w);
+}
+
 void terminal_handle_event(widget* w, compose_event_t* ev) {
 	window_process_events(w, ev);
 
@@ -169,11 +177,7 @@ void terminal_handle_event(widget* w, compose_event_t* ev) {
 		}
 
 		if(mev->packet.scancode == KEY_ENTER) {
-			buff_putchar('\n', &input, &input_offs, &input_size);
-			write(master, input, input_offs);
-			input_offs = 0;
-			input[0] = '\0';
-			widget_draw(w);
+			terminal_send_input(w);
 		} else if(mev->packet.scancode == KEY_BACKSPACE) {
 			if(!input_offs) {
 				return;
@@ -184,7 +188,18 @@ void terminal_handle_event(widget* w, compose_event_t* ev) {
 		} else {
 			char t = mev->translated;
 			if(t) {
-				buff_putchar(t, &input, &input_offs, &input_size);
+				if(!isspace(t) && !isalnum(t)) {
+					if(input) {
+						for(int i = 0; i < input_offs; i++) {
+							buff_putchar(input[i], &buff, &buff_offs, &buff_size);
+						}
+						input_offs = 0;
+						input[0] = '\0';
+					}
+					write(master, &t, 1);
+				} else {
+					buff_putchar(t, &input, &input_offs, &input_size);
+				}
 				widget_draw(w);
 			}
 		}

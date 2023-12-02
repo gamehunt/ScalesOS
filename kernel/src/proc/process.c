@@ -42,7 +42,8 @@ static uint8_t sig_defaults[] = {
 	[SIGKILL] = SIG_TERMINATE,
 	[SIGUSR1] = SIG_TERMINATE,
 	[SIGUSR2] = SIG_TERMINATE,
-	[SIGSEGV] = SIG_TERMINATE
+	[SIGSEGV] = SIG_TERMINATE,
+	[SIGCHLD] = SIG_IGNORE,
 };
 
 static tree_t* 		process_tree = 0;
@@ -657,6 +658,7 @@ void k_proc_process_exit(process_t* process, int code) {
 		process_t* parent = process->node->parent->value;
 		if(parent) {
 			k_proc_process_wakeup_queue(parent->wait_queue);
+			k_proc_process_send_signal(parent, SIGCHLD);
 		}
 	}
 

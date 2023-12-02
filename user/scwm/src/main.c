@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
 				case COMPOSE_EVENT_BUTTON:
 					if(ev->child) {
 						compose_cl_focus(client, ev->child);
+						compose_cl_raise(client, ev->child);
 					}
 					if(mod && ev->child) {
 						window_properties_t old_props = win_props;
